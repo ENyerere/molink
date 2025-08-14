@@ -1,0 +1,9 @@
+[contenteditable="true"]:focus {
+  outline: none;
+  border: none;
+  box-shadow: none;
+}
+
+.cover-button {
+  transition: opacity 0.3s ease;
+}
