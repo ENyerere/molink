@@ -5,7 +5,10 @@ import { Slate, Editable, withReact } from 'slate-react';
 import type { PageData } from './App';
 
 export default function Editor({ page, updatePage }: { page: PageData; updatePage: (id: string, newData: Partial<PageData>) => void }) {
-  const editor = React.useMemo(() => withReact(createEditor()), []);
+  const editor = React.useMemo(() => {
+    const e = withReact(createEditor());
+    return e;
+  }, []);
 
   const handleChange = useCallback(
     (value: Descendant[]) => {
@@ -57,7 +60,7 @@ export default function Editor({ page, updatePage }: { page: PageData; updatePag
       <div className={page.cover ? "h-[20vh]" : "h-[60px]"}></div>
 
       {/* 文本内容区域 */}
-      <div className="max-w-3xl mx-auto px-[60px]">
+      <div className="max-w-3xl mx-auto px-[30px]">
         {/* 标题输入 */}
         <input
           value={page.title}
@@ -68,6 +71,7 @@ export default function Editor({ page, updatePage }: { page: PageData; updatePag
 
         {/* 编辑器 */}
         <Slate
+          key={page.id}
           editor={editor}
           initialValue={page.content as Descendant[] || [
             { type: 'paragraph', children: [{ text: '' }] }
