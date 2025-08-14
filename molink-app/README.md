@@ -1,54 +1,158 @@
-# React + TypeScript + Vite
+# molink-app
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+一个基于 React + Vite + Slate + Tailwind CSS 的轻量级页面编辑器项目。
 
-Currently, two official plugins are available:
+## 项目特性
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- **React**：构建现代化前端界面。
+- **Slate**：富文本编辑器，支持复杂内容编辑。
+- **Tailwind CSS**：原子化 CSS，快速样式开发。
+- **Vite**：极速开发与构建工具。
+- **TypeScript**：类型安全，提升开发体验。
 
-## Expanding the ESLint configuration
+## 快速开始
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+1. **安装依赖**
 
-```js
-export default tseslint.config({
-  extends: [
-    // Remove ...tseslint.configs.recommended and replace with this
-    ...tseslint.configs.recommendedTypeChecked,
-    // Alternatively, use this for stricter rules
-    ...tseslint.configs.strictTypeChecked,
-    // Optionally, add this for stylistic rules
-    ...tseslint.configs.stylisticTypeChecked,
-  ],
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
+   ```shell
+   yarn install
+   ```
+
+2. **启动开发服务器**
+
+   ```shell
+   yarn dev
+   ```
+
+## 目录结构
+
+```
+molink-app/
+├── src/                # 源码目录
+│   ├── App.tsx         # 应用主入口
+│   ├── Editor.tsx      # 编辑器组件
+│   └── ...             # 其他组件和文件
+├── public/             # 静态资源
+├── postcss.config.js   # PostCSS 配置
+├── tailwind.config.js  # Tailwind CSS 配置
+├── package.json        # 项目配置
+└── README.md           # 项目说明
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## 主要依赖
+
+- [React](https://react.dev/)
+- [Slate](https://docs.slatejs.org/)
+- [Tailwind CSS](https://tailwindcss.com/)
+- [Vite](https://vitejs.dev/)
+- [TypeScript](https://www.typescriptlang.org/)
+
+## PostCSS 配置说明
+
+项目使用 ES Module 格式的 PostCSS 配置：
 
 ```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default tseslint.config({
+export default {
   plugins: {
-    // Add the react-x and react-dom plugins
-    'react-x': reactX,
-    'react-dom': reactDom,
+    tailwindcss: {},
+    autoprefixer: {},
   },
-  rules: {
-    // other rules...
-    // Enable its recommended typescript rules
-    ...reactX.configs['recommended-typescript'].rules,
-    ...reactDom.configs.recommended.rules,
-  },
-})
+}
 ```
+
+## 常见问题
+
+- **Tailwind CSS 报错**  
+  请确保使用的是 Tailwind CSS v3.x，并已正确安装依赖。
+
+- **依赖安装失败或启动异常**  
+  可尝试清理缓存并重新安装依赖：
+  ```shell
+  yarn cache clean
+  rm -rf node_modules .vite
+  yarn install
+  ```
+
+## 许可证
+# molink-app
+
+一个基于 React + Vite + Slate + Tailwind CSS 的轻量级页面编辑器项目。
+
+## 项目特性
+
+- **React**：构建现代化前端界面。
+- **Slate**：富文本编辑器，支持复杂内容编辑。
+- **Tailwind CSS**：原子化 CSS，快速样式开发。
+- **Vite**：极速开发与构建工具。
+- **TypeScript**：类型安全，提升开发体验。
+
+## 快速开始
+
+1. **安装依赖**
+
+   ```shell
+   yarn install
+   ```
+
+2. **启动开发服务器**
+
+   ```shell
+   yarn dev
+   ```
+
+3. **访问项目**
+
+   打开浏览器访问 [http://localhost:5173](http://localhost:5173)
+
+## 目录结构
+
+```
+molink-app/
+├── src/                # 源码目录
+│   ├── App.tsx         # 应用主入口
+│   ├── Editor.tsx      # 编辑器组件
+│   └── ...             # 其他组件和文件
+├── public/             # 静态资源
+├── postcss.config.js   # PostCSS 配置
+├── tailwind.config.js  # Tailwind CSS 配置
+├── package.json        # 项目配置
+└── README.md           # 项目说明
+```
+
+## 主要依赖
+
+- [React](https://react.dev/)
+- [Slate](https://docs.slatejs.org/)
+- [Tailwind CSS](https://tailwindcss.com/)
+- [Vite](https://vitejs.dev/)
+- [TypeScript](https://www.typescriptlang.org/)
+
+## PostCSS 配置说明
+
+项目使用 ES Module 格式的 PostCSS 配置：
+
+```js
+export default {
+  plugins: {
+    tailwindcss: {},
+    autoprefixer: {},
+  },
+}
+```
+
+## 常见问题
+
+- **Tailwind CSS 报错**  
+  请确保使用的是 Tailwind CSS v3.x，并已正确安装依赖。
+
+- **依赖安装失败或启动异常**  
+  可尝试清理缓存并重新安装依赖：
+  ```shell
+  yarn cache clean
+  rm -rf node_modules .vite
+  yarn install
+  ```
+
+## 许可证
+
+MIT
