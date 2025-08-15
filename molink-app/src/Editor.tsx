@@ -57,7 +57,7 @@ export default function Editor({ page, updatePage }: { page: PageData; updatePag
         )}
       </div>
       {/* 占位符，用于保持内容不被覆盖 */}
-      <div className={page.cover ? "h-[20vh]" : "h-[60px]"}></div>
+      <div className={page.cover ? "h-[calc(20vh+60px)]" : "h-[60px]"}></div>
 
       {/* 文本内容区域 */}
       <div className="max-w-3xl mx-auto px-[30px]">
@@ -65,7 +65,7 @@ export default function Editor({ page, updatePage }: { page: PageData; updatePag
         <input
           value={page.title}
           onChange={e => updatePage(page.id, { title: e.target.value })}
-          className="text-2xl font-bold mb-4 w-full border-b outline-none"
+          className="text-4xl font-bold mb-4 w-full border-b outline-none"
           placeholder="无标题"
         />
 
