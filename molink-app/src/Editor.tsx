@@ -2,10 +2,11 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { createEditor, Editor as SlateEditor, Transforms, Element as SlateElement, type Descendant } from 'slate';
 import { Slate, Editable, withReact, ReactEditor } from 'slate-react';
 import type { PageData } from './App';
+import { withMarkdownShortcuts } from './withMarkdownShortcuts'; // 新增
 
-const COVER_VH = 30;          // 有封面时封面高度（30vh）
-const TOP_MARGIN_PX = 60;     // 封面下方额外间距
-const NO_COVER_PX = 60;       // 无封面时顶部空白
+const COVER_VH = 30;
+const TOP_MARGIN_PX = 60;
+const NO_COVER_PX = 120;
 
 export default function Editor({
   page,
@@ -14,7 +15,11 @@ export default function Editor({
   page: PageData;
   updatePage: (id: string, newData: Partial<PageData>) => void;
 }) {
-  const editor = useMemo(() => withReact(createEditor()), []);
+  const editor = useMemo(() => {
+    const baseEditor = createEditor();
+    const reactEditor = withReact(baseEditor);
+    return withMarkdownShortcuts(reactEditor);
+  }, []); // 用类型断言避免错误
 
   const [coverPx, setCoverPx] = useState<number>(
     page.cover ? Math.round(window.innerHeight * (COVER_VH / 100)) : NO_COVER_PX
@@ -64,17 +69,13 @@ export default function Editor({
     input.click();
   };
 
-  // 限制 Ctrl+A 仅全选一个块
   const handleKeyDown = (event: React.KeyboardEvent) => {
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'a') {
       event.preventDefault();
       if (!editor.selection) return;
-
-      // 找到光标所在的最近“块”节点
       const blockEntry = SlateEditor.above(editor, {
         match: n => SlateElement.isElement(n) && SlateEditor.isBlock(editor, n),
       });
-
       if (blockEntry) {
         const [, path] = blockEntry;
         Transforms.select(editor, SlateEditor.range(editor, path));
@@ -125,7 +126,7 @@ export default function Editor({
 
         <Slate
           key={page.id}
-          editor={editor}
+          editor={editor as ReactEditor} // 类型断言
           initialValue={
             (page.content as Descendant[]) || [
               { type: 'paragraph', children: [{ text: '' }] },
