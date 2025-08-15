@@ -1,12 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { createEditor } from 'slate';
-import type { Descendant } from 'slate';
-import { Slate, Editable, withReact } from 'slate-react';
+import { createEditor, Editor as SlateEditor, Transforms, Element as SlateElement, type Descendant } from 'slate';
+import { Slate, Editable, withReact, ReactEditor } from 'slate-react';
 import type { PageData } from './App';
 
-const COVER_VH = 30;          // 有封面时封面高度（30vh）。想要20%就改成 20
-const TOP_MARGIN_PX = 60;     // 你要求的额外 60px 间距
-const NO_COVER_PX = 60;       // 无封面时顶部空白 60px
+const COVER_VH = 30;          // 有封面时封面高度（30vh）
+const TOP_MARGIN_PX = 60;     // 封面下方额外间距
+const NO_COVER_PX = 60;       // 无封面时顶部空白
 
 export default function Editor({
   page,
@@ -17,21 +16,29 @@ export default function Editor({
 }) {
   const editor = useMemo(() => withReact(createEditor()), []);
 
-  const [coverPx, setCoverPx] = useState<number>(page.cover ? Math.round(window.innerHeight * (COVER_VH / 100)) : NO_COVER_PX);
-  const [textTopOffset, setTextTopOffset] = useState<number>(page.cover ? Math.round(window.innerHeight * (COVER_VH / 100)) + TOP_MARGIN_PX : NO_COVER_PX);
+  const [coverPx, setCoverPx] = useState<number>(
+    page.cover ? Math.round(window.innerHeight * (COVER_VH / 100)) : NO_COVER_PX
+  );
+  const [textTopOffset, setTextTopOffset] = useState<number>(
+    page.cover
+      ? Math.round(window.innerHeight * (COVER_VH / 100)) + TOP_MARGIN_PX
+      : NO_COVER_PX
+  );
 
   const recomputeOffsets = useCallback(() => {
-    const px = page.cover ? Math.round(window.innerHeight * (COVER_VH / 100)) : NO_COVER_PX;
+    const px = page.cover
+      ? Math.round(window.innerHeight * (COVER_VH / 100))
+      : NO_COVER_PX;
     setCoverPx(px);
-    setTextTopOffset(px + (page.cover ? TOP_MARGIN_PX : 0)); // 有封面=封面底部+60，无封面=60
+    setTextTopOffset(px + (page.cover ? TOP_MARGIN_PX : 0));
   }, [page.cover]);
 
   useEffect(() => {
-    recomputeOffsets();               // 封面有/无变化时重新计算
+    recomputeOffsets();
   }, [recomputeOffsets]);
 
   useEffect(() => {
-    const onResize = () => recomputeOffsets(); // 浏览器窗口变化时也实时更新
+    const onResize = () => recomputeOffsets();
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
   }, [recomputeOffsets]);
@@ -52,15 +59,32 @@ export default function Editor({
       if (file) {
         const url = URL.createObjectURL(file);
         updatePage(page.id, { cover: url });
-        // updatePage 触发 page.cover 变化，recomputeOffsets 会随之执行
       }
     };
     input.click();
   };
 
+  // 限制 Ctrl+A 仅全选一个块
+  const handleKeyDown = (event: React.KeyboardEvent) => {
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'a') {
+      event.preventDefault();
+      if (!editor.selection) return;
+
+      // 找到光标所在的最近“块”节点
+      const blockEntry = SlateEditor.above(editor, {
+        match: n => SlateElement.isElement(n) && SlateEditor.isBlock(editor, n),
+      });
+
+      if (blockEntry) {
+        const [, path] = blockEntry;
+        Transforms.select(editor, SlateEditor.range(editor, path));
+      }
+    }
+  };
+
   return (
     <div className="relative">
-      {/* 封面区域（使用像素高度，和占位同步动画） */}
+      {/* 封面 */}
       <div
         className="absolute left-0 right-0 overflow-hidden transition-[height] duration-300"
         style={{ height: `${coverPx}px` }}
@@ -84,18 +108,18 @@ export default function Editor({
         )}
       </div>
 
-      {/* 占位符（文本区顶部距离 = 封面实际像素高度 + 60px，如果有封面；否则 60px） */}
+      {/* 占位 */}
       <div
         className="transition-[height] duration-300"
         style={{ height: `${textTopOffset}px` }}
       />
 
-      {/* 文本内容区域 */}
+      {/* 文本区 */}
       <div className="max-w-3xl mx-auto px-[30px]">
         <input
           value={page.title}
           onChange={(e) => updatePage(page.id, { title: e.target.value })}
-          className="text-4xl font-bold mb-4 w-full border-b outline-none"
+          className="text-4xl font-bold mb-[50px] w-full outline-none"
           placeholder="无标题"
         />
 
@@ -111,6 +135,7 @@ export default function Editor({
         >
           <Editable
             placeholder="输入内容..."
+            onKeyDown={handleKeyDown}
             className="prose max-w-none outline-none border-none focus:outline-none"
           />
         </Slate>
