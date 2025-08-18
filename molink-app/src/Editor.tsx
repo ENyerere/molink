@@ -16,6 +16,8 @@ import type { PageData } from './App';
 import { withMarkdownShortcuts } from './withMarkdownShortcuts';
 import BlockElement, { type BlockElementType } from './BlockElement';
 
+
+//这是一些样式参数
 const COVER_VH = 30;
 const TOP_MARGIN_PX = 60;
 const NO_COVER_PX = 120;
