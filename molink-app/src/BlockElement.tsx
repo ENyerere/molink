@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   type RenderElementProps,
   useSlateStatic,
@@ -20,14 +20,17 @@ export type BlockElementType = {
 const BlockElement = (props: RenderElementProps) => {
   const { attributes, children, element } = props;
   const editor = useSlateStatic();
-
   const selected = (element as any).selected;
 
-  // 点击块：仅高亮当前块
-  const handleClick = (e: React.MouseEvent) => {
-    // 不打断光标定位
+  const [indicator, setIndicator] = useState<{
+    top: number;
+    left: number;
+    width: number;
+  } | null>(null);
+
+  // 点击高亮
+  const handleClick = () => {
     requestAnimationFrame(() => {
-      // 清空所有块的 selected
       SlateEditor.withoutNormalizing(editor, () => {
         for (const [, path] of SlateEditor.nodes(editor, {
           at: [],
@@ -39,43 +42,52 @@ const BlockElement = (props: RenderElementProps) => {
             { at: path }
           );
         }
-        // 当前块选中
         const path = ReactEditor.findPath(editor as ReactEditor, element);
         Transforms.setNodes<BlockElementType>(editor, { selected: true }, { at: path });
       });
     });
   };
 
-  // 拖动调整块顺序
+  // 拖动调整顺序 + 显示指示线
   const handleDragMouseDown = (e: React.MouseEvent) => {
     e.preventDefault();
     const fromPath = ReactEditor.findPath(editor as ReactEditor, element);
 
-    const onMouseMove = (_ev: MouseEvent) => {
-      // 可在这里做指示线（目前为简化版本省略）
+    const onMouseMove = (ev: MouseEvent) => {
+      const target = document.elementFromPoint(ev.clientX, ev.clientY);
+      const blockEl = target?.closest('[data-slate-node="element"]') as HTMLElement | null;
+      if (blockEl) {
+        const rect = blockEl.getBoundingClientRect();
+        const before = ev.clientY < rect.top + rect.height / 2;
+
+        setIndicator({
+          top: before ? rect.top : rect.bottom,
+          left: rect.left,
+          width: rect.width,
+        });
+      }
     };
 
     const onMouseUp = (ev: MouseEvent) => {
       try {
-        const target = document.elementFromPoint(ev.clientX, ev.clientY);
-        const blockEl = target?.closest('[data-slate-node="element"]') as HTMLElement | null;
-        if (blockEl) {
-          // DOM -> Slate Node
-          const slateNode = ReactEditor.toSlateNode(editor as ReactEditor, blockEl);
-          if (SlateElement.isElement(slateNode) && SlateEditor.isBlock(editor, slateNode)) {
-            const toPath = ReactEditor.findPath(editor as ReactEditor, slateNode);
-            const rect = blockEl.getBoundingClientRect();
-            const before = ev.clientY < rect.top + rect.height / 2;
+        if (indicator) {
+          const target = document.elementFromPoint(ev.clientX, ev.clientY);
+          const blockEl = target?.closest('[data-slate-node="element"]') as HTMLElement | null;
+          if (blockEl) {
+            const slateNode = ReactEditor.toSlateNode(editor as ReactEditor, blockEl);
+            if (SlateElement.isElement(slateNode) && SlateEditor.isBlock(editor, slateNode)) {
+              const toPath = ReactEditor.findPath(editor as ReactEditor, slateNode);
+              const before = ev.clientY < blockEl.getBoundingClientRect().top + blockEl.offsetHeight / 2;
+              const finalPath = before ? toPath : Path.next(toPath);
 
-            const finalPath = before ? toPath : Path.next(toPath);
-            if (!Path.equals(fromPath, finalPath)) {
-              Transforms.moveNodes(editor, { at: fromPath, to: finalPath });
+              if (!Path.equals(fromPath, finalPath)) {
+                Transforms.moveNodes(editor, { at: fromPath, to: finalPath });
+              }
             }
           }
         }
-      } catch {
-        // 忽略错误
-      } finally {
+      } catch {} finally {
+        setIndicator(null);
         document.removeEventListener('mousemove', onMouseMove);
         document.removeEventListener('mouseup', onMouseUp);
       }
@@ -88,10 +100,12 @@ const BlockElement = (props: RenderElementProps) => {
   return (
     <div
       {...attributes}
-      className={`relative group p-1 rounded ${selected ? 'bg-blue-100' : ''}`}
+      className={`relative group flex items-center p-2 rounded transition-all ${
+        selected ? 'bg-blue-100 my-2 shadow-sm' : 'my-1'
+      }`}
       onClick={handleClick}
     >
-      {/* 拖动按钮（不依赖第三方图标） */}
+      {/* 拖动按钮 */}
       <button
         contentEditable={false}
         className="absolute -left-6 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab select-none text-gray-500"
@@ -103,6 +117,19 @@ const BlockElement = (props: RenderElementProps) => {
       </button>
 
       {children}
+
+      {/* 指示线 */}
+      {indicator && (
+        <div
+          contentEditable={false}
+          className="fixed z-50 h-[2px] bg-blue-500"
+          style={{
+            top: `${indicator.top}px`,
+            left: `${indicator.left}px`,
+            width: `${indicator.width}px`,
+          }}
+        />
+      )}
     </div>
   );
 };

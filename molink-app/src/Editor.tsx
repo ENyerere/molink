@@ -16,8 +16,6 @@ import type { PageData } from './App';
 import { withMarkdownShortcuts } from './withMarkdownShortcuts';
 import BlockElement, { type BlockElementType } from './BlockElement';
 
-
-//这是一些样式参数
 const COVER_VH = 30;
 const TOP_MARGIN_PX = 60;
 const NO_COVER_PX = 120;
@@ -29,13 +27,8 @@ export default function Editor({
   page: PageData;
   updatePage: (id: string, newData: Partial<PageData>) => void;
 }) {
-  const editor = useMemo(() => {
-    const baseEditor = createEditor();
-    const reactEditor = withReact(baseEditor);
-    return withMarkdownShortcuts(reactEditor);
-  }, []);
+  const editor = useMemo(() => withMarkdownShortcuts(withReact(createEditor())), []);
 
-  // —— 顶部封面/占位逻辑 ——
   const [coverPx, setCoverPx] = useState<number>(
     page.cover ? Math.round(window.innerHeight * (COVER_VH / 100)) : NO_COVER_PX
   );
@@ -70,26 +63,20 @@ export default function Editor({
     [page.id, updatePage]
   );
 
-  // —— 右键框选（多块高亮）——
+  // —— 框选逻辑 ——
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [dragSelecting, setDragSelecting] = useState(false);
-  const [selectionRect, setSelectionRect] = useState<{
-    left: number; top: number; width: number; height: number;
-  } | null>(null);
+  const [selectionRect, setSelectionRect] = useState<{ left: number; top: number; width: number; height: number; } | null>(null);
   const startPos = useRef<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
     if (!dragSelecting) return;
 
+    document.body.style.userSelect = 'none'; // 禁止文本选择
+
     const onMouseMove = (e: MouseEvent) => {
       if (!startPos.current || !containerRef.current) return;
-
-      const cx = e.clientX;
-      const cy = e.clientY;
-      const sx = startPos.current.x;
-      const sy = startPos.current.y;
-
-      // 用于绘制遮罩：转为相对 container 的坐标
+      const cx = e.clientX, cy = e.clientY, sx = startPos.current.x, sy = startPos.current.y;
       const cr = containerRef.current.getBoundingClientRect();
       const left = Math.min(cx, sx) - cr.left;
       const top = Math.min(cy, sy) - cr.top;
@@ -97,15 +84,8 @@ export default function Editor({
       const height = Math.abs(cy - sy);
       setSelectionRect({ left, top, width, height });
 
-      // 用于判定重叠：用 viewport 坐标
-      const rectViewport = {
-        left: Math.min(cx, sx),
-        right: Math.max(cx, sx),
-        top: Math.min(cy, sy),
-        bottom: Math.max(cy, sy),
-      };
+      const rectViewport = { left: Math.min(cx, sx), right: Math.max(cx, sx), top: Math.min(cy, sy), bottom: Math.max(cy, sy) };
 
-      // 遍历所有块（Slate 层），用 DOMRect 判定是否与选框相交
       for (const [node, path] of SlateEditor.nodes(editor, {
         at: [],
         match: n => SlateElement.isElement(n) && SlateEditor.isBlock(editor, n),
@@ -118,15 +98,8 @@ export default function Editor({
             rectViewport.right > brect.left &&
             rectViewport.top < brect.bottom &&
             rectViewport.bottom > brect.top;
-
-          Transforms.setNodes<BlockElementType>(
-            editor,
-            { selected: overlap },
-            { at: path }
-          );
-        } catch {
-          // 忽略映射失败
-        }
+          Transforms.setNodes<BlockElementType>(editor, { selected: overlap }, { at: path });
+        } catch {}
       }
     };
 
@@ -134,6 +107,7 @@ export default function Editor({
       setDragSelecting(false);
       setSelectionRect(null);
       startPos.current = null;
+      document.body.style.userSelect = ''; // 恢复文本选择
       document.removeEventListener('mousemove', onMouseMove);
       document.removeEventListener('mouseup', onMouseUp);
     };
@@ -143,6 +117,7 @@ export default function Editor({
     return () => {
       document.removeEventListener('mousemove', onMouseMove);
       document.removeEventListener('mouseup', onMouseUp);
+      document.body.style.userSelect = '';
     };
   }, [dragSelecting, editor]);
 
@@ -150,37 +125,24 @@ export default function Editor({
     <div
       ref={containerRef}
       className="relative"
-      onContextMenu={(e) => {
-        e.preventDefault();
+      onMouseDown={(e) => {
+        if (e.button !== 0) return;
+        if (e.target instanceof HTMLElement && e.target.closest('[data-slate-node="element"]')) return;
         startPos.current = { x: e.clientX, y: e.clientY };
         setDragSelecting(true);
       }}
     >
-      {/* 框选矩形（相对容器定位） */}
       {selectionRect && (
         <div
           className="absolute border border-blue-400 bg-blue-200/30 pointer-events-none z-50"
-          style={{
-            left: selectionRect.left,
-            top: selectionRect.top,
-            width: selectionRect.width,
-            height: selectionRect.height,
-          }}
+          style={selectionRect}
         />
       )}
 
       {/* 封面 */}
-      <div
-        className="absolute left-0 right-0 overflow-hidden transition-[height] duration-300"
-        style={{ height: `${coverPx}px` }}
-      >
+      <div className="absolute left-0 right-0 overflow-hidden transition-[height] duration-300" style={{ height: `${coverPx}px` }}>
         {page.cover ? (
-          <img
-            src={page.cover}
-            alt="封面"
-            className="w-full h-full object-cover"
-            loading="lazy"
-          />
+          <img src={page.cover} alt="封面" className="w-full h-full object-cover" loading="lazy" />
         ) : (
           <div className="w-full h-full group relative">
             <button
@@ -205,29 +167,21 @@ export default function Editor({
         )}
       </div>
 
-      {/* 占位 */}
-      <div
-        className="transition-[height] duration-300"
-        style={{ height: `${textTopOffset}px` }}
-      />
+      <div className="transition-[height] duration-300" style={{ height: `${textTopOffset}px` }} />
 
       {/* 文本区 */}
       <div className="max-w-3xl mx-auto px-[30px]">
         <input
           value={page.title}
           onChange={(e) => updatePage(page.id, { title: e.target.value })}
-          className="text-4xl font-bold mb-[50px] w-full outline-none"
+          className="text-4xl font-bold mb-[50px] w-full outline-none select-none placeholder:select-none"
           placeholder="无标题"
         />
 
         <Slate
           key={page.id}
           editor={editor as ReactEditor}
-          initialValue={
-            (page.content as Descendant[]) || [
-              { type: 'paragraph', children: [{ text: '' }] },
-            ]
-          }
+          initialValue={page.content as Descendant[] || [{ type: 'paragraph', children: [{ text: '' }] }]}
           onChange={handleChange}
         >
           <Editable
