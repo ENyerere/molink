@@ -3,6 +3,8 @@ import Sidebar from './Sidebar';
 import Editor from './Editor';
 import { v4 as uuidv4 } from 'uuid';
 import type { Descendant, Element } from 'slate';
+import { Globe } from "./components/magicui/globe";
+import { AnimatedThemeToggler } from "./components/magicui/animated-theme-toggler";
 
 export interface PageData {
   id: string;
