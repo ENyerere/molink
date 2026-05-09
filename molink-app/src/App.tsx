@@ -59,7 +59,10 @@ export default function App() {
 
   // 数据持久化
   useEffect(() => {
-    localStorage.setItem('molink-pages', JSON.stringify(pages));
+    const timeout = setTimeout(() => {
+      localStorage.setItem('molink-pages', JSON.stringify(pages));
+    }, 300); // 延迟 300ms 保存
+    return () => clearTimeout(timeout);
   }, [pages]);
 
   // 监听登录事件
