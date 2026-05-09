@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Sidebar from './Sidebar';
 import Editor from './Editor';
+import Login from './components/auth/Login';
 import { v4 as uuidv4 } from 'uuid';
 import type { Descendant, Element } from 'slate';
 import { Globe } from "./components/magicui/globe";
@@ -10,12 +11,21 @@ export interface PageData {
   id: string;
   title: string;
   content: Descendant[];
-  cover?: string; // 新增，用于存封面图片 URL
+  cover?: string;
+}
+
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  avatar?: string;
 }
 
 export default function App() {
   const [pages, setPages] = useState<PageData[]>([]);
   const [activePageId, setActivePageId] = useState<string | null>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [showLogin, setShowLogin] = useState(false);
   const [backStack, setBackStack] = useState<string[]>([]);
   const [forwardStack, setForwardStack] = useState<string[]>([]);
   const tabRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -51,6 +61,13 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('molink-pages', JSON.stringify(pages));
   }, [pages]);
+
+  // 监听登录事件
+  useEffect(() => {
+    const handleLogin = () => setShowLogin(true);
+    window.addEventListener('molink:login', handleLogin);
+    return () => window.removeEventListener('molink:login', handleLogin);
+  }, []);
 
   // 新建页面（带历史记录）
   const addPage = () => {
@@ -126,12 +143,19 @@ export default function App() {
 
   return (
     <div className="flex h-screen">
+      {/* 主界面始终渲染，避免白屏 */}
       <Sidebar
         pages={pages}
         activePageId={activePageId}
         setActivePageId={setActivePageId}
         addPage={addPage}
+        user={user}
       />
+
+      {/* 登录弹窗 */}
+      {!user && showLogin && (
+        <Login onClose={() => setShowLogin(false)} onLogin={setUser} />
+      )}
 
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* 标签栏 */}

@@ -34,7 +34,7 @@ export default function Editor({
   );
   const [textTopOffset, setTextTopOffset] = useState<number>(
     page.cover
-      ? Math.round(window.innerHeight * (COVER_VH / 100)) + TOP_MARGIN_PX
+      ? Math.round(window.innerHeight * (COVER_VH / 100)) + TOP_MARGIN_PX + 60 // 增加60px的偏移
       : NO_COVER_PX
   );
 
