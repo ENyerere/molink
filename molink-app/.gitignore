@@ -22,3 +22,24 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+.env
+.env.local
+.env.*.local
+*.egg-info/
+dist/
+build/
+
+# Uploads
+uploads/
+
+# Docker volumes data (if accidentally created locally)
+mysql_data/
+redis_data/
