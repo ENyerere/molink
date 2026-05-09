@@ -1,21 +1,53 @@
-import React from 'react';
-import type { PageData } from './App';
+import type { PageData, User } from './App';
 
 interface SidebarProps {
   pages: PageData[];
   activePageId: string | null;
   setActivePageId: (id: string) => void;
   addPage: () => void;
+  user: User | null;
+  onShowLogin?: () => void;
 }
 
 export default function Sidebar({
   pages,
   activePageId,
   setActivePageId,
-  addPage
+  addPage,
+  user,
+  onShowLogin
 }: SidebarProps) {
   return (
     <div className="w-64 bg-[#f9f9f9] text-gray-800 flex flex-col border-r border-gray-200 h-full shadow-sm">
+      {/* 用户信息区域 */}
+      <div className="p-4 border-b border-gray-200 bg-white">
+        {user ? (
+          <div className="flex items-center">
+            <div className="w-8 h-8 rounded-full bg-gray-200 flex-shrink-0 overflow-hidden">
+              <img
+                src={user.avatar || "https://api.dicebear.com/7.x/avataaars/svg?seed=" + user.name}
+                alt="用户头像"
+                className="w-full h-full object-cover"
+              />
+            </div>
+            <div className="ml-3">
+              <div className="text-sm font-medium text-gray-900">{user.name}</div>
+              <div className="text-xs text-gray-500">的 Molink</div>
+            </div>
+          </div>
+        ) : (
+          <button 
+            onClick={() => onShowLogin?.()}
+            className="w-full flex items-center justify-center gap-2 py-2 px-4 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors text-sm font-medium"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+            </svg>
+            登录 Molink
+          </button>
+        )}
+      </div>
+
       {/* 标题区域 */}
       <div className="p-4 font-bold border-b border-gray-200 flex justify-between items-center bg-white">
         <span className="text-lg font-semibold tracking-tight">我的页面</span>
@@ -60,24 +92,7 @@ export default function Sidebar({
       
       {/* 空状态 */}
       {pages.length === 0 && (
-        <div className="flex-1 flex flex-col items-center justify-center p-6 text-center text-gray-500">
-          <div className="relative mb-4">
-            <div className="w-16 h-20 bg-gray-200 rounded shadow-inner"></div>
-            <div className="absolute -top-2 -right-2 w-8 h-8 bg-white border border-gray-300 rounded-full flex items-center justify-center">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-500" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
-              </svg>
-            </div>
-          </div>
-          <p className="mb-4 text-gray-600">暂无页面</p>
-          <button
-            onClick={addPage}
-            className="text-sm px-4 py-2 bg-white hover:bg-gray-100 rounded transition-colors
-                      border border-gray-300 shadow-sm hover:shadow"
-          >
-            创建第一个页面
-          </button>
-        </div>
+        <div className="flex-1"></div>
       )}
       
       {/* 底部信息 */}
