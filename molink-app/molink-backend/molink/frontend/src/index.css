@@ -1,0 +1,97 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Notion-like Light Theme */
+    --color-bg-primary: 255 255 255;      /* White */
+    --color-bg-secondary: 251 251 250;    /* Sidebar mostly */
+    --color-bg-hover: 239 239 239;        /* Hover states */
+    --color-bg-active: 235 235 235;       /* Active item */
+    
+    --color-text-primary: 55 53 47;       /* Main text */
+    --color-text-secondary: 120 119 116;  /* Muted text */
+    --color-text-placeholder: 164 164 164;
+    
+    --color-border: 233 233 231;          /* Subtle borders */
+    --color-accent: 46 170 220;           /* Blue accent (optional) */
+    
+    /* Semantic mapping for existing code compatibility */
+    --color-theme-base: var(--color-bg-primary);
+    --color-theme-surface: var(--color-bg-secondary);
+    --color-theme-accent: 35 131 226;
+    
+    --color-text-main: var(--color-text-primary);
+    --color-text-muted: var(--color-text-secondary);
+  }
+
+  .dark {
+    /* Notion-like Dark Theme */
+    --color-bg-primary: 25 25 25;
+    --color-bg-secondary: 32 32 32;
+    --color-bg-hover: 44 44 44;
+    --color-bg-active: 48 48 48;
+    
+    --color-text-primary: 212 212 212;
+    --color-text-secondary: 155 155 155;
+    --color-text-placeholder: 90 90 90;
+    
+    --color-border: 47 47 47;
+    
+    --color-theme-base: var(--color-bg-primary);
+    --color-theme-surface: var(--color-bg-secondary);
+    --color-theme-accent: 35 131 226;
+    
+    --color-text-main: var(--color-text-primary);
+    --color-text-muted: var(--color-text-secondary);
+  }
+
+  body {
+    @apply bg-theme-base text-text-main transition-colors duration-200 antialiased;
+    font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, "Apple Color Emoji", Arial, sans-serif, "Segoe UI Emoji", "Segoe UI Symbol";
+  }
+}
+
+@layer components {
+  /* Common Notion-like utility classes */
+  .notion-sidebar-item {
+    @apply flex items-center gap-2 px-3 py-1 text-sm rounded-sm text-text-muted hover:bg-theme-surface/80 hover:text-text-main transition-colors cursor-pointer select-none min-h-[28px];
+  }
+  
+  .notion-sidebar-item.active {
+    @apply bg-theme-surface/100 text-text-main font-medium;
+  }
+
+  .notion-icon {
+    @apply w-4 h-4 text-text-muted flex-shrink-0;
+  }
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-gray-200 dark:bg-gray-700;
+  border-radius: 5px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-gray-300 dark:bg-gray-600;
+}
+
+/* Selection */
+::selection {
+  background: rgba(35, 131, 226, 0.2);
+  color: inherit;
+}
+
