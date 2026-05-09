@@ -43,3 +43,6 @@ uploads/
 # Docker volumes data (if accidentally created locally)
 mysql_data/
 redis_data/
+
+# Docker Compose override (development only, do not commit)
+docker-compose.override.yml
