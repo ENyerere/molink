@@ -101,14 +101,14 @@ const BlockElement = (props: RenderElementProps) => {
     <div
       {...attributes}
       className={`relative group flex items-center p-2 rounded transition-all ${
-        selected ? 'bg-blue-100 my-2 shadow-sm' : 'my-1'
+        selected ? 'bg-blue-100 dark:bg-blue-900 my-2 shadow-sm' : 'my-1'
       }`}
       onClick={handleClick}
     >
       {/* 拖动按钮 */}
       <button
         contentEditable={false}
-        className="absolute -left-6 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab select-none text-gray-500"
+        className="absolute -left-6 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab select-none text-gray-500 dark:text-gray-400"
         onMouseDown={handleDragMouseDown}
         title="拖动移动此块"
         aria-label="drag block"
