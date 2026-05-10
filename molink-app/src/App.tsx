@@ -14,6 +14,7 @@ export interface PageData {
   title: string;
   content: Descendant[];
   cover?: string;
+  coverPosition?: number;
 }
 
 // Slate content ↔ Backend Block 转换
@@ -34,6 +35,7 @@ function slateToBlockContent(content: Descendant[]): Record<string, any> {
 // ==========================================
 const LOCAL_PAGES_KEY = 'molink-pages';
 const LOCAL_SHOW_LOGIN = 'molink:showLogin';
+const COVER_POSITIONS_KEY = 'molink-cover-positions';
 
 function loadLocalPages(): PageData[] {
   try {
@@ -45,6 +47,24 @@ function loadLocalPages(): PageData[] {
 
 function saveLocalPages(pages: PageData[]) {
   localStorage.setItem(LOCAL_PAGES_KEY, JSON.stringify(pages));
+}
+
+function loadCoverPositions(): Record<string, number> {
+  try {
+    const saved = localStorage.getItem(COVER_POSITIONS_KEY);
+    if (saved) return JSON.parse(saved);
+  } catch {}
+  return {};
+}
+
+function saveCoverPosition(pageId: string, position: number) {
+  const positions = loadCoverPositions();
+  positions[pageId] = position;
+  localStorage.setItem(COVER_POSITIONS_KEY, JSON.stringify(positions));
+}
+
+function getCoverPosition(pageId: string): number | undefined {
+  return loadCoverPositions()[pageId];
 }
 
 export default function App() {
@@ -89,6 +109,7 @@ export default function App() {
       const loadedPages: PageData[] = [];
       const idMap: Record<string, string> = {};
 
+      const coverPositions = loadCoverPositions();
       for (const bp of backendPages) {
         const blocks = await blocksApi.list(bp.id);
         const content = blocksToSlate(blocks);
@@ -100,6 +121,7 @@ export default function App() {
           title: bp.title,
           content,
           cover: bp.cover_image || undefined,
+          coverPosition: coverPositions[bp.id],
         });
       }
 
@@ -280,11 +302,17 @@ export default function App() {
       if (!page) return;
 
       // 更新页面基本信息
-      if (newData.title !== undefined || newData.cover !== undefined) {
+      if (newData.title !== undefined || newData.cover !== undefined || newData.coverPosition !== undefined) {
         await pagesApi.update(id, {
           title: newData.title,
           cover_image: newData.cover,
+          cover_position: newData.coverPosition,
         });
+      }
+
+      // 保存封面位置到 localStorage（兜底，后端可能暂不支持）
+      if (newData.coverPosition !== undefined) {
+        saveCoverPosition(id, newData.coverPosition);
       }
 
       // 更新内容 block

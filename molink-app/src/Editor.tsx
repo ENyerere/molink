@@ -42,9 +42,19 @@ export default function Editor({
   );
 
   // 封面位置调整（object-position 的 y 百分比）
-  const [coverPosY, setCoverPosY] = useState(50);
+  const initialPos = page.coverPosition ?? 50;
+  const [coverPosY, setCoverPosY] = useState(initialPos);
+  const [savedCoverPosY, setSavedCoverPosY] = useState(initialPos);
   const [isRepositioning, setIsRepositioning] = useState(false);
   const coverRef = useRef<HTMLDivElement | null>(null);
+
+  // 页面切换时同步封面位置
+  useEffect(() => {
+    const pos = page.coverPosition ?? 50;
+    setCoverPosY(pos);
+    setSavedCoverPosY(pos);
+    setIsRepositioning(false);
+  }, [page.id, page.coverPosition]);
 
   const recomputeOffsets = useCallback(() => {
     const px = page.cover
@@ -77,15 +87,36 @@ export default function Editor({
     if (!file) return;
     const url = await uploadCover(page.id, file);
     if (url) {
-      updatePage(page.id, { cover: url });
+      updatePage(page.id, { cover: url, coverPosition: 50 });
       setCoverPosY(50);
+      setSavedCoverPosY(50);
     }
   };
 
-  // 封面位置调整拖动
-  const handleRepositionMouseDown = (e: React.MouseEvent) => {
-    e.preventDefault();
+  // 进入调整位置模式
+  const enterRepositionMode = () => {
+    setSavedCoverPosY(coverPosY);
     setIsRepositioning(true);
+  };
+
+  // 保存位置
+  const savePosition = () => {
+    setSavedCoverPosY(coverPosY);
+    setIsRepositioning(false);
+    updatePage(page.id, { coverPosition: coverPosY });
+  };
+
+  // 取消调整
+  const cancelReposition = () => {
+    setCoverPosY(savedCoverPosY);
+    setIsRepositioning(false);
+  };
+
+  // 封面位置调整拖动
+  const handleCoverDrag = (e: React.MouseEvent) => {
+    if (!isRepositioning) return;
+    e.preventDefault();
+    e.stopPropagation();
     const startY = e.clientY;
     const startPos = coverPosY;
 
@@ -99,7 +130,6 @@ export default function Editor({
     };
 
     const onMouseUp = () => {
-      setIsRepositioning(false);
       document.removeEventListener('mousemove', onMouseMove);
       document.removeEventListener('mouseup', onMouseUp);
       document.body.style.cursor = '';
@@ -195,7 +225,7 @@ export default function Editor({
           ref={coverRef}
           className="absolute left-0 right-0 overflow-hidden transition-[height] duration-300 select-none group/cover"
           style={{ height: `${coverPx}px`, cursor: isRepositioning ? 'ns-resize' : 'default' }}
-          onMouseDown={isRepositioning ? handleRepositionMouseDown : undefined}
+          onMouseDown={handleCoverDrag}
         >
           <img
             src={page.cover}
@@ -205,25 +235,50 @@ export default function Editor({
             loading="lazy"
             draggable={false}
           />
+          {/* 调整位置时的中央提示 */}
+          {isRepositioning && (
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <div className="px-6 py-2 bg-black/50 backdrop-blur-sm text-white text-sm rounded-md shadow-lg">
+                拖动图片以调整位置
+              </div>
+            </div>
+          )}
           {/* 封面右上角操作按钮 */}
-          <div className="absolute top-4 right-4 flex items-center gap-2 opacity-0 group-hover/cover:opacity-100 transition-opacity">
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="px-3 py-1.5 text-sm bg-card/80 backdrop-blur-sm text-card-foreground rounded-md hover:bg-card border border-border transition-colors"
-            >
-              更换封面
-            </button>
-            <button
-              onClick={handleRepositionMouseDown}
-              className={`px-3 py-1.5 text-sm backdrop-blur-sm rounded-md border border-border transition-colors flex items-center gap-1.5 ${
-                isRepositioning
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-card/80 text-card-foreground hover:bg-card'
-              }`}
-            >
-              <MoveVertical className="w-3.5 h-3.5" />
-              调整位置
-            </button>
+          <div className={`absolute top-3 right-3 flex items-center transition-opacity ${isRepositioning ? 'opacity-100' : 'opacity-0 group-hover/cover:opacity-100'}`}>
+            {isRepositioning ? (
+              <div className="flex items-center bg-black/50 rounded overflow-hidden">
+                <button
+                  onClick={savePosition}
+                  className="px-2.5 py-1 text-xs text-white/90 hover:bg-white/10 transition-colors"
+                >
+                  保存位置
+                </button>
+                <div className="w-px h-3 bg-white/20" />
+                <button
+                  onClick={cancelReposition}
+                  className="px-2.5 py-1 text-xs text-white/90 hover:bg-white/10 transition-colors"
+                >
+                  取消
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center bg-black/40 rounded overflow-hidden">
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="px-2.5 py-1 text-xs text-white/90 hover:bg-white/10 transition-colors"
+                >
+                  更换封面
+                </button>
+                <div className="w-px h-3 bg-white/20" />
+                <button
+                  onClick={enterRepositionMode}
+                  className="px-2.5 py-1 text-xs text-white/90 hover:bg-white/10 transition-colors flex items-center gap-1"
+                >
+                  <MoveVertical className="w-3 h-3" />
+                  调整位置
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
