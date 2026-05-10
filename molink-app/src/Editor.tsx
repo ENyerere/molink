@@ -23,9 +23,11 @@ const NO_COVER_PX = 120;
 export default function Editor({
   page,
   updatePage,
+  uploadCover,
 }: {
   page: PageData;
   updatePage: (id: string, newData: Partial<PageData>) => void;
+  uploadCover: (pageId: string, file: File) => Promise<string | null>;
 }) {
   const editor = useMemo(() => withMarkdownShortcuts(withReact(createEditor())), []);
 
@@ -34,7 +36,7 @@ export default function Editor({
   );
   const [textTopOffset, setTextTopOffset] = useState<number>(
     page.cover
-      ? Math.round(window.innerHeight * (COVER_VH / 100)) + TOP_MARGIN_PX + 60 // 增加60px的偏移
+      ? Math.round(window.innerHeight * (COVER_VH / 100)) + TOP_MARGIN_PX + 60
       : NO_COVER_PX
   );
 
@@ -63,6 +65,16 @@ export default function Editor({
     [page.id, updatePage]
   );
 
+  // 封面上传处理
+  const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const url = await uploadCover(page.id, file);
+    if (url) {
+      updatePage(page.id, { cover: url });
+    }
+  };
+
   // —— 框选逻辑 ——
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [dragSelecting, setDragSelecting] = useState(false);
@@ -72,7 +84,7 @@ export default function Editor({
   useEffect(() => {
     if (!dragSelecting) return;
 
-    document.body.style.userSelect = 'none'; // 禁止文本选择
+    document.body.style.userSelect = 'none';
 
     const onMouseMove = (e: MouseEvent) => {
       if (!startPos.current || !containerRef.current) return;
@@ -107,7 +119,7 @@ export default function Editor({
       setDragSelecting(false);
       setSelectionRect(null);
       startPos.current = null;
-      document.body.style.userSelect = ''; // 恢复文本选择
+      document.body.style.userSelect = '';
       document.removeEventListener('mousemove', onMouseMove);
       document.removeEventListener('mouseup', onMouseUp);
     };
@@ -145,28 +157,15 @@ export default function Editor({
           <img src={page.cover} alt="封面" className="w-full h-full object-cover" loading="lazy" />
         ) : (
           <div className="w-full h-full group relative">
-            <button
-              onClick={() => {
-                const input = document.createElement('input');
-                input.type = 'file';
-                input.accept = 'image/*';
-                input.onchange = (e: any) => {
-                  const file = e.target.files?.[0];
-                  if (file) {
-                    const reader = new FileReader();
-                    reader.onload = (ev) => {
-                      const base64 = ev.target?.result as string;
-                      updatePage(page.id, { cover: base64 });
-                    };
-                    reader.readAsDataURL(file);
-                  }
-                };
-                input.click();
-              }}
-              className="opacity-0 group-hover:opacity-100 transition-opacity absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-secondary text-secondary-foreground px-4 py-2 rounded-lg"
-            >
+            <label className="opacity-0 group-hover:opacity-100 transition-opacity absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-secondary text-secondary-foreground px-4 py-2 rounded-lg cursor-pointer hover:bg-accent">
               添加封面
-            </button>
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleCoverUpload}
+              />
+            </label>
           </div>
         )}
       </div>

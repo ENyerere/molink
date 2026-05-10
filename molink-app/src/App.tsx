@@ -1,10 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Sidebar from './Sidebar';
 import Editor from './Editor';
 import Login from './components/auth/Login';
 import { v4 as uuidv4 } from 'uuid';
 import type { Descendant, Element } from 'slate';
 import { ChevronLeft, ChevronRight, Share2, Star, MoreHorizontal, Lock } from 'lucide-react';
+import { useAuth } from './context/AuthContext';
+import { workspacesApi, pagesApi, blocksApi, filesApi } from './api';
+import type { Workspace, BackendBlock } from './api';
 
 export interface PageData {
   id: string;
@@ -13,86 +16,200 @@ export interface PageData {
   cover?: string;
 }
 
-export interface User {
-  id: string;
-  name: string;
-  email: string;
-  avatar?: string;
+// Slate content ↔ Backend Block 转换
+function blocksToSlate(blocks: BackendBlock[]): Descendant[] {
+  const textBlock = blocks.find(b => b.block_type === 'text');
+  if (textBlock?.content?.slate) {
+    return textBlock.content.slate as Descendant[];
+  }
+  return [{ type: 'paragraph', children: [{ text: '' }] } as Element];
+}
+
+function slateToBlockContent(content: Descendant[]): Record<string, any> {
+  return { slate: content };
 }
 
 // ==========================================
-// 开发配置：控制登录弹窗频率
+// 未登录时用 localStorage 作为降级
 // ==========================================
-const DEV_ALWAYS_SHOW_LOGIN = true;
+const LOCAL_PAGES_KEY = 'molink-pages';
+const LOCAL_SHOW_LOGIN = 'molink:showLogin';
 
-function shouldShowLoginPrompt(): boolean {
-  if (DEV_ALWAYS_SHOW_LOGIN) return true;
-  const lastPrompt = localStorage.getItem('molink:lastLoginPrompt');
-  const today = new Date().toDateString();
-  return lastPrompt !== today;
+function loadLocalPages(): PageData[] {
+  try {
+    const saved = localStorage.getItem(LOCAL_PAGES_KEY);
+    if (saved) return JSON.parse(saved);
+  } catch {}
+  return [];
 }
 
-function markLoginPromptShown(): void {
-  localStorage.setItem('molink:lastLoginPrompt', new Date().toDateString());
+function saveLocalPages(pages: PageData[]) {
+  localStorage.setItem(LOCAL_PAGES_KEY, JSON.stringify(pages));
 }
 
 export default function App() {
+  const { user, loading: authLoading } = useAuth();
+
   const [pages, setPages] = useState<PageData[]>([]);
   const [activePageId, setActivePageId] = useState<string | null>(null);
-  const [user, setUser] = useState<User | null>(null);
   const [showLogin, setShowLogin] = useState(false);
   const [backStack, setBackStack] = useState<string[]>([]);
   const [forwardStack, setForwardStack] = useState<string[]>([]);
 
-  // 页面迁移确认对话框状态
+  const [workspace, setWorkspace] = useState<Workspace | null>(null);
+  const [apiLoading, setApiLoading] = useState(false);
+
   const [showMigrationDialog, setShowMigrationDialog] = useState(false);
   const [guestPageCount, setGuestPageCount] = useState(0);
 
-  // 初始化：加载数据 + 未登录弹窗
-  useEffect(() => {
-    const saved = localStorage.getItem('molink-pages');
-    if (saved) {
-      const parsed: PageData[] = JSON.parse(saved);
-      if (parsed.length) {
-        setPages(parsed);
-        setActivePageId(parsed[0].id);
-      } else {
-        addPage();
-      }
-    } else {
-      addPage();
-    }
+  const blockIdMap = useRef<Record<string, string>>({}); // pageId -> blockId
 
-    if (!user && shouldShowLoginPrompt()) {
-      setShowLogin(true);
-      markLoginPromptShown();
+  // ==========================================
+  // 已登录：从后端加载数据
+  // ==========================================
+  const loadWorkspace = useCallback(async () => {
+    if (!user) return;
+    try {
+      const list = await workspacesApi.list();
+      if (list.length > 0) {
+        setWorkspace(list[0]);
+      } else {
+        const ws = await workspacesApi.create({ name: '我的空间' });
+        setWorkspace(ws);
+      }
+    } catch (err) {
+      console.error('加载工作空间失败:', err);
+    }
+  }, [user]);
+
+  const loadPages = useCallback(async (wsId: string) => {
+    try {
+      setApiLoading(true);
+      const backendPages = await pagesApi.list(wsId);
+      const loadedPages: PageData[] = [];
+      const idMap: Record<string, string> = {};
+
+      for (const bp of backendPages) {
+        const blocks = await blocksApi.list(bp.id);
+        const content = blocksToSlate(blocks);
+        if (blocks.length > 0) {
+          idMap[bp.id] = blocks[0].id;
+        }
+        loadedPages.push({
+          id: bp.id,
+          title: bp.title,
+          content,
+          cover: bp.cover_image || undefined,
+        });
+      }
+
+      blockIdMap.current = idMap;
+      setPages(loadedPages);
+      if (loadedPages.length > 0 && !activePageId) {
+        setActivePageId(loadedPages[0].id);
+      }
+    } catch (err) {
+      console.error('加载页面失败:', err);
+    } finally {
+      setApiLoading(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // 数据持久化
+  // 登录后自动加载工作空间和页面
   useEffect(() => {
-    const timeout = setTimeout(() => {
-      localStorage.setItem('molink-pages', JSON.stringify(pages));
-    }, 300);
-    return () => clearTimeout(timeout);
-  }, [pages]);
+    if (user) {
+      loadWorkspace();
+    }
+  }, [user, loadWorkspace]);
 
-  // 监听登录事件
   useEffect(() => {
-    const handleLogin = () => setShowLogin(true);
-    window.addEventListener('molink:login', handleLogin);
-    return () => window.removeEventListener('molink:login', handleLogin);
-  }, []);
+    if (workspace) {
+      loadPages(workspace.id);
+    }
+  }, [workspace, loadPages]);
 
-  const addPage = () => {
+  // ==========================================
+  // 未登录：从 localStorage 加载
+  // ==========================================
+  useEffect(() => {
+    if (authLoading) return;
+    if (user) return; // 已登录时不需要本地数据
+
+    const local = loadLocalPages();
+    if (local.length > 0) {
+      setPages(local);
+      setActivePageId(local[0].id);
+    } else {
+      addLocalPage();
+    }
+
+    // 未登录时每天首次打开显示登录弹窗
+    const lastPrompt = localStorage.getItem(LOCAL_SHOW_LOGIN);
+    const today = new Date().toDateString();
+    if (lastPrompt !== today) {
+      setShowLogin(true);
+      localStorage.setItem(LOCAL_SHOW_LOGIN, today);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoading, user]);
+
+  // 未登录时持久化到 localStorage
+  useEffect(() => {
+    if (!user && pages.length > 0) {
+      const timeout = setTimeout(() => saveLocalPages(pages), 300);
+      return () => clearTimeout(timeout);
+    }
+  }, [pages, user]);
+
+  // ==========================================
+  // 页面操作
+  // ==========================================
+  const addPage = async () => {
+    const id = uuidv4();
+    const emptyContent: Descendant[] = [{ type: 'paragraph', children: [{ text: '' }] } as Element];
+
+    if (user && workspace) {
+      try {
+        const bp = await pagesApi.create({
+          workspace_id: workspace.id,
+          title: '',
+          page_type: 'page',
+        });
+        const block = await blocksApi.create({
+          page_id: bp.id,
+          block_type: 'text',
+          content: slateToBlockContent(emptyContent),
+          position: 0,
+        });
+        blockIdMap.current[bp.id] = block.id;
+
+        const newPage: PageData = {
+          id: bp.id,
+          title: bp.title,
+          content: emptyContent,
+          cover: bp.cover_image || undefined,
+        };
+        setPages(prev => [...prev, newPage]);
+        if (activePageId) setBackStack(prev => [...prev, activePageId]);
+        setForwardStack([]);
+        setActivePageId(bp.id);
+        return;
+      } catch (err) {
+        console.error('创建页面失败:', err);
+      }
+    }
+
+    // 未登录降级
+    addLocalPage();
+  };
+
+  const addLocalPage = () => {
     const id = uuidv4();
     const newPage: PageData = {
       id,
       title: '',
-      content: [
-        { type: 'paragraph', children: [{ text: '' }] } as Element
-      ],
+      content: [{ type: 'paragraph', children: [{ text: '' }] } as Element],
     };
     setPages(prev => [...prev, newPage]);
     if (activePageId) setBackStack(prev => [...prev, activePageId]);
@@ -119,6 +236,10 @@ export default function App() {
     });
     setBackStack(prev => prev.filter(pid => pid !== id));
     setForwardStack(prev => prev.filter(pid => pid !== id));
+    // 已登录时同步删除后端
+    if (user) {
+      pagesApi.delete(id).catch(err => console.error('删除页面失败:', err));
+    }
   };
 
   const goBack = () => {
@@ -146,51 +267,157 @@ export default function App() {
   const canGoBack = backStack.length > 0;
   const canGoForward = forwardStack.length > 0;
 
-  const updatePage = (id: string, newData: Partial<PageData>) => {
+  // ==========================================
+  // 更新页面（标题 + 内容 + 封面）
+  // ==========================================
+  const updatePage = useCallback(async (id: string, newData: Partial<PageData>) => {
     setPages(prev => prev.map(p => p.id === id ? { ...p, ...newData } : p));
+
+    if (!user) return; // 未登录不调用后端
+
+    try {
+      const page = pages.find(p => p.id === id);
+      if (!page) return;
+
+      // 更新页面基本信息
+      if (newData.title !== undefined || newData.cover !== undefined) {
+        await pagesApi.update(id, {
+          title: newData.title,
+          cover_image: newData.cover,
+        });
+      }
+
+      // 更新内容 block
+      if (newData.content !== undefined) {
+        const blockId = blockIdMap.current[id];
+        if (blockId) {
+          await blocksApi.update(blockId, {
+            content: slateToBlockContent(newData.content),
+          });
+        } else {
+          // 如果没有 blockId，创建一个新的
+          const block = await blocksApi.create({
+            page_id: id,
+            block_type: 'text',
+            content: slateToBlockContent(newData.content),
+            position: 0,
+          });
+          blockIdMap.current[id] = block.id;
+        }
+      }
+    } catch (err) {
+      console.error('保存页面失败:', err);
+    }
+  }, [user, pages]);
+
+  // 封面上传
+  const uploadCover = async (pageId: string, file: File): Promise<string | null> => {
+    if (!user) {
+      // 未登录降级：Base64
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (ev) => resolve(ev.target?.result as string);
+        reader.readAsDataURL(file);
+      });
+    }
+    try {
+      const res = await filesApi.upload(file);
+      if (res.success && res.file) {
+        await pagesApi.update(pageId, { cover_image: res.file.url });
+        return res.file.url;
+      }
+    } catch (err) {
+      console.error('上传封面失败:', err);
+    }
+    return null;
+  };
+
+  // ==========================================
+  // 登录后迁移本地数据
+  // ==========================================
+  const handleLoginSuccess = () => {
+    setShowLogin(false);
+    const local = loadLocalPages();
+    const meaningful = local.filter(p => {
+      const hasTitle = p.title && p.title.trim().length > 0;
+      const hasContent = p.content.length > 1 || (p.content[0] as Element)?.children?.[0]?.text !== '';
+      return hasTitle || hasContent;
+    });
+    if (meaningful.length > 0) {
+      setGuestPageCount(meaningful.length);
+      setShowMigrationDialog(true);
+    }
+  };
+
+  const migrateLocalPages = async () => {
+    if (!workspace) return;
+    const local = loadLocalPages();
+    for (const p of local) {
+      try {
+        const bp = await pagesApi.create({
+          workspace_id: workspace.id,
+          title: p.title,
+          page_type: 'page',
+          cover_image: p.cover,
+        });
+        await blocksApi.create({
+          page_id: bp.id,
+          block_type: 'text',
+          content: slateToBlockContent(p.content),
+          position: 0,
+        });
+      } catch (err) {
+        console.error('迁移页面失败:', err);
+      }
+    }
+    localStorage.removeItem(LOCAL_PAGES_KEY);
+    setShowMigrationDialog(false);
+    setGuestPageCount(0);
+    if (workspace) loadPages(workspace.id);
+  };
+
+  const discardLocalPages = () => {
+    localStorage.removeItem(LOCAL_PAGES_KEY);
+    setShowMigrationDialog(false);
+    setGuestPageCount(0);
+    setPages([]);
+    setActivePageId(null);
+    addLocalPage();
   };
 
   const activePage = pages.find(p => p.id === activePageId);
+
+  if (authLoading || apiLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-background text-foreground">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        <span className="ml-3">加载中...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen bg-background">
       <Sidebar
         pages={pages}
         activePageId={activePageId}
-        setActivePageId={setActivePageId}
+        setActivePageId={activatePage}
         addPage={addPage}
-        user={user}
+        user={user ? { id: user.id, name: user.full_name || user.email.split('@')[0], email: user.email, avatar: user.avatar_url || undefined } : null}
         onShowLogin={() => setShowLogin(true)}
       />
 
       {/* 登录弹窗 */}
-      {!user && showLogin && (
+      {showLogin && (
         <Login
           onClose={() => setShowLogin(false)}
-          onLogin={(loggedInUser: User) => {
-            setUser(loggedInUser);
-            setShowLogin(false);
-            const saved = localStorage.getItem('molink-pages');
-            if (saved) {
-              const parsed: PageData[] = JSON.parse(saved);
-              const meaningfulPages = parsed.filter(p => {
-                const hasTitle = p.title && p.title.trim().length > 0;
-                const hasContent = p.content.length > 1 || (p.content[0] as Element)?.children?.[0]?.text !== '';
-                return hasTitle || hasContent;
-              });
-              if (meaningfulPages.length > 0) {
-                setGuestPageCount(meaningfulPages.length);
-                setShowMigrationDialog(true);
-              }
-            }
-          }}
+          onLogin={handleLoginSuccess}
         />
       )}
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* ===== 顶部标题栏（仿 Notion） ===== */}
+        {/* 顶部标题栏 */}
         <div className="h-11 flex items-center justify-between px-4 bg-background flex-shrink-0">
-          {/* 左侧：前进后退 + 面包屑 */}
           <div className="flex items-center gap-1">
             <button
               onClick={goBack}
@@ -208,8 +435,6 @@ export default function App() {
             >
               <ChevronRight className="w-4 h-4" />
             </button>
-
-            {/* 页面标题面包屑 */}
             {activePage && (
               <div className="flex items-center gap-2 ml-2">
                 <span className="text-sm font-medium text-foreground truncate max-w-[200px]">
@@ -222,8 +447,6 @@ export default function App() {
               </div>
             )}
           </div>
-
-          {/* 右侧：功能按钮 */}
           <div className="flex items-center gap-1">
             <button className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-sm text-secondary-foreground hover:bg-accent rounded-md transition-colors">
               <Share2 className="w-4 h-4" />
@@ -244,6 +467,7 @@ export default function App() {
             <Editor
               page={activePage}
               updatePage={updatePage}
+              uploadCover={uploadCover}
             />
           )}
         </div>
@@ -260,36 +484,22 @@ export default function App() {
                 </svg>
               </div>
             </div>
-
             <h3 className="text-xl font-semibold text-card-foreground text-center mb-2">
               保留未登录时的页面？
             </h3>
-
             <p className="text-muted-foreground text-[15px] text-center mb-6 leading-relaxed">
               你在未登录状态下创建了 <span className="font-semibold text-card-foreground">{guestPageCount}</span> 个页面，
-              是否将它们保留到你的个人空间中？
+              是否将它们迁移到云端？
             </p>
-
             <div className="space-y-3">
               <button
-                onClick={() => {
-                  setShowMigrationDialog(false);
-                  setGuestPageCount(0);
-                }}
+                onClick={migrateLocalPages}
                 className="w-full h-11 bg-primary text-primary-foreground text-[15px] font-medium rounded-lg hover:opacity-90 transition-opacity"
               >
-                保留页面
+                迁移到云端
               </button>
-
               <button
-                onClick={() => {
-                  localStorage.removeItem('molink-pages');
-                  setPages([]);
-                  setActivePageId(null);
-                  setShowMigrationDialog(false);
-                  setGuestPageCount(0);
-                  setTimeout(() => addPage(), 0);
-                }}
+                onClick={discardLocalPages}
                 className="w-full h-11 border border-border text-secondary-foreground text-[15px] font-medium rounded-lg hover:bg-accent transition-colors"
               >
                 不保留，重新开始
