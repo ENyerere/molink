@@ -32,30 +32,30 @@ export default function Sidebar({
   return (
     <div className="w-60 bg-background text-foreground flex flex-col border-r border-border h-full relative">
       {/* 工作区头部 */}
-      <div className="px-3 py-2 flex items-center justify-between">
+      <div className="px-3 py-2 flex items-center gap-1">
         <button
           onClick={() => setShowUserMenu(prev => !prev)}
-          className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-accent transition-colors"
+          className="flex items-center gap-1.5 px-2 py-1.5 rounded-md hover:bg-accent transition-colors min-w-0 flex-1"
         >
           {user ? (
             <>
-              <div className="w-5 h-5 rounded-sm bg-secondary flex items-center justify-center text-xs font-medium">
+              <div className="w-5 h-5 rounded-sm bg-secondary flex items-center justify-center text-xs font-medium flex-shrink-0">
                 {user.name.charAt(0).toUpperCase()}
               </div>
-              <span className="text-sm font-medium text-foreground">{user.name} 的 Molink</span>
+              <span className="text-sm font-medium text-foreground truncate whitespace-nowrap">{user.name} 的 Molink</span>
             </>
           ) : (
             <>
-              <div className="w-5 h-5 rounded-sm bg-secondary flex items-center justify-center text-xs font-medium">
+              <div className="w-5 h-5 rounded-sm bg-secondary flex items-center justify-center text-xs font-medium flex-shrink-0">
                 M
               </div>
-              <span className="text-sm font-medium text-foreground">Molink</span>
+              <span className="text-sm font-medium text-foreground truncate whitespace-nowrap">Molink</span>
             </>
           )}
-          <ChevronDown className={`w-3.5 h-3.5 text-muted-foreground transition-transform ${showUserMenu ? 'rotate-180' : ''}`} />
+          <ChevronDown className={`w-3.5 h-3.5 text-muted-foreground transition-transform flex-shrink-0 ${showUserMenu ? 'rotate-180' : ''}`} />
         </button>
 
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 flex-shrink-0">
           <button
             onClick={addPage}
             className="p-1.5 rounded-md hover:bg-accent text-muted-foreground transition-colors"
