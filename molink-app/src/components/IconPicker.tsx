@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from 'react';
 import {
-  Search, Shuffle, X, Image as ImageIcon, Upload,
+  Search, Shuffle, X, Image as ImageIcon,
   ArrowRight, ArrowLeft, ArrowUp, ArrowDown, ArrowUpRight, ArrowDownRight,
   ChevronRight, ChevronLeft, ChevronUp, ChevronDown,
   RefreshCw, Repeat, Move,
@@ -12,31 +12,23 @@ import {
   Sun, Moon, Cloud, CloudRain, Zap, Flame, TreePine,
   Lightbulb, Key, Lock, Settings, Mail, Send, Bell, MessageSquare, Coffee, Gift,
   Check, AlertTriangle, Info, Calendar, Clock, Eye,
+  Clock as ClockIcon, Leaf, Utensils, Plane, Lightbulb as BulbIcon,
+  Hand, Carrot, Trophy, Map as MapIcon, Hash as HashIcon,
 } from 'lucide-react';
 
 /* ==================== CONFIG ==================== */
-
 const COLORS = [
-  '#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6', '#8b5cf6',
-  '#ec4899', '#6b7280', '#1f2937', '#78350f', '#991b1b', '#1e3a8a',
+  '#ef4444','#f97316','#eab308','#22c55e','#3b82f6','#8b5cf6',
+  '#ec4899','#6b7280','#1f2937','#78350f','#991b1b','#1e3a8a',
 ];
-
 const SKIN_TONES = [
-  { label: '默认', color: '#fbbf24' },
-  { label: '较浅', color: '#f5d0b0' },
-  { label: '中等偏浅', color: '#e2b388' },
-  { label: '中等', color: '#c68642' },
-  { label: '中等偏深', color: '#8d5524' },
-  { label: '较深', color: '#3c2e28' },
+  { label: '默认', color: '#fbbf24' }, { label: '较浅', color: '#f5d0b0' },
+  { label: '中等偏浅', color: '#e2b388' }, { label: '中等', color: '#c68642' },
+  { label: '中等偏深', color: '#8d5524' }, { label: '较深', color: '#3c2e28' },
 ];
 
 /* ==================== ICON DATA ==================== */
-
-interface IconCategory {
-  name: string;
-  icons: string[];
-}
-
+interface IconCategory { name: string; icons: string[]; }
 const ICON_CATEGORIES: IconCategory[] = [
   { name: '箭头', icons: ['ArrowRight','ArrowLeft','ArrowUp','ArrowDown','ArrowUpRight','ArrowDownRight','ChevronRight','ChevronLeft','ChevronUp','ChevronDown','RefreshCw','Shuffle'] },
   { name: '文件', icons: ['FileText','File','Folder','FolderOpen','BookOpen','Bookmark','Paperclip','Clipboard'] },
@@ -48,7 +40,6 @@ const ICON_CATEGORIES: IconCategory[] = [
   { name: '物品', icons: ['Lightbulb','Key','Lock','Settings','Mail','Send','Bell','MessageSquare','Coffee','Gift'] },
   { name: '其他', icons: ['Check','AlertTriangle','Info','Calendar','Clock','Eye'] },
 ];
-
 export const ICON_MAP: Record<string, React.ElementType> = {
   ArrowRight, ArrowLeft, ArrowUp, ArrowDown, ArrowUpRight, ArrowDownRight,
   ChevronRight, ChevronLeft, ChevronUp, ChevronDown, RefreshCw, Shuffle, Repeat, Move,
@@ -63,20 +54,11 @@ export const ICON_MAP: Record<string, React.ElementType> = {
 };
 
 /* ==================== EMOJI DATA ==================== */
-
-interface EmojiItem {
-  char: string;
-  category: string;
-  keywords: string[];
-  skinTone?: boolean;
+interface EmojiItem { char: string; category: string; keywords: string[]; skinTone?: boolean; }
+function e(c: string, cat: string, kw: string, st?: boolean): EmojiItem {
+  return { char: c, category: cat, keywords: kw.split(' ').filter(Boolean), skinTone: st };
 }
-
-function e(char: string, category: string, keywords: string, skinTone?: boolean): EmojiItem {
-  return { char, category, keywords: keywords.split(' ').filter(Boolean), skinTone };
-}
-
 const EMOJI_DATA: EmojiItem[] = [
-  // 人物
   e('😀','人物','grinning face smile'), e('😃','人物','smile happy'), e('😄','人物','smile grin'), e('😁','人物','grin beam'),
   e('😆','人物','laugh happy'), e('😅','人物','sweat nervous'), e('🤣','人物','laugh rofl'), e('😂','人物','laugh joy tears'),
   e('🙂','人物','slight smile'), e('🙃','人物','upside down'), e('😉','人物','wink flirt'), e('😊','人物','blush smile'),
@@ -105,7 +87,6 @@ const EMOJI_DATA: EmojiItem[] = [
   e('🤖','人物','robot'), e('😺','人物','cat smile'), e('😸','人物','cat grin'), e('😹','人物','cat tear'),
   e('😻','人物','cat love'), e('😼','人物','cat wry'), e('😽','人物','cat kiss'), e('🙀','人物','cat weary'),
   e('😿','人物','cat cry'), e('😾','人物','cat pout'),
-  // 手势 (支持肤色)
   e('👋','手势','wave hand',true), e('🤚','手势','hand raised',true), e('🖐️','手势','hand fingers',true),
   e('✋','手势','hand stop',true), e('🖖','手势','vulcan spock',true), e('👌','手势','ok hand',true),
   e('🤏','手势','pinch small',true), e('✌️','手势','victory peace',true), e('🤞','手势','cross luck',true),
@@ -120,9 +101,7 @@ const EMOJI_DATA: EmojiItem[] = [
   e('🦶','手势','foot',true), e('👂','手势','ear',true), e('🦻','手势','ear aid',true),
   e('👃','手势','nose',true), e('🧠','手势','brain',true), e('🫀','手势','heart organ',true),
   e('🫁','手势','lungs',true), e('🦷','手势','tooth',true), e('🦴','手势','bone',true),
-  e('👀','手势','eyes',true), e('👁️','手势','eye',true), e('👅','手势','tongue',true),
-  e('👄','手势','mouth lips',true),
-  // 自然
+  e('👀','手势','eyes',true), e('👁️','手势','eye',true), e('👅','手势','tongue',true), e('👄','手势','mouth lips',true),
   e('🐶','自然','dog pet'), e('🐱','自然','cat pet'), e('🐭','自然','mouse animal'), e('🐹','自然','hamster pet'),
   e('🐰','自然','rabbit bunny'), e('🦊','自然','fox animal'), e('🐻','自然','bear animal'), e('🐼','自然','panda animal'),
   e('🐨','自然','koala animal'), e('🐯','自然','tiger animal'), e('🦁','自然','lion animal'), e('🐮','自然','cow animal'),
@@ -150,7 +129,6 @@ const EMOJI_DATA: EmojiItem[] = [
   e('🦩','自然','flamingo'), e('🕊️','自然','dove'), e('🐇','自然','rabbit'), e('🦝','自然','raccoon'),
   e('🦨','自然','skunk'), e('🦡','自然','badger'), e('🦦','自然','otter'), e('🦥','自然','sloth'),
   e('🐁','自然','mouse'), e('🐀','自然','rat'), e('🐿️','自然','chipmunk'), e('🦔','自然','hedgehog'),
-  // 食物
   e('🍎','食物','apple fruit'), e('🍐','食物','pear fruit'), e('🍊','食物','orange fruit'), e('🍋','食物','lemon fruit'),
   e('🍌','食物','banana fruit'), e('🍉','食物','watermelon fruit'), e('🍇','食物','grape fruit'), e('🍓','食物','strawberry fruit'),
   e('🫐','食物','blueberry fruit'), e('🍈','食物','melon fruit'), e('🍒','食物','cherry fruit'), e('🍑','食物','peach fruit'),
@@ -180,7 +158,6 @@ const EMOJI_DATA: EmojiItem[] = [
   e('🍷','食物','wine glass'), e('🍸','食物','cocktail'), e('🍹','食物','tropical drink'), e('🍺','食物','beer mug'),
   e('🍻','食物','clink beer'), e('🥂','食物','clink glasses'), e('🥃','食物','tumbler'), e('🥤','食物','cup straw'),
   e('🧋','食物','bubble tea'), e('🧃','食物','juice box'), e('🧉','食物','mate'), e('🧊','食物','ice'),
-  // 活动
   e('⚽','活动','soccer football'), e('🏀','活动','basketball sport'), e('🏈','活动','football american'), e('⚾','活动','baseball sport'),
   e('🥎','活动','softball'), e('🎾','活动','tennis sport'), e('🏐','活动','volleyball sport'), e('🏉','活动','rugby sport'),
   e('🥏','活动','flying disc'), e('🎱','活动','pool billiard'), e('🪀','活动','yo-yo'), e('🏓','活动','pingpong table'),
@@ -202,7 +179,6 @@ const EMOJI_DATA: EmojiItem[] = [
   e('🎸','活动','guitar music'), e('🪕','活动','banjo'), e('🎻','活动','violin'), e('🎲','活动','game die'),
   e('♟️','活动','chess pawn'), e('🎯','活动','dart target'), e('🎳','活动','bowling'), e('🎮','活动','video game'),
   e('🎰','活动','slot machine'), e('🧩','活动','puzzle'),
-  // 旅行地点
   e('🚗','旅行','car auto'), e('🚕','旅行','taxi'), e('🚙','旅行','suv'), e('🚌','旅行','bus'),
   e('🚎','旅行','trolleybus'), e('🏎️','旅行','racing car'), e('🚓','旅行','police car'), e('🚑','旅行','ambulance'),
   e('🚒','旅行','fire engine'), e('🚐','旅行','minibus'), e('🚚','旅行','delivery truck'), e('🚛','旅行','articulated lorry'),
@@ -233,7 +209,6 @@ const EMOJI_DATA: EmojiItem[] = [
   e('🕋','旅行','kaaba'), e('⛲','旅行','fountain'), e('🌁','旅行','foggy'), e('🌃','旅行','night stars'),
   e('🏙️','旅行','cityscape'), e('🌄','旅行','sunrise mountain'), e('🌅','旅行','sunrise'), e('🌆','旅行','city dusk'),
   e('🌇','旅行','sunset'), e('🌉','旅行','bridge night'),
-  // 物品
   e('⌚','物品','watch time'), e('📱','物品','phone mobile'), e('📲','物品','call mobile'),
   e('💻','物品','laptop computer'), e('⌨️','物品','keyboard type'), e('🖥️','物品','desktop computer'),
   e('🖨️','物品','printer paper'), e('🖱️','物品','mouse click'), e('🖲️','物品','trackball'),
@@ -270,7 +245,6 @@ const EMOJI_DATA: EmojiItem[] = [
   e('🧼','物品','soap'), e('🧽','物品','sponge'), e('🧯','物品','extinguisher'),
   e('🛒','物品','shopping cart'), e('🚬','物品','cigarette smoke'), e('⚰️','物品','coffin'),
   e('⚱️','物品','funeral urn'), e('🗿','物品','moai'),
-  // 符号
   e('💌','符号','love letter'), e('💘','符号','heart arrow'), e('💝','符号','heart ribbon'),
   e('💖','符号','sparkling heart'), e('💗','符号','growing heart'), e('💓','符号','beating heart'),
   e('💞','符号','revolving hearts'), e('💕','符号','two hearts'), e('💟','符号','heart decoration'),
@@ -297,8 +271,6 @@ const EMOJI_DATA: EmojiItem[] = [
   e('💫','符号','dizzy'), e('⭐','符号','star shiny'),
 ];
 
-/* ==================== HELPERS ==================== */
-
 export function parseIcon(icon: string | null | undefined) {
   if (!icon) return { type: 'none' as const, value: '', color: null as string | null };
   if (icon.startsWith('url:')) return { type: 'url' as const, value: icon.slice(4), color: null };
@@ -308,113 +280,116 @@ export function parseIcon(icon: string | null | undefined) {
   }
   return { type: 'emoji' as const, value: icon, color: null };
 }
-
 function saveRecent(type: 'icon' | 'emoji', value: string) {
   const key = type === 'icon' ? 'molink:recent-icons' : 'molink:recent-emojis';
   try {
     const existing = JSON.parse(localStorage.getItem(key) || '[]') as string[];
     const filtered = existing.filter(v => v !== value);
-    const updated = [value, ...filtered].slice(0, 20);
-    localStorage.setItem(key, JSON.stringify(updated));
+    localStorage.setItem(key, JSON.stringify([value, ...filtered].slice(0, 10)));
   } catch {}
 }
-
 function getRecent(type: 'icon' | 'emoji'): string[] {
   const key = type === 'icon' ? 'molink:recent-icons' : 'molink:recent-emojis';
-  try {
-    return JSON.parse(localStorage.getItem(key) || '[]') as string[];
-  } catch {
-    return [];
-  }
+  try { return (JSON.parse(localStorage.getItem(key) || '[]') as string[]).slice(0, 10); } catch { return []; }
 }
-
 function applySkinTone(emoji: string, toneIndex: number): string {
   if (toneIndex <= 0) return emoji;
-  const modifiers = ['\u{1F3FB}', '\u{1F3FC}', '\u{1F3FD}', '\u{1F3FE}', '\u{1F3FF}'];
+  const modifiers = ['\u{1F3FB}','\u{1F3FC}','\u{1F3FD}','\u{1F3FE}','\u{1F3FF}'];
   return emoji + modifiers[toneIndex - 1];
 }
 
 /* ==================== COMPONENT ==================== */
-
 type TabType = 'emoji' | 'icon' | 'upload';
-
 interface IconPickerProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onSelect: (icon: string | null) => void;
-  currentIcon?: string | null;
+  isOpen: boolean; onClose: () => void; onSelect: (icon: string | null) => void; currentIcon?: string | null;
+  anchorRef?: React.RefObject<HTMLElement | null>;
 }
+const EMOJI_CAT_NAV = [
+  { name: '人物', icon: ClockIcon }, { name: '手势', icon: Hand }, { name: '自然', icon: Leaf },
+  { name: '食物', icon: Carrot }, { name: '活动', icon: Trophy }, { name: '旅行', icon: MapIcon },
+  { name: '物品', icon: BulbIcon }, { name: '符号', icon: HashIcon },
+];
 
-export default function IconPicker({ isOpen, onClose, onSelect, currentIcon }: IconPickerProps) {
+export default function IconPicker({ isOpen, onClose, onSelect, currentIcon, anchorRef }: IconPickerProps) {
   const [activeTab, setActiveTab] = useState<TabType>('emoji');
   const [search, setSearch] = useState('');
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
-  const [selectedSkinTone, setSelectedSkinTone] = useState(0);
   const [showColorPicker, setShowColorPicker] = useState(false);
-  const [showSkinTonePicker, setShowSkinTonePicker] = useState(false);
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [askEveryTime, setAskEveryTime] = useState(false);
+  const [pickingColorFor, setPickingColorFor] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pickerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
 
-  // Parse current icon to set initial tab and color
+  const [position, setPosition] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
+
+  const computePosition = useCallback(() => {
+    if (!anchorRef?.current) return;
+    const rect = anchorRef.current.getBoundingClientRect();
+    const pickerWidth = 380;
+    const pickerHeight = 380;
+    const margin = 8;
+    let left = rect.left;
+    let top = rect.bottom + margin;
+    // 防止超出右边界
+    if (left + pickerWidth > window.innerWidth - margin) {
+      left = window.innerWidth - pickerWidth - margin;
+    }
+    // 防止超出下边界（上方展开）
+    if (top + pickerHeight > window.innerHeight - margin) {
+      top = rect.top - pickerHeight - margin;
+    }
+    // 防止超出上边界
+    if (top < margin) top = margin;
+    setPosition({ top, left });
+  }, [anchorRef]);
+
+  useLayoutEffect(() => {
+    if (!isOpen) return;
+    computePosition();
+  }, [isOpen, computePosition]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    window.addEventListener('resize', computePosition);
+    return () => window.removeEventListener('resize', computePosition);
+  }, [isOpen, computePosition]);
+
   useEffect(() => {
     if (isOpen) {
       const parsed = parseIcon(currentIcon);
-      if (parsed.type === 'lucide') {
-        setActiveTab('icon');
-        if (parsed.color) setSelectedColor(parsed.color);
-      } else if (parsed.type === 'url') {
-        setActiveTab('upload');
-        setUploadedImage(parsed.value);
-      } else {
-        setActiveTab('emoji');
-      }
-      setSearch('');
+      if (parsed.type === 'lucide') { setActiveTab('icon'); if (parsed.color) setSelectedColor(parsed.color); }
+      else if (parsed.type === 'url') { setActiveTab('upload'); setUploadedImage(parsed.value); }
+      else { setActiveTab('emoji'); }
+      setSearch(''); setPickingColorFor(null);
     }
   }, [isOpen, currentIcon]);
 
-  // Scroll lock
-  useEffect(() => {
-    if (isOpen) {
-      const original = document.body.style.overflow;
-      document.body.style.overflow = 'hidden';
-      return () => { document.body.style.overflow = original; };
-    }
-  }, [isOpen]);
+  // No body scroll lock needed — picker is a popover, not a fullscreen overlay
 
-  // Focus search on open/tab change
-  useEffect(() => {
-    if (isOpen) {
-      setTimeout(() => searchInputRef.current?.focus(), 100);
-    }
-  }, [isOpen, activeTab]);
+  useEffect(() => { if (isOpen) setTimeout(() => searchInputRef.current?.focus(), 100); }, [isOpen, activeTab]);
 
-  // Keyboard: Escape to close
   useEffect(() => {
     if (!isOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
   }, [isOpen, onClose]);
 
-  // Click outside to close panels
   useEffect(() => {
     const onClick = (e: MouseEvent) => {
       if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
         setShowColorPicker(false);
-        setShowSkinTonePicker(false);
+        onClose();
       }
     };
     document.addEventListener('mousedown', onClick);
     return () => document.removeEventListener('mousedown', onClick);
-  }, []);
+  }, [onClose]);
 
-  // Paste handler for upload tab
   useEffect(() => {
     if (!isOpen || activeTab !== 'upload') return;
     const onPaste = (e: ClipboardEvent) => {
@@ -423,262 +398,165 @@ export default function IconPicker({ isOpen, onClose, onSelect, currentIcon }: I
         for (const item of Array.from(items)) {
           if (item.type.startsWith('image/')) {
             const file = item.getAsFile();
-            if (file) {
-              const reader = new FileReader();
-              reader.onload = (ev) => setUploadedImage(ev.target?.result as string);
-              reader.readAsDataURL(file);
-            }
+            if (file) { const r = new FileReader(); r.onload = (ev) => setUploadedImage(ev.target?.result as string); r.readAsDataURL(file); }
             return;
           }
         }
       }
       const text = e.clipboardData?.getData('text');
-      if (text && (text.startsWith('http://') || text.startsWith('https://'))) {
-        setUploadedImage(text);
-      }
+      if (text && (text.startsWith('http://') || text.startsWith('https://'))) setUploadedImage(text);
     };
     document.addEventListener('paste', onPaste);
     return () => document.removeEventListener('paste', onPaste);
   }, [isOpen, activeTab]);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const file = e.target.files?.[0]; if (!file) return;
     const reader = new FileReader();
     reader.onload = (ev) => setUploadedImage(ev.target?.result as string);
     reader.readAsDataURL(file);
   };
 
   const handleSelectEmoji = (emoji: string) => {
-    const withTone = applySkinTone(emoji, selectedSkinTone);
-    saveRecent('emoji', withTone);
-    onSelect(withTone);
+    saveRecent('emoji', emoji); onSelect(emoji);
   };
 
   const handleSelectIcon = (iconName: string) => {
     const value = selectedColor ? `lucide:${iconName}:${selectedColor}` : `lucide:${iconName}`;
-    saveRecent('icon', value);
-    onSelect(value);
+    saveRecent('icon', value); onSelect(value);
+  };
+
+  const handleClickIcon = (iconName: string) => {
+    if (selectedColor) { handleSelectIcon(iconName); }
+    else { setPickingColorFor(iconName); }
+  };
+
+  const handlePickIconColor = (color: string | null) => {
+    if (!pickingColorFor) return;
+    const value = color ? `lucide:${pickingColorFor}:${color}` : `lucide:${pickingColorFor}`;
+    saveRecent('icon', value); onSelect(value); setPickingColorFor(null);
   };
 
   const handleRandom = () => {
     if (activeTab === 'emoji') {
-      const emojis = EMOJI_DATA.filter(e => !e.skinTone || selectedSkinTone === 0);
-      const random = emojis[Math.floor(Math.random() * emojis.length)];
-      handleSelectEmoji(random.char);
+      handleSelectEmoji(EMOJI_DATA[Math.floor(Math.random() * EMOJI_DATA.length)].char);
     } else if (activeTab === 'icon') {
       const allIcons = ICON_CATEGORIES.flatMap(c => c.icons);
-      const random = allIcons[Math.floor(Math.random() * allIcons.length)];
-      handleSelectIcon(random);
+      handleClickIcon(allIcons[Math.floor(Math.random() * allIcons.length)]);
     }
   };
 
-  const handleRemove = () => {
-    onSelect(null);
-  };
+  const handleRemove = () => { onSelect(null); };
+  const handleSaveUpload = () => { if (uploadedImage) onSelect(`url:${uploadedImage}`); };
 
-  const handleSaveUpload = () => {
-    if (uploadedImage) {
-      onSelect(`url:${uploadedImage}`);
+  const scrollToCategory = (name: string) => {
+    const el = document.getElementById(`emoji-cat-${name}`);
+    if (el && contentRef.current) {
+      const container = contentRef.current;
+      const top = el.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop - 8;
+      container.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
     }
   };
 
-  // Filtered data
   const filteredEmojis = useMemo(() => {
     if (!search.trim()) return EMOJI_DATA;
     const s = search.toLowerCase();
-    return EMOJI_DATA.filter(e =>
-      e.keywords.some(k => k.includes(s)) ||
-      e.category.toLowerCase().includes(s)
-    );
+    return EMOJI_DATA.filter(e => e.keywords.some(k => k.includes(s)) || e.category.toLowerCase().includes(s));
   }, [search]);
 
   const filteredIcons = useMemo(() => {
-    if (!search.trim()) return ICON_CATEGORIES;
+    const allIcons = ICON_CATEGORIES.flatMap(c => c.icons);
+    if (!search.trim()) return [{ name: '所有图标', icons: allIcons }];
     const s = search.toLowerCase();
-    return ICON_CATEGORIES.map(cat => ({
-      ...cat,
-      icons: cat.icons.filter(name => name.toLowerCase().includes(s)),
-    })).filter(cat => cat.icons.length > 0);
+    const filtered = allIcons.filter(name => name.toLowerCase().includes(s));
+    return filtered.length > 0 ? [{ name: '所有图标', icons: filtered }] : [];
   }, [search]);
 
   const recentEmojis = getRecent('emoji');
   const recentIcons = getRecent('icon');
-
-  const emojiCategories = useMemo(() => {
-    const cats = new Set(filteredEmojis.map(e => e.category));
-    return Array.from(cats);
-  }, [filteredEmojis]);
+  const emojiCategories = useMemo(() => Array.from(new Set(filteredEmojis.map(e => e.category))), [filteredEmojis]);
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[70] flex items-start justify-center pt-[10vh]">
+    <div className="fixed inset-0 z-[100]">
+      {/* 遮罩层 — 阻止点击穿透，点击后关闭 */}
+      <div className="absolute inset-0" onClick={onClose} />
+      {/* Picker 卡片 */}
       <div
         ref={pickerRef}
-        className="bg-[#1e1e1e] rounded-xl w-[420px] max-w-[90vw] shadow-2xl flex flex-col max-h-[80vh]"
+        className="absolute bg-card rounded-lg w-[380px] max-w-[90vw] shadow-2xl border border-border flex flex-col max-h-[380px] overflow-hidden"
+        style={{ top: position.top, left: position.left }}
       >
-        {/* Header tabs */}
-        <div className="flex items-center justify-between px-4 pt-3 pb-0">
-          <div className="flex items-center gap-4">
-            {(['emoji', 'icon', 'upload'] as TabType[]).map(tab => (
-              <button
-                key={tab}
-                onClick={() => { setActiveTab(tab); setSearch(''); setUploadedImage(null); }}
-                className={`pb-2 text-sm font-medium transition-colors relative ${
-                  activeTab === tab ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                {tab === 'emoji' && '表情符号'}
-                {tab === 'icon' && '图标'}
-                {tab === 'upload' && '上传'}
-                {activeTab === tab && (
-                  <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary rounded-full" />
-                )}
+        {/* Header */}
+        <div className="flex items-center justify-between px-4 pt-3 pb-0 shrink-0">
+          <div className="flex items-center gap-5">
+            {(['emoji','icon','upload'] as TabType[]).map(tab => (
+              <button key={tab} onClick={() => { setActiveTab(tab); setSearch(''); setUploadedImage(null); setPickingColorFor(null); }}
+                className={`pb-2 text-[13px] transition-colors relative ${activeTab === tab ? 'text-foreground font-medium' : 'text-muted-foreground hover:text-foreground'}`}>
+                {tab === 'emoji' && '表情符号'}{tab === 'icon' && '图标'}{tab === 'upload' && '上传'}
+                {activeTab === tab && <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-foreground rounded-full" />}
               </button>
             ))}
           </div>
-          <button
-            onClick={handleRemove}
-            className="text-sm text-muted-foreground hover:text-foreground transition-colors pb-2"
-          >
-            移除
-          </button>
+          <button onClick={handleRemove} className="text-[13px] text-muted-foreground hover:text-foreground transition-colors pb-2">移除</button>
         </div>
 
-        {/* Search + tools */}
-        <div className="px-4 py-3 flex items-center gap-2">
+        {/* Search */}
+        {activeTab !== 'upload' && (
+        <div className="px-3 py-2.5 flex items-center gap-1.5 shrink-0">
           <div className="flex-1 relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <input
-              ref={searchInputRef}
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="筛选..."
-              className="w-full h-9 pl-9 pr-3 bg-[#2a2a2a] border border-border rounded-md text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary transition-colors"
-            />
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+            <input ref={searchInputRef} type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="筛选..."
+              className="w-full h-8 pl-8 pr-3 bg-muted rounded-md text-[13px] text-foreground placeholder:text-muted-foreground focus:outline-none focus-visible:outline-none focus:ring-1 focus:ring-primary/50" />
           </div>
-          <button
-            onClick={handleRandom}
-            className="w-9 h-9 flex items-center justify-center rounded-md bg-[#2a2a2a] hover:bg-[#3a3a3a] text-muted-foreground hover:text-foreground transition-colors"
-            title="随机"
-          >
-            <Shuffle className="w-4 h-4" />
+          <button onClick={handleRandom} className="w-8 h-8 flex items-center justify-center rounded-md bg-muted hover:bg-accent text-muted-foreground hover:text-foreground transition-colors" title="随机">
+            <Shuffle className="w-3.5 h-3.5" />
           </button>
           {activeTab === 'icon' && (
             <div className="relative">
-              <button
-                onClick={() => setShowColorPicker(v => !v)}
-                className="w-9 h-9 flex items-center justify-center rounded-md bg-[#2a2a2a] hover:bg-[#3a3a3a] text-muted-foreground hover:text-foreground transition-colors"
-                title="选择颜色"
-              >
-                <div
-                  className="w-4 h-4 rounded-full border border-white/20"
-                  style={{ backgroundColor: selectedColor || '#6b7280' }}
-                />
+              <button onClick={() => { setShowColorPicker(v => !v); }}
+                className="w-8 h-8 flex items-center justify-center rounded-md bg-muted hover:bg-accent text-muted-foreground hover:text-foreground transition-colors" title="选择颜色">
+                <div className="w-3.5 h-3.5 rounded-full border border-border" style={{ backgroundColor: selectedColor || '#6b7280' }} />
               </button>
               {showColorPicker && (
-                <div className="absolute right-0 top-full mt-2 bg-[#2a2a2a] rounded-lg shadow-xl border border-border p-3 z-50 w-[200px]">
-                  <div className="grid grid-cols-6 gap-1.5 mb-3">
+                <div className="absolute right-0 top-full mt-1.5 bg-card rounded-lg shadow-xl border border-border p-2.5 z-50 w-[180px]">
+                  <div className="grid grid-cols-6 gap-1">
                     {COLORS.map(color => (
-                      <button
-                        key={color}
-                        onClick={() => { setSelectedColor(color); setShowColorPicker(false); }}
-                        className={`w-6 h-6 rounded-full transition-transform hover:scale-110 ${
-                          selectedColor === color ? 'ring-2 ring-white ring-offset-1 ring-offset-[#2a2a2a]' : ''
-                        }`}
-                        style={{ backgroundColor: color }}
-                      />
-                    ))}
-                  </div>
-                  <div className="flex items-center justify-between pt-2 border-t border-border">
-                    <span className="text-xs text-muted-foreground">每次询问</span>
-                    <button
-                      onClick={() => setAskEveryTime(v => !v)}
-                      className={`w-10 h-5 rounded-full transition-colors relative ${
-                        askEveryTime ? 'bg-primary' : 'bg-muted'
-                      }`}
-                    >
-                      <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-transform ${
-                        askEveryTime ? 'translate-x-5' : 'translate-x-0.5'
-                      }`} />
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-          {activeTab === 'emoji' && (
-            <div className="relative">
-              <button
-                onClick={() => setShowSkinTonePicker(v => !v)}
-                className="w-9 h-9 flex items-center justify-center rounded-md bg-[#2a2a2a] hover:bg-[#3a3a3a] text-muted-foreground hover:text-foreground transition-colors"
-                title="选择肤色"
-              >
-                <span className="text-base">👋</span>
-              </button>
-              {showSkinTonePicker && (
-                <div className="absolute right-0 top-full mt-2 bg-[#2a2a2a] rounded-lg shadow-xl border border-border p-2 z-50">
-                  <div className="flex gap-1">
-                    {SKIN_TONES.map((tone, i) => (
-                      <button
-                        key={i}
-                        onClick={() => { setSelectedSkinTone(i); setShowSkinTonePicker(false); }}
-                        className={`w-7 h-7 rounded-full transition-transform hover:scale-110 ${
-                          selectedSkinTone === i ? 'ring-2 ring-white ring-offset-1 ring-offset-[#2a2a2a]' : ''
-                        }`}
-                        style={{ backgroundColor: tone.color }}
-                        title={tone.label}
-                      />
+                      <button key={color} onClick={() => { setSelectedColor(color); setShowColorPicker(false); }}
+                        className={`w-6 h-6 rounded-full transition-transform hover:scale-110 ${selectedColor === color ? 'ring-2 ring-foreground ring-offset-1 ring-offset-card' : ''}`}
+                        style={{ backgroundColor: color }} />
                     ))}
                   </div>
                 </div>
               )}
             </div>
           )}
+
         </div>
+        )}
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto px-4 pb-4 min-h-0">
+        <div ref={contentRef} className="flex-1 overflow-y-auto px-3 pb-3 min-h-0">
           {activeTab === 'emoji' && (
             <div>
-              {/* Recent */}
               {recentEmojis.length > 0 && !search && (
-                <div className="mb-4">
-                  <div className="text-xs text-muted-foreground mb-2">最近</div>
-                  <div className="flex flex-wrap gap-1">
+                <div className="mb-3">
+                  <div className="text-[11px] text-muted-foreground mb-1.5 font-medium">最近</div>
+                  <div className="flex flex-wrap gap-0.5">
                     {recentEmojis.map((emoji, i) => (
-                      <button
-                        key={`recent-${i}`}
-                        onClick={() => onSelect(emoji)}
-                        className="w-8 h-8 flex items-center justify-center text-xl hover:bg-[#2a2a2a] rounded-md transition-colors"
-                      >
-                        {emoji}
-                      </button>
+                      <button key={`r-${i}`} onClick={() => onSelect(emoji)} className="w-8 h-8 flex items-center justify-center text-lg hover:bg-accent rounded transition-colors">{emoji}</button>
                     ))}
                   </div>
                 </div>
               )}
-              {/* Categories */}
-              {emojiCategories.map(category => (
-                <div key={category} className="mb-4">
-                  <div className="text-xs text-muted-foreground mb-2">{category}</div>
-                  <div className="flex flex-wrap gap-1">
-                    {filteredEmojis
-                      .filter(e => e.category === category)
-                      .map((item, i) => {
-                        const displayChar = item.skinTone ? applySkinTone(item.char, selectedSkinTone) : item.char;
-                        return (
-                          <button
-                            key={`${category}-${i}`}
-                            onClick={() => handleSelectEmoji(item.char)}
-                            className="w-8 h-8 flex items-center justify-center text-xl hover:bg-[#2a2a2a] rounded-md transition-colors"
-                          >
-                            {displayChar}
-                          </button>
-                        );
-                      })}
+              {emojiCategories.map(cat => (
+                <div key={cat} className="mb-3" id={`emoji-cat-${cat}`}>
+                  <div className="text-[11px] text-muted-foreground mb-1.5 font-medium">{cat}</div>
+                  <div className="flex flex-wrap gap-0.5">
+                    {filteredEmojis.filter(e => e.category === cat).map((item, i) => {
+                      return <button key={`${cat}-${i}`} onClick={() => handleSelectEmoji(item.char)} className="w-8 h-8 flex items-center justify-center text-lg hover:bg-accent rounded transition-colors">{item.char}</button>;
+                    })}
                   </div>
                 </div>
               ))}
@@ -687,50 +565,42 @@ export default function IconPicker({ isOpen, onClose, onSelect, currentIcon }: I
 
           {activeTab === 'icon' && (
             <div>
-              {/* Recent */}
-              {recentIcons.length > 0 && !search && (
-                <div className="mb-4">
-                  <div className="text-xs text-muted-foreground mb-2">最近</div>
-                  <div className="flex flex-wrap gap-1">
+              {pickingColorFor && (
+                <div className="mb-3 pb-3 border-b border-border">
+                  <div className="text-[11px] text-muted-foreground mb-1.5 font-medium">选择颜色</div>
+                  <div className="flex flex-wrap gap-0.5">
+                    {(() => { const IconComp = ICON_MAP[pickingColorFor]; if (!IconComp) return null;
+                      return (<>
+                        <button onClick={() => handlePickIconColor(null)} className="w-8 h-8 flex items-center justify-center hover:bg-accent rounded transition-colors" title="默认"><IconComp className="w-5 h-5 text-muted-foreground" /></button>
+                        {COLORS.map(color => <button key={color} onClick={() => handlePickIconColor(color)} className="w-8 h-8 flex items-center justify-center hover:bg-accent rounded transition-colors"><IconComp className="w-5 h-5" style={{ color }} /></button>)}
+                      </>);
+                    })()}
+                  </div>
+                  <div className="flex items-center justify-between mt-2">
+                    <span className="text-[11px] text-muted-foreground">每次询问</span>
+                    <button onClick={() => setAskEveryTime(v => !v)} className={`w-9 h-4.5 rounded-full transition-colors relative ${askEveryTime ? 'bg-primary' : 'bg-muted'}`}>
+                      <span className={`absolute top-0.5 w-3.5 h-3.5 bg-primary-foreground rounded-full transition-transform ${askEveryTime ? 'translate-x-[18px]' : 'translate-x-0.5'}`} />
+                    </button>
+                  </div>
+                </div>
+              )}
+              {!pickingColorFor && recentIcons.length > 0 && !search && (
+                <div className="mb-3">
+                  <div className="text-[11px] text-muted-foreground mb-1.5 font-medium">最近</div>
+                  <div className="flex flex-wrap gap-0.5">
                     {recentIcons.map((iconVal, i) => {
-                      const parsed = parseIcon(iconVal);
-                      const IconComp = parsed.type === 'lucide' ? ICON_MAP[parsed.value] : null;
-                      return IconComp ? (
-                        <button
-                          key={`recent-${i}`}
-                          onClick={() => onSelect(iconVal)}
-                          className="w-8 h-8 flex items-center justify-center hover:bg-[#2a2a2a] rounded-md transition-colors"
-                        >
-                          <IconComp
-                            className="w-5 h-5"
-                            style={{ color: parsed.color || 'currentColor' }}
-                          />
-                        </button>
-                      ) : null;
+                      const parsed = parseIcon(iconVal); const IconComp = parsed.type === 'lucide' ? ICON_MAP[parsed.value] : null;
+                      return IconComp ? <button key={`r-${i}`} onClick={() => onSelect(iconVal)} className="w-8 h-8 flex items-center justify-center hover:bg-accent rounded transition-colors"><IconComp className="w-5 h-5" style={{ color: parsed.color || 'currentColor' }} /></button> : null;
                     })}
                   </div>
                 </div>
               )}
-              {/* Categories */}
-              {filteredIcons.map(category => (
-                <div key={category.name} className="mb-4">
-                  <div className="text-xs text-muted-foreground mb-2">{category.name}</div>
-                  <div className="flex flex-wrap gap-1">
-                    {category.icons.map((iconName, i) => {
-                      const IconComp = ICON_MAP[iconName];
-                      if (!IconComp) return null;
-                      return (
-                        <button
-                          key={`${category.name}-${i}`}
-                          onClick={() => handleSelectIcon(iconName)}
-                          className="w-8 h-8 flex items-center justify-center hover:bg-[#2a2a2a] rounded-md transition-colors"
-                        >
-                          <IconComp
-                            className="w-5 h-5"
-                            style={{ color: selectedColor || 'currentColor' }}
-                          />
-                        </button>
-                      );
+              {filteredIcons.map(cat => (
+                <div key={cat.name} className="mb-3">
+                  <div className="text-[11px] text-muted-foreground mb-1.5 font-medium">{cat.name}</div>
+                  <div className="flex flex-wrap gap-0.5">
+                    {cat.icons.map((iconName, i) => { const IconComp = ICON_MAP[iconName]; if (!IconComp) return null;
+                      return <button key={`${cat.name}-${i}`} onClick={() => handleClickIcon(iconName)} className="w-8 h-8 flex items-center justify-center hover:bg-accent rounded transition-colors"><IconComp className="w-5 h-5" style={{ color: selectedColor || 'hsl(var(--muted-foreground))' }} /></button>;
                     })}
                   </div>
                 </div>
@@ -739,101 +609,42 @@ export default function IconPicker({ isOpen, onClose, onSelect, currentIcon }: I
           )}
 
           {activeTab === 'upload' && (
-            <div className="flex flex-col gap-4">
-              <div
-                onClick={() => fileInputRef.current?.click()}
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  const file = e.dataTransfer.files?.[0];
-                  if (file && file.type.startsWith('image/')) {
-                    const reader = new FileReader();
-                    reader.onload = (ev) => setUploadedImage(ev.target?.result as string);
-                    reader.readAsDataURL(file);
-                  }
-                }}
-                className="border-2 border-dashed border-border rounded-lg p-8 flex flex-col items-center justify-center gap-3 cursor-pointer hover:border-primary/50 transition-colors"
-              >
-                {uploadedImage ? (
-                  <img src={uploadedImage} alt="预览" className="max-h-32 max-w-full rounded-md object-contain" />
-                ) : (
-                  <>
-                    <ImageIcon className="w-8 h-8 text-muted-foreground" />
-                    <span className="text-sm text-muted-foreground">上传图片</span>
-                  </>
-                )}
+            <div className="flex flex-col gap-3">
+              <div onClick={() => fileInputRef.current?.click()} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); const file = e.dataTransfer.files?.[0]; if (file && file.type.startsWith('image/')) { const r = new FileReader(); r.onload = (ev) => setUploadedImage(ev.target?.result as string); r.readAsDataURL(file); }}}
+                className="border border-dashed border-border rounded-md p-6 flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-primary/40 transition-colors">
+                {uploadedImage ? <img src={uploadedImage} alt="预览" className="max-h-28 max-w-full rounded object-contain" /> : <><ImageIcon className="w-6 h-6 text-muted-foreground" /><span className="text-[13px] text-muted-foreground">上传图片</span></>}
               </div>
-              <p className="text-xs text-muted-foreground text-center">
-                或 Ctrl+V 粘贴图片或链接
-              </p>
+              <p className="text-[11px] text-muted-foreground text-center">或 Ctrl+V 粘贴图片或链接</p>
               {uploadedImage && (
-                <div className="flex items-center justify-end gap-2 mt-2">
-                  <button
-                    onClick={() => setUploadedImage(null)}
-                    className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    取消
-                  </button>
-                  <button
-                    onClick={handleSaveUpload}
-                    className="px-3 py-1.5 text-sm bg-primary text-primary-foreground rounded-md hover:opacity-90 transition-opacity"
-                  >
-                    保存
-                  </button>
+                <div className="flex items-center justify-end gap-2">
+                  <button onClick={() => setUploadedImage(null)} className="px-3 py-1 text-[13px] text-muted-foreground hover:text-foreground transition-colors">取消</button>
+                  <button onClick={handleSaveUpload} className="px-3 py-1 text-[13px] bg-primary text-primary-foreground rounded hover:opacity-90 transition-colors">保存</button>
                 </div>
               )}
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={handleFileUpload}
-              />
+              <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileUpload} />
             </div>
           )}
         </div>
+
+        {/* Bottom nav */}
+        {activeTab === 'emoji' && !search && (
+          <div className="shrink-0 border-t border-border px-2 py-1.5 grid grid-cols-8 place-items-center">
+            {EMOJI_CAT_NAV.map(cat => {
+              const NavIcon = cat.icon;
+              return <button key={cat.name} onClick={() => scrollToCategory(cat.name)} className="w-7 h-7 flex items-center justify-center rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors" title={cat.name}><NavIcon className="w-3.5 h-3.5" /></button>;
+            })}
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
 /* ==================== SHARED RENDERER ==================== */
-
 export function PageIcon({ icon, size = 20, className = '' }: { icon: string | null | undefined; size?: number; className?: string }) {
   const parsed = parseIcon(icon);
-
-  if (parsed.type === 'emoji') {
-    return (
-      <span
-        className={`flex items-center justify-center leading-none ${className}`}
-        style={{ fontSize: size, width: size, height: size }}
-      >
-        {parsed.value}
-      </span>
-    );
-  }
-
-  if (parsed.type === 'lucide') {
-    const IconComp = ICON_MAP[parsed.value];
-    if (!IconComp) return null;
-    return (
-      <IconComp
-        className={`flex-shrink-0 ${className}`}
-        style={{ width: size, height: size, color: parsed.color || 'currentColor' }}
-      />
-    );
-  }
-
-  if (parsed.type === 'url') {
-    return (
-      <img
-        src={parsed.value}
-        alt=""
-        className={`flex-shrink-0 object-contain rounded ${className}`}
-        style={{ width: size, height: size }}
-      />
-    );
-  }
-
+  if (parsed.type === 'emoji') return <span className={`flex items-center justify-center leading-none ${className}`} style={{ fontSize: size, width: size, height: size }}>{parsed.value}</span>;
+  if (parsed.type === 'lucide') { const IconComp = ICON_MAP[parsed.value]; if (!IconComp) return null; return <IconComp className={`flex-shrink-0 ${className}`} style={{ width: size, height: size, color: parsed.color || 'currentColor' }} />; }
+  if (parsed.type === 'url') return <img src={parsed.value} alt="" className={`flex-shrink-0 object-contain rounded ${className}`} style={{ width: size, height: size }} />;
   return null;
 }
