@@ -15,6 +15,7 @@ import {
 import type { PageData } from './App';
 import { withMarkdownShortcuts } from './withMarkdownShortcuts';
 import BlockElement, { type BlockElementType } from './BlockElement';
+import { Smile, Image, MessageSquare, MoveVertical } from 'lucide-react';
 
 const COVER_VH = 30;
 const TOP_MARGIN_PX = 60;
@@ -39,6 +40,11 @@ export default function Editor({
       ? Math.round(window.innerHeight * (COVER_VH / 100)) + TOP_MARGIN_PX + 60
       : NO_COVER_PX
   );
+
+  // 封面位置调整（object-position 的 y 百分比）
+  const [coverPosY, setCoverPosY] = useState(50);
+  const [isRepositioning, setIsRepositioning] = useState(false);
+  const coverRef = useRef<HTMLDivElement | null>(null);
 
   const recomputeOffsets = useCallback(() => {
     const px = page.cover
@@ -72,7 +78,36 @@ export default function Editor({
     const url = await uploadCover(page.id, file);
     if (url) {
       updatePage(page.id, { cover: url });
+      setCoverPosY(50);
     }
+  };
+
+  // 封面位置调整拖动
+  const handleRepositionMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsRepositioning(true);
+    const startY = e.clientY;
+    const startPos = coverPosY;
+
+    const onMouseMove = (ev: MouseEvent) => {
+      if (!coverRef.current) return;
+      const rect = coverRef.current.getBoundingClientRect();
+      const deltaY = ev.clientY - startY;
+      const deltaPercent = (deltaY / rect.height) * 100;
+      const newPos = Math.max(0, Math.min(100, startPos + deltaPercent));
+      setCoverPosY(newPos);
+    };
+
+    const onMouseUp = () => {
+      setIsRepositioning(false);
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+      document.body.style.cursor = '';
+    };
+
+    document.body.style.cursor = 'ns-resize';
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
   };
 
   // —— 框选逻辑 ——
@@ -133,6 +168,9 @@ export default function Editor({
     };
   }, [dragSelecting, editor]);
 
+  // 隐藏的文件输入
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
   return (
     <div
       ref={containerRef}
@@ -151,29 +189,70 @@ export default function Editor({
         />
       )}
 
-      {/* 封面 */}
-      <div className="absolute left-0 right-0 overflow-hidden transition-[height] duration-300" style={{ height: `${coverPx}px` }}>
-        {page.cover ? (
-          <img src={page.cover} alt="封面" className="w-full h-full object-cover" loading="lazy" />
-        ) : (
-          <div className="w-full h-full group relative">
-            <label className="opacity-0 group-hover:opacity-100 transition-opacity absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-secondary text-secondary-foreground px-4 py-2 rounded-lg cursor-pointer hover:bg-accent">
-              添加封面
-              <input
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={handleCoverUpload}
-              />
-            </label>
+      {/* 封面区域（独立 hover） */}
+      {page.cover && (
+        <div
+          ref={coverRef}
+          className="absolute left-0 right-0 overflow-hidden transition-[height] duration-300 select-none group/cover"
+          style={{ height: `${coverPx}px`, cursor: isRepositioning ? 'ns-resize' : 'default' }}
+          onMouseDown={isRepositioning ? handleRepositionMouseDown : undefined}
+        >
+          <img
+            src={page.cover}
+            alt="封面"
+            className="w-full h-full object-cover pointer-events-none"
+            style={{ objectPosition: `50% ${coverPosY}%` }}
+            loading="lazy"
+            draggable={false}
+          />
+          {/* 封面右上角操作按钮 */}
+          <div className="absolute top-4 right-4 flex items-center gap-2 opacity-0 group-hover/cover:opacity-100 transition-opacity">
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="px-3 py-1.5 text-sm bg-card/80 backdrop-blur-sm text-card-foreground rounded-md hover:bg-card border border-border transition-colors"
+            >
+              更换封面
+            </button>
+            <button
+              onClick={handleRepositionMouseDown}
+              className={`px-3 py-1.5 text-sm backdrop-blur-sm rounded-md border border-border transition-colors flex items-center gap-1.5 ${
+                isRepositioning
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-card/80 text-card-foreground hover:bg-card'
+              }`}
+            >
+              <MoveVertical className="w-3.5 h-3.5" />
+              调整位置
+            </button>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       <div className="transition-[height] duration-300" style={{ height: `${textTopOffset}px` }} />
 
       {/* 文本区 */}
-      <div className="max-w-3xl mx-auto px-[30px]">
+      <div className="max-w-3xl mx-auto px-[30px] group/header">
+        {/* 标题上方操作栏 */}
+        <div className="flex items-center gap-3 mb-2 -mt-2">
+          <button className="flex items-center gap-1.5 text-sm text-muted-foreground opacity-0 group-hover/header:opacity-100 transition-opacity hover:text-foreground">
+            <Smile className="w-4 h-4" />
+            添加图标
+          </button>
+          {!page.cover && (
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="flex items-center gap-1.5 text-sm text-muted-foreground opacity-0 group-hover/header:opacity-100 transition-opacity hover:text-foreground"
+            >
+              <Image className="w-4 h-4" />
+              添加封面
+            </button>
+          )}
+          <button className="flex items-center gap-1.5 text-sm text-muted-foreground opacity-0 group-hover/header:opacity-100 transition-opacity hover:text-foreground">
+            <MessageSquare className="w-4 h-4" />
+            添加评论
+          </button>
+        </div>
+
         <input
           value={page.title}
           onChange={(e) => updatePage(page.id, { title: e.target.value })}
@@ -194,6 +273,15 @@ export default function Editor({
           />
         </Slate>
       </div>
+
+      {/* 隐藏的文件输入 */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handleCoverUpload}
+      />
     </div>
   );
 }
