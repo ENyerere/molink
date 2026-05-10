@@ -16,6 +16,7 @@ import type { PageData } from './App';
 import { withMarkdownShortcuts } from './withMarkdownShortcuts';
 import BlockElement, { type BlockElementType } from './BlockElement';
 import { Smile, Image, MessageSquare, MoveVertical } from 'lucide-react';
+import IconPicker, { PageIcon } from './components/IconPicker';
 
 const COVER_VH = 30;
 const TOP_MARGIN_PX = 60;
@@ -200,6 +201,7 @@ export default function Editor({
 
   // 隐藏的文件输入
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [showIconPicker, setShowIconPicker] = useState(false);
 
   return (
     <div
@@ -287,12 +289,24 @@ export default function Editor({
 
       {/* 文本区 */}
       <div className="max-w-3xl mx-auto px-[30px] group/header">
-        {/* 标题上方操作栏 */}
+        {/* 图标 / 标题上方操作栏 */}
         <div className="flex items-center gap-3 mb-2 -mt-2">
-          <button className="flex items-center gap-1.5 text-sm text-muted-foreground opacity-0 group-hover/header:opacity-100 transition-opacity hover:text-foreground">
-            <Smile className="w-4 h-4" />
-            添加图标
-          </button>
+          {page.icon ? (
+            <button
+              onClick={() => setShowIconPicker(true)}
+              className="flex items-center justify-center transition-opacity hover:opacity-80"
+            >
+              <PageIcon icon={page.icon} size={72} />
+            </button>
+          ) : (
+            <button
+              onClick={() => setShowIconPicker(true)}
+              className="flex items-center gap-1.5 text-sm text-muted-foreground opacity-0 group-hover/header:opacity-100 transition-opacity hover:text-foreground"
+            >
+              <Smile className="w-4 h-4" />
+              添加图标
+            </button>
+          )}
           {!page.cover && (
             <button
               onClick={() => fileInputRef.current?.click()}
@@ -337,6 +351,19 @@ export default function Editor({
         className="hidden"
         onChange={handleCoverUpload}
       />
+
+      {/* 图标选择器 */}
+      {showIconPicker && (
+        <IconPicker
+          isOpen={showIconPicker}
+          onClose={() => setShowIconPicker(false)}
+          onSelect={(icon) => {
+            updatePage(page.id, { icon: icon || undefined });
+            setShowIconPicker(false);
+          }}
+          currentIcon={page.icon}
+        />
+      )}
     </div>
   );
 }

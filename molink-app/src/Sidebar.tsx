@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { PageData, User } from './App';
 import { Search, Home, Briefcase, Inbox, Database, ChevronDown, Plus, Star, FileText } from 'lucide-react';
+import { PageIcon } from './components/IconPicker';
 import UserMenu from './components/UserMenu';
 import SettingsModal from './components/SettingsModal';
 
@@ -110,7 +111,11 @@ export default function Sidebar({
                   : 'text-secondary-foreground hover:bg-accent'
               }`}
             >
-              <FileText className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+              {page.icon ? (
+                <PageIcon icon={page.icon} size={16} className="flex-shrink-0" />
+              ) : (
+                <FileText className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+              )}
               <span className="truncate">{page.title || '未命名页面'}</span>
             </button>
           ))}
@@ -132,7 +137,11 @@ export default function Sidebar({
                 : 'text-secondary-foreground hover:bg-accent'
             }`}
           >
-            <FileText className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+            {page.icon ? (
+              <PageIcon icon={page.icon} size={16} className="flex-shrink-0" />
+            ) : (
+              <FileText className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+            )}
             <span className="truncate">{page.title || '未命名页面'}</span>
           </button>
         ))}

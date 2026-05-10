@@ -8,6 +8,7 @@ import { ChevronLeft, ChevronRight, Share2, Star, MoreHorizontal, Lock } from 'l
 import { useAuth } from './context/AuthContext';
 import { workspacesApi, pagesApi, blocksApi, filesApi } from './api';
 import type { Workspace, BackendBlock } from './api';
+import { PageIcon } from './components/IconPicker';
 
 export interface PageData {
   id: string;
@@ -15,6 +16,7 @@ export interface PageData {
   content: Descendant[];
   cover?: string;
   coverPosition?: number;
+  icon?: string;
 }
 
 // Slate content ↔ Backend Block 转换
@@ -122,6 +124,7 @@ export default function App() {
           content,
           cover: bp.cover_image || undefined,
           coverPosition: coverPositions[bp.id],
+          icon: bp.icon || undefined,
         });
       }
 
@@ -211,6 +214,7 @@ export default function App() {
           title: bp.title,
           content: emptyContent,
           cover: bp.cover_image || undefined,
+          icon: bp.icon || undefined,
         };
         setPages(prev => [...prev, newPage]);
         if (activePageId) setBackStack(prev => [...prev, activePageId]);
@@ -302,11 +306,12 @@ export default function App() {
       if (!page) return;
 
       // 更新页面基本信息
-      if (newData.title !== undefined || newData.cover !== undefined || newData.coverPosition !== undefined) {
+      if (newData.title !== undefined || newData.cover !== undefined || newData.coverPosition !== undefined || newData.icon !== undefined) {
         await pagesApi.update(id, {
           title: newData.title,
           cover_image: newData.cover,
           cover_position: newData.coverPosition,
+          icon: newData.icon,
         });
       }
 
@@ -387,6 +392,7 @@ export default function App() {
           title: p.title,
           page_type: 'page',
           cover_image: p.cover,
+          icon: p.icon,
         });
         await blocksApi.create({
           page_id: bp.id,
@@ -465,6 +471,9 @@ export default function App() {
             </button>
             {activePage && (
               <div className="flex items-center gap-2 ml-2">
+                {activePage.icon && (
+                  <PageIcon icon={activePage.icon} size={16} />
+                )}
                 <span className="text-sm font-medium text-foreground truncate max-w-[200px]">
                   {activePage.title || '无标题'}
                 </span>
