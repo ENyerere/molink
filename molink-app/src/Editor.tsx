@@ -153,8 +153,12 @@ export default function Editor({
                 input.onchange = (e: any) => {
                   const file = e.target.files?.[0];
                   if (file) {
-                    const url = URL.createObjectURL(file);
-                    updatePage(page.id, { cover: url });
+                    const reader = new FileReader();
+                    reader.onload = (ev) => {
+                      const base64 = ev.target?.result as string;
+                      updatePage(page.id, { cover: base64 });
+                    };
+                    reader.readAsDataURL(file);
                   }
                 };
                 input.click();
