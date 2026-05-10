@@ -1,11 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import Sidebar from './Sidebar';
 import Editor from './Editor';
 import Login from './components/auth/Login';
 import { v4 as uuidv4 } from 'uuid';
 import type { Descendant, Element } from 'slate';
-import { Globe } from "./components/magicui/globe";
-import { AnimatedThemeToggler } from "./components/magicui/animated-theme-toggler";
+import { ChevronLeft, ChevronRight, Share2, Star, MoreHorizontal, Lock } from 'lucide-react';
 
 export interface PageData {
   id: string;
@@ -21,6 +20,22 @@ export interface User {
   avatar?: string;
 }
 
+// ==========================================
+// 开发配置：控制登录弹窗频率
+// ==========================================
+const DEV_ALWAYS_SHOW_LOGIN = true;
+
+function shouldShowLoginPrompt(): boolean {
+  if (DEV_ALWAYS_SHOW_LOGIN) return true;
+  const lastPrompt = localStorage.getItem('molink:lastLoginPrompt');
+  const today = new Date().toDateString();
+  return lastPrompt !== today;
+}
+
+function markLoginPromptShown(): void {
+  localStorage.setItem('molink:lastLoginPrompt', new Date().toDateString());
+}
+
 export default function App() {
   const [pages, setPages] = useState<PageData[]>([]);
   const [activePageId, setActivePageId] = useState<string | null>(null);
@@ -28,20 +43,12 @@ export default function App() {
   const [showLogin, setShowLogin] = useState(false);
   const [backStack, setBackStack] = useState<string[]>([]);
   const [forwardStack, setForwardStack] = useState<string[]>([]);
-  const tabRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
-  // 监听激活页变化自动滚动标签
-  useEffect(() => {
-    if (activePageId && tabRefs.current[activePageId]) {
-      tabRefs.current[activePageId]?.scrollIntoView({
-        behavior: 'smooth',
-        inline: 'center',
-        block: 'nearest'
-      });
-    }
-  }, [activePageId]);
+  // 页面迁移确认对话框状态
+  const [showMigrationDialog, setShowMigrationDialog] = useState(false);
+  const [guestPageCount, setGuestPageCount] = useState(0);
 
-  // 初始化加载数据，如果没有页面则自动创建
+  // 初始化：加载数据 + 未登录弹窗
   useEffect(() => {
     const saved = localStorage.getItem('molink-pages');
     if (saved) {
@@ -55,13 +62,19 @@ export default function App() {
     } else {
       addPage();
     }
+
+    if (!user && shouldShowLoginPrompt()) {
+      setShowLogin(true);
+      markLoginPromptShown();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // 数据持久化
   useEffect(() => {
     const timeout = setTimeout(() => {
       localStorage.setItem('molink-pages', JSON.stringify(pages));
-    }, 300); // 延迟 300ms 保存
+    }, 300);
     return () => clearTimeout(timeout);
   }, [pages]);
 
@@ -72,7 +85,6 @@ export default function App() {
     return () => window.removeEventListener('molink:login', handleLogin);
   }, []);
 
-  // 新建页面（带历史记录）
   const addPage = () => {
     const id = uuidv4();
     const newPage: PageData = {
@@ -88,7 +100,6 @@ export default function App() {
     setActivePageId(id);
   };
 
-  // 点击标签时激活页面（带历史记录）
   const activatePage = (id: string) => {
     if (id === activePageId) return;
     if (activePageId) setBackStack(prev => [...prev, activePageId]);
@@ -96,7 +107,6 @@ export default function App() {
     setActivePageId(id);
   };
 
-  // 关闭页面
   const closePage = (id: string) => {
     setPages(prev => {
       const newPages = prev.filter(p => p.id !== id);
@@ -107,12 +117,10 @@ export default function App() {
       }
       return newPages;
     });
-
     setBackStack(prev => prev.filter(pid => pid !== id));
     setForwardStack(prev => prev.filter(pid => pid !== id));
   };
 
-  // 后退
   const goBack = () => {
     setBackStack(prev => {
       if (prev.length === 0) return prev;
@@ -124,7 +132,6 @@ export default function App() {
     });
   };
 
-  // 前进
   const goForward = () => {
     setForwardStack(prev => {
       if (prev.length === 0) return prev;
@@ -139,97 +146,158 @@ export default function App() {
   const canGoBack = backStack.length > 0;
   const canGoForward = forwardStack.length > 0;
 
-  // 更新页面
   const updatePage = (id: string, newData: Partial<PageData>) => {
     setPages(prev => prev.map(p => p.id === id ? { ...p, ...newData } : p));
   };
 
+  const activePage = pages.find(p => p.id === activePageId);
+
   return (
-    <div className="flex h-screen">
-      {/* 主界面始终渲染，避免白屏 */}
+    <div className="flex h-screen bg-white dark:bg-gray-900">
       <Sidebar
         pages={pages}
         activePageId={activePageId}
         setActivePageId={setActivePageId}
         addPage={addPage}
         user={user}
+        onShowLogin={() => setShowLogin(true)}
       />
 
       {/* 登录弹窗 */}
       {!user && showLogin && (
-        <Login onClose={() => setShowLogin(false)} onLogin={setUser} />
+        <Login
+          onClose={() => setShowLogin(false)}
+          onLogin={(loggedInUser: User) => {
+            setUser(loggedInUser);
+            setShowLogin(false);
+            const saved = localStorage.getItem('molink-pages');
+            if (saved) {
+              const parsed: PageData[] = JSON.parse(saved);
+              const meaningfulPages = parsed.filter(p => {
+                const hasTitle = p.title && p.title.trim().length > 0;
+                const hasContent = p.content.length > 1 || (p.content[0] as Element)?.children?.[0]?.text !== '';
+                return hasTitle || hasContent;
+              });
+              if (meaningfulPages.length > 0) {
+                setGuestPageCount(meaningfulPages.length);
+                setShowMigrationDialog(true);
+              }
+            }
+          }}
+        />
       )}
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* 标签栏 */}
-        <div className="flex items-center bg-gray-100 border-b px-2 h-10 gap-1">
-          <button
-            onClick={goBack}
-            disabled={!canGoBack}
-            className={`px-2 py-1 rounded ${!canGoBack ? 'opacity-40 cursor-not-allowed' : 'hover:bg-gray-200'}`}
-            title="后退"
-          >
-            ←
-          </button>
-          <button
-            onClick={goForward}
-            disabled={!canGoForward}
-            className={`px-2 py-1 rounded ${!canGoForward ? 'opacity-40 cursor-not-allowed' : 'hover:bg-gray-200'}`}
-            title="前进"
-          >
-            →
-          </button>
+        {/* ===== 顶部标题栏（仿 Notion） ===== */}
+        <div className="h-11 flex items-center justify-between px-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 flex-shrink-0">
+          {/* 左侧：前进后退 + 面包屑 */}
+          <div className="flex items-center gap-1">
+            <button
+              onClick={goBack}
+              disabled={!canGoBack}
+              className={`p-1 rounded-md transition-colors ${!canGoBack ? 'opacity-30 cursor-not-allowed' : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400'}`}
+              title="后退"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <button
+              onClick={goForward}
+              disabled={!canGoForward}
+              className={`p-1 rounded-md transition-colors ${!canGoForward ? 'opacity-30 cursor-not-allowed' : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400'}`}
+              title="前进"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
 
-          {/* 标签区 */}
-          <div className="flex-1 overflow-x-auto">
-            <div className="flex items-center gap-1">
-              {pages.map(p => (
-                <div
-                  key={p.id}
-                  ref={el => { tabRefs.current[p.id] = el; }}
-                  className={`flex items-center px-3 py-1 whitespace-nowrap rounded-t-md border group
-                  ${p.id === activePageId
-                      ? 'bg-white font-semibold border-gray-300'
-                      : 'bg-gray-200 hover:bg-gray-300 border-transparent'}`}
-                >
-                  <span
-                    onClick={() => activatePage(p.id)}
-                    className="cursor-pointer"
-                  >
-                    {p.title || '无标题'}
-                  </span>
-                  <button
-                    onClick={() => closePage(p.id)}
-                    className="ml-2 text-gray-500 hover:text-red-500 opacity-0 group-hover:opacity-100"
-                    title="关闭"
-                  >
-                    ×
-                  </button>
-                </div>
-              ))}
+            {/* 页面标题面包屑 */}
+            {activePage && (
+              <div className="flex items-center gap-2 ml-2">
+                <span className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate max-w-[200px]">
+                  {activePage.title || '无标题'}
+                </span>
+                <span className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+                  <Lock className="w-3 h-3" />
+                  私人
+                </span>
+              </div>
+            )}
+          </div>
 
-              {/* 新建按钮 */}
-              <button
-                onClick={addPage}
-                className="ml-1 px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 whitespace-nowrap"
-                title="新建页面"
-              >
-                +
-              </button>
-            </div>
+          {/* 右侧：功能按钮 */}
+          <div className="flex items-center gap-1">
+            <button className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md transition-colors">
+              <Share2 className="w-4 h-4" />
+              <span>分享</span>
+            </button>
+            <button className="p-1.5 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md transition-colors">
+              <Star className="w-4 h-4" />
+            </button>
+            <button className="p-1.5 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md transition-colors">
+              <MoreHorizontal className="w-4 h-4" />
+            </button>
           </div>
         </div>
 
         {/* 编辑区 */}
         <div className="flex-1 overflow-auto">
-          {activePageId && (
+          {activePageId && activePage && (
             <Editor
-              page={pages.find(p => p.id === activePageId)!}
+              page={activePage}
               updatePage={updatePage}
             />
           )}
         </div>
       </div>
+
+      {/* 页面迁移确认对话框 */}
+      {showMigrationDialog && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[60]">
+          <div className="bg-white dark:bg-gray-900 rounded-xl w-full max-w-[420px] shadow-2xl p-8">
+            <div className="flex items-center justify-center mb-4">
+              <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" />
+                </svg>
+              </div>
+            </div>
+
+            <h3 className="text-xl font-semibold text-gray-900 dark:text-white text-center mb-2">
+              保留未登录时的页面？
+            </h3>
+
+            <p className="text-gray-500 dark:text-gray-400 text-[15px] text-center mb-6 leading-relaxed">
+              你在未登录状态下创建了 <span className="font-semibold text-gray-900 dark:text-white">{guestPageCount}</span> 个页面，
+              是否将它们保留到你的个人空间中？
+            </p>
+
+            <div className="space-y-3">
+              <button
+                onClick={() => {
+                  setShowMigrationDialog(false);
+                  setGuestPageCount(0);
+                }}
+                className="w-full h-11 bg-gray-900 dark:bg-gray-700 text-white text-[15px] font-medium rounded-lg hover:bg-gray-800 dark:hover:bg-gray-600 transition-colors"
+              >
+                保留页面
+              </button>
+
+              <button
+                onClick={() => {
+                  localStorage.removeItem('molink-pages');
+                  setPages([]);
+                  setActivePageId(null);
+                  setShowMigrationDialog(false);
+                  setGuestPageCount(0);
+                  setTimeout(() => addPage(), 0);
+                }}
+                className="w-full h-11 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 text-[15px] font-medium rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+              >
+                不保留，重新开始
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -174,7 +174,7 @@ export default function Editor({
         <input
           value={page.title}
           onChange={(e) => updatePage(page.id, { title: e.target.value })}
-          className="text-4xl font-bold mb-[50px] w-full outline-none select-none placeholder:select-none"
+          className="text-4xl font-bold mb-[50px] w-full outline-none select-none placeholder:select-none bg-transparent text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500"
           placeholder="无标题"
         />
 
@@ -187,7 +187,7 @@ export default function Editor({
           <Editable
             renderElement={(props) => <BlockElement {...props} />}
             placeholder="输入内容..."
-            className="prose max-w-none outline-none border-none focus:outline-none"
+            className="prose dark:prose-invert max-w-none outline-none border-none focus:outline-none"
           />
         </Slate>
       </div>
