@@ -134,7 +134,7 @@ export default function Editor({
     >
       {selectionRect && (
         <div
-          className="absolute border border-blue-400 bg-blue-200/30 pointer-events-none z-50"
+          className="absolute border border-primary/50 bg-primary/20 pointer-events-none z-50"
           style={selectionRect}
         />
       )}
@@ -159,7 +159,7 @@ export default function Editor({
                 };
                 input.click();
               }}
-              className="opacity-0 group-hover:opacity-100 transition-opacity absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-gray-800 text-white px-4 py-2 rounded"
+              className="opacity-0 group-hover:opacity-100 transition-opacity absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-secondary text-secondary-foreground px-4 py-2 rounded-lg"
             >
               添加封面
             </button>
@@ -174,7 +174,7 @@ export default function Editor({
         <input
           value={page.title}
           onChange={(e) => updatePage(page.id, { title: e.target.value })}
-          className="text-4xl font-bold mb-[50px] w-full outline-none select-none placeholder:select-none bg-transparent text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500"
+          className="text-4xl font-bold mb-[50px] w-full outline-none select-none placeholder:select-none bg-transparent text-foreground placeholder:text-muted-foreground"
           placeholder="无标题"
         />
 
