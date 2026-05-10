@@ -62,8 +62,10 @@ export default function Editor({
       ? Math.round(window.innerHeight * (COVER_VH / 100))
       : NO_COVER_PX;
     setCoverPx(px);
-    setTextTopOffset(px + (page.cover ? TOP_MARGIN_PX : 0));
-  }, [page.cover]);
+    // 有封面时：有图标需要 60px margin，无图标只需要 20px margin
+    const extraMargin = page.cover ? (page.icon ? TOP_MARGIN_PX : 20) : 0;
+    setTextTopOffset(px + extraMargin);
+  }, [page.cover, page.icon]);
 
   useEffect(() => {
     recomputeOffsets();
@@ -202,6 +204,8 @@ export default function Editor({
   // 隐藏的文件输入
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [showIconPicker, setShowIconPicker] = useState(false);
+  const iconTriggerRef = useRef<HTMLButtonElement>(null);
+  const addIconTriggerRef = useRef<HTMLButtonElement>(null);
 
   return (
     <div
@@ -225,7 +229,7 @@ export default function Editor({
       {page.cover && (
         <div
           ref={coverRef}
-          className="absolute left-0 right-0 overflow-hidden transition-[height] duration-300 select-none group/cover"
+          className="absolute left-0 right-0 overflow-hidden transition-[height] duration-300 select-none group/cover z-0"
           style={{ height: `${coverPx}px`, cursor: isRepositioning ? 'ns-resize' : 'default' }}
           onMouseDown={handleCoverDrag}
         >
@@ -289,17 +293,24 @@ export default function Editor({
 
       {/* 文本区 */}
       <div className="max-w-3xl mx-auto px-[30px] group/header">
-        {/* 图标 / 标题上方操作栏 */}
-        <div className="flex items-center gap-3 mb-2 -mt-2">
-          {page.icon ? (
+        {/* 图标区域：有封面时重叠到封面底部，无封面时在空白区 */}
+        {page.icon && (
+          <div className="relative z-10" style={{ marginTop: page.cover ? -(TOP_MARGIN_PX + 39) : -39 }}>
             <button
+              ref={iconTriggerRef}
               onClick={() => setShowIconPicker(true)}
-              className="flex items-center justify-center transition-opacity hover:opacity-80"
+              className="block transition-opacity hover:opacity-80"
             >
-              <PageIcon icon={page.icon} size={72} />
+              <PageIcon icon={page.icon} size={78} />
             </button>
-          ) : (
+          </div>
+        )}
+
+        {/* 标题上方操作栏 */}
+        <div className="flex items-center gap-3 mb-2 relative z-10">
+          {!page.icon && (
             <button
+              ref={addIconTriggerRef}
               onClick={() => setShowIconPicker(true)}
               className="flex items-center gap-1.5 text-sm text-muted-foreground opacity-0 group-hover/header:opacity-100 transition-opacity hover:text-foreground"
             >
@@ -352,7 +363,7 @@ export default function Editor({
         onChange={handleCoverUpload}
       />
 
-      {/* 图标选择器 */}
+      {/* 图标选择器 — 固定定位，层级最高 */}
       {showIconPicker && (
         <IconPicker
           isOpen={showIconPicker}
@@ -362,6 +373,7 @@ export default function Editor({
             setShowIconPicker(false);
           }}
           currentIcon={page.icon}
+          anchorRef={page.icon ? iconTriggerRef : addIconTriggerRef}
         />
       )}
     </div>
