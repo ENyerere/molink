@@ -30,42 +30,42 @@ export default function Sidebar({
   const recentPages = pages.slice(0, 5);
 
   return (
-    <div className="w-60 bg-[#f9f9f9] dark:bg-gray-900 text-gray-800 dark:text-gray-100 flex flex-col border-r border-gray-200 dark:border-gray-700 h-full relative">
+    <div className="w-60 bg-background text-foreground flex flex-col border-r border-border h-full relative">
       {/* 工作区头部 */}
       <div className="px-3 py-2 flex items-center justify-between">
         <button
           onClick={() => setShowUserMenu(prev => !prev)}
-          className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-gray-200 dark:hover:bg-gray-800 transition-colors"
+          className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-accent transition-colors"
         >
           {user ? (
             <>
-              <div className="w-5 h-5 rounded-sm bg-gray-200 dark:bg-gray-600 flex items-center justify-center text-xs font-medium">
+              <div className="w-5 h-5 rounded-sm bg-secondary flex items-center justify-center text-xs font-medium">
                 {user.name.charAt(0).toUpperCase()}
               </div>
-              <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{user.name} 的 Molink</span>
+              <span className="text-sm font-medium text-foreground">{user.name} 的 Molink</span>
             </>
           ) : (
             <>
-              <div className="w-5 h-5 rounded-sm bg-gray-200 dark:bg-gray-600 flex items-center justify-center text-xs font-medium">
+              <div className="w-5 h-5 rounded-sm bg-secondary flex items-center justify-center text-xs font-medium">
                 M
               </div>
-              <span className="text-sm font-medium text-gray-900 dark:text-gray-100">Molink</span>
+              <span className="text-sm font-medium text-foreground">Molink</span>
             </>
           )}
-          <ChevronDown className={`w-3.5 h-3.5 text-gray-500 transition-transform ${showUserMenu ? 'rotate-180' : ''}`} />
+          <ChevronDown className={`w-3.5 h-3.5 text-muted-foreground transition-transform ${showUserMenu ? 'rotate-180' : ''}`} />
         </button>
 
         <div className="flex items-center gap-1">
           <button
             onClick={addPage}
-            className="p-1.5 rounded-md hover:bg-gray-200 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400 transition-colors"
+            className="p-1.5 rounded-md hover:bg-accent text-muted-foreground transition-colors"
             title="新建页面"
           >
             <Plus className="w-4 h-4" />
           </button>
           {activePage && (
             <button
-              className="p-1.5 rounded-md hover:bg-gray-200 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400 transition-colors"
+              className="p-1.5 rounded-md hover:bg-accent text-muted-foreground transition-colors"
               title="收藏"
             >
               <Star className="w-4 h-4" />
@@ -92,12 +92,12 @@ export default function Sidebar({
         <NavItem icon={Database} label="数据库" />
       </div>
 
-      <div className="border-t border-gray-200 dark:border-gray-700 my-1 mx-3" />
+      <div className="border-t border-border my-1 mx-3" />
 
       {/* 最近 */}
       {recentPages.length > 0 && (
         <div className="px-1 py-1">
-          <div className="px-3 py-1 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+          <div className="px-3 py-1 text-xs font-medium text-muted-foreground uppercase tracking-wider">
             最近
           </div>
           {recentPages.map(page => (
@@ -106,11 +106,11 @@ export default function Sidebar({
               onClick={() => setActivePageId(page.id)}
               className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-md text-sm transition-colors ${
                 activePageId === page.id
-                  ? 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 font-medium'
-                  : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-800'
+                  ? 'bg-secondary text-foreground font-medium'
+                  : 'text-secondary-foreground hover:bg-accent'
               }`}
             >
-              <FileText className="w-4 h-4 text-gray-400 dark:text-gray-500 flex-shrink-0" />
+              <FileText className="w-4 h-4 text-muted-foreground flex-shrink-0" />
               <span className="truncate">{page.title || '未命名页面'}</span>
             </button>
           ))}
@@ -119,7 +119,7 @@ export default function Sidebar({
 
       {/* 全部页面 */}
       <div className="flex-1 overflow-y-auto px-1 py-1">
-        <div className="px-3 py-1 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+        <div className="px-3 py-1 text-xs font-medium text-muted-foreground uppercase tracking-wider">
           页面
         </div>
         {pages.map(page => (
@@ -128,11 +128,11 @@ export default function Sidebar({
             onClick={() => setActivePageId(page.id)}
             className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-md text-sm transition-colors ${
               activePageId === page.id
-                ? 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 font-medium'
-                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-800'
+                ? 'bg-secondary text-foreground font-medium'
+                : 'text-secondary-foreground hover:bg-accent'
             }`}
           >
-            <FileText className="w-4 h-4 text-gray-400 dark:text-gray-500 flex-shrink-0" />
+            <FileText className="w-4 h-4 text-muted-foreground flex-shrink-0" />
             <span className="truncate">{page.title || '未命名页面'}</span>
           </button>
         ))}
@@ -140,10 +140,10 @@ export default function Sidebar({
 
       {/* 底部登录提示 */}
       {!user && (
-        <div className="px-3 py-2 border-t border-gray-200 dark:border-gray-700">
+        <div className="px-3 py-2 border-t border-border">
           <button
             onClick={() => onShowLogin?.()}
-            className="w-full flex items-center justify-center gap-2 py-2 px-4 bg-gray-900 dark:bg-gray-700 text-white rounded-lg hover:bg-gray-800 dark:hover:bg-gray-600 transition-colors text-sm font-medium"
+            className="w-full flex items-center justify-center gap-2 py-2 px-4 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity text-sm font-medium"
           >
             登录 Molink
           </button>
@@ -158,8 +158,8 @@ export default function Sidebar({
 
 function NavItem({ icon: Icon, label }: { icon: React.ElementType; label: string }) {
   return (
-    <button className="w-full flex items-center gap-3 px-3 py-1.5 rounded-md text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-800 transition-colors">
-      <Icon className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+    <button className="w-full flex items-center gap-3 px-3 py-1.5 rounded-md text-sm text-secondary-foreground hover:bg-accent transition-colors">
+      <Icon className="w-4 h-4 text-muted-foreground" />
       {label}
     </button>
   );

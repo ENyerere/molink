@@ -153,7 +153,7 @@ export default function App() {
   const activePage = pages.find(p => p.id === activePageId);
 
   return (
-    <div className="flex h-screen bg-white dark:bg-gray-900">
+    <div className="flex h-screen bg-background">
       <Sidebar
         pages={pages}
         activePageId={activePageId}
@@ -189,13 +189,13 @@ export default function App() {
 
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* ===== 顶部标题栏（仿 Notion） ===== */}
-        <div className="h-11 flex items-center justify-between px-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 flex-shrink-0">
+        <div className="h-11 flex items-center justify-between px-4 bg-background flex-shrink-0">
           {/* 左侧：前进后退 + 面包屑 */}
           <div className="flex items-center gap-1">
             <button
               onClick={goBack}
               disabled={!canGoBack}
-              className={`p-1 rounded-md transition-colors ${!canGoBack ? 'opacity-30 cursor-not-allowed' : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400'}`}
+              className={`p-1 rounded-md transition-colors ${!canGoBack ? 'opacity-30 cursor-not-allowed' : 'hover:bg-accent text-muted-foreground'}`}
               title="后退"
             >
               <ChevronLeft className="w-4 h-4" />
@@ -203,7 +203,7 @@ export default function App() {
             <button
               onClick={goForward}
               disabled={!canGoForward}
-              className={`p-1 rounded-md transition-colors ${!canGoForward ? 'opacity-30 cursor-not-allowed' : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400'}`}
+              className={`p-1 rounded-md transition-colors ${!canGoForward ? 'opacity-30 cursor-not-allowed' : 'hover:bg-accent text-muted-foreground'}`}
               title="前进"
             >
               <ChevronRight className="w-4 h-4" />
@@ -212,10 +212,10 @@ export default function App() {
             {/* 页面标题面包屑 */}
             {activePage && (
               <div className="flex items-center gap-2 ml-2">
-                <span className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate max-w-[200px]">
+                <span className="text-sm font-medium text-foreground truncate max-w-[200px]">
                   {activePage.title || '无标题'}
                 </span>
-                <span className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+                <span className="flex items-center gap-1 text-xs text-muted-foreground">
                   <Lock className="w-3 h-3" />
                   私人
                 </span>
@@ -225,14 +225,14 @@ export default function App() {
 
           {/* 右侧：功能按钮 */}
           <div className="flex items-center gap-1">
-            <button className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md transition-colors">
+            <button className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-sm text-secondary-foreground hover:bg-accent rounded-md transition-colors">
               <Share2 className="w-4 h-4" />
               <span>分享</span>
             </button>
-            <button className="p-1.5 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md transition-colors">
+            <button className="p-1.5 text-muted-foreground hover:bg-accent rounded-md transition-colors">
               <Star className="w-4 h-4" />
             </button>
-            <button className="p-1.5 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md transition-colors">
+            <button className="p-1.5 text-muted-foreground hover:bg-accent rounded-md transition-colors">
               <MoreHorizontal className="w-4 h-4" />
             </button>
           </div>
@@ -251,22 +251,22 @@ export default function App() {
 
       {/* 页面迁移确认对话框 */}
       {showMigrationDialog && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[60]">
-          <div className="bg-white dark:bg-gray-900 rounded-xl w-full max-w-[420px] shadow-2xl p-8">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[60]">
+          <div className="bg-card rounded-xl w-full max-w-[420px] shadow-2xl p-8">
             <div className="flex items-center justify-center mb-4">
-              <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" />
                 </svg>
               </div>
             </div>
 
-            <h3 className="text-xl font-semibold text-gray-900 dark:text-white text-center mb-2">
+            <h3 className="text-xl font-semibold text-card-foreground text-center mb-2">
               保留未登录时的页面？
             </h3>
 
-            <p className="text-gray-500 dark:text-gray-400 text-[15px] text-center mb-6 leading-relaxed">
-              你在未登录状态下创建了 <span className="font-semibold text-gray-900 dark:text-white">{guestPageCount}</span> 个页面，
+            <p className="text-muted-foreground text-[15px] text-center mb-6 leading-relaxed">
+              你在未登录状态下创建了 <span className="font-semibold text-card-foreground">{guestPageCount}</span> 个页面，
               是否将它们保留到你的个人空间中？
             </p>
 
@@ -276,7 +276,7 @@ export default function App() {
                   setShowMigrationDialog(false);
                   setGuestPageCount(0);
                 }}
-                className="w-full h-11 bg-gray-900 dark:bg-gray-700 text-white text-[15px] font-medium rounded-lg hover:bg-gray-800 dark:hover:bg-gray-600 transition-colors"
+                className="w-full h-11 bg-primary text-primary-foreground text-[15px] font-medium rounded-lg hover:opacity-90 transition-opacity"
               >
                 保留页面
               </button>
@@ -290,7 +290,7 @@ export default function App() {
                   setGuestPageCount(0);
                   setTimeout(() => addPage(), 0);
                 }}
-                className="w-full h-11 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 text-[15px] font-medium rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                className="w-full h-11 border border-border text-secondary-foreground text-[15px] font-medium rounded-lg hover:bg-accent transition-colors"
               >
                 不保留，重新开始
               </button>

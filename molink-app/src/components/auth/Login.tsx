@@ -28,14 +28,17 @@ export default function Login({ onClose, onLogin }: LoginProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-      <div className="bg-white dark:bg-gray-900 rounded-lg w-full max-w-[440px] shadow-xl">
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
+      <div className="bg-card rounded-xl w-full max-w-[440px] shadow-2xl">
         {/* 标题栏 */}
-        <div className="flex items-center justify-between pt-6 px-8">
-          <h2 className="text-2xl font-semibold text-gray-900 dark:text-white">Log in</h2>
+        <div className="flex items-center justify-between pt-8 px-8">
+          <div>
+            <h2 className="text-3xl font-bold text-card-foreground">你的 AI 工作空间。</h2>
+            <p className="text-muted-foreground mt-1">登录你的 Molink 帐号</p>
+          </div>
           <button
             onClick={onClose}
-            className="text-gray-400 dark:text-gray-500 hover:text-gray-500 dark:hover:text-gray-300"
+            className="text-muted-foreground hover:text-foreground transition-colors"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -48,8 +51,8 @@ export default function Login({ onClose, onLogin }: LoginProps) {
           <button
             className={`mr-8 pb-3 text-[15px] font-medium border-b-2 transition-colors ${
               activeTab === 'login'
-                ? 'text-gray-900 dark:text-white border-gray-900 dark:border-white'
-                : 'text-gray-400 dark:text-gray-500 border-transparent hover:text-gray-500 dark:hover:text-gray-400'
+                ? 'text-foreground border-primary'
+                : 'text-muted-foreground border-transparent hover:text-foreground'
             }`}
             onClick={() => setActiveTab('login')}
           >
@@ -58,8 +61,8 @@ export default function Login({ onClose, onLogin }: LoginProps) {
           <button
             className={`pb-3 text-[15px] font-medium border-b-2 transition-colors ${
               activeTab === 'register'
-                ? 'text-gray-900 dark:text-white border-gray-900 dark:border-white'
-                : 'text-gray-400 dark:text-gray-500 border-transparent hover:text-gray-500 dark:hover:text-gray-400'
+                ? 'text-foreground border-primary'
+                : 'text-muted-foreground border-transparent hover:text-foreground'
             }`}
             onClick={() => setActiveTab('register')}
           >
@@ -68,14 +71,7 @@ export default function Login({ onClose, onLogin }: LoginProps) {
         </div>
 
         <div className="p-8 pt-6">
-          <p className="text-gray-500 dark:text-gray-400 text-[15px] mb-6">
-            {activeTab === 'login' 
-              ? '欢迎回来' 
-              : '创建你的账号'
-            }
-          </p>
-
-        {/* 登录选项 */}
+          {/* 登录选项 */}
           {/* 第三方登录按钮 */}
           <div className="space-y-2.5">
             <button
@@ -106,12 +102,12 @@ export default function Login({ onClose, onLogin }: LoginProps) {
                 }
               }}
               disabled={isLoading}
-              className="w-full relative h-11 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors disabled:opacity-50"
+              className="w-full relative h-11 border border-border rounded-lg hover:bg-accent transition-colors disabled:opacity-50"
             >
               <div className="absolute left-4 top-1/2 -translate-y-1/2">
                 <img src="/src/assets/images/google-color.svg" alt="Google" className="w-5 h-5" />
               </div>
-              <span className="absolute inset-0 flex items-center justify-center text-[15px] font-medium text-gray-700 dark:text-gray-300">
+              <span className="absolute inset-0 flex items-center justify-center text-[15px] font-medium text-foreground">
                 Continue with Google
               </span>
             </button>
@@ -144,12 +140,12 @@ export default function Login({ onClose, onLogin }: LoginProps) {
                 }
               }}
               disabled={isLoading}
-              className="w-full relative h-11 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors disabled:opacity-50"
+              className="w-full relative h-11 border border-border rounded-lg hover:bg-accent transition-colors disabled:opacity-50"
             >
               <div className="absolute left-4 top-1/2 -translate-y-1/2">
                 <img src="/src/assets/images/github.svg" alt="GitHub" className="w-5 h-5" />
               </div>
-              <span className="absolute inset-0 flex items-center justify-center text-[15px] font-medium text-gray-700 dark:text-gray-300">
+              <span className="absolute inset-0 flex items-center justify-center text-[15px] font-medium text-foreground">
                 Continue with GitHub
               </span>
             </button>
@@ -183,13 +179,27 @@ export default function Login({ onClose, onLogin }: LoginProps) {
                 }
               }}
               disabled={isLoading}
-              className="w-full relative h-11 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors disabled:opacity-50"
+              className="w-full relative h-11 border border-border rounded-lg hover:bg-accent transition-colors disabled:opacity-50"
             >
               <div className="absolute left-4 top-1/2 -translate-y-1/2">
                 <img src="/src/assets/images/microsoft-color.svg" alt="Microsoft" className="w-5 h-5" />
               </div>
-              <span className="absolute inset-0 flex items-center justify-center text-[15px] font-medium text-gray-700 dark:text-gray-300">
+              <span className="absolute inset-0 flex items-center justify-center text-[15px] font-medium text-foreground">
                 Continue with Microsoft
+              </span>
+            </button>
+
+            <button
+              disabled={isLoading}
+              className="w-full relative h-11 border border-border rounded-lg hover:bg-accent transition-colors disabled:opacity-50"
+            >
+              <div className="absolute left-4 top-1/2 -translate-y-1/2">
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                </svg>
+              </div>
+              <span className="absolute inset-0 flex items-center justify-center text-[15px] font-medium text-foreground">
+                单点登录 (SSO)
               </span>
             </button>
           </div>
@@ -197,10 +207,10 @@ export default function Login({ onClose, onLogin }: LoginProps) {
           {/* 分隔线 */}
           <div className="relative my-6">
             <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-200 dark:border-gray-700"></div>
+              <div className="w-full border-t border-border"></div>
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-2 text-gray-400 dark:text-gray-500 bg-white dark:bg-gray-900">
+              <span className="px-2 text-muted-foreground bg-card">
                 或使用邮箱{activeTab === 'login' ? '登录' : '注册'}
               </span>
             </div>
@@ -209,7 +219,7 @@ export default function Login({ onClose, onLogin }: LoginProps) {
           {/* 表单 */}
           <form className="space-y-5" onSubmit={(e) => e.preventDefault()}>
             <div>
-              <label htmlFor="email" className="block text-[15px] font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label htmlFor="email" className="block text-[15px] font-medium text-foreground mb-2">
                 邮箱地址
               </label>
               <input
@@ -218,13 +228,13 @@ export default function Login({ onClose, onLogin }: LoginProps) {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="your@email.com"
-                className="w-full h-11 px-3.5 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-500 focus:border-gray-900 dark:focus:border-gray-500 outline-none placeholder:text-gray-400 dark:placeholder:text-gray-500 dark:bg-gray-800 dark:text-white"
+                className="w-full h-11 px-3.5 border border-border rounded-lg focus:ring-2 focus:ring-ring focus:border-primary outline-none placeholder:text-muted-foreground bg-input text-foreground"
                 required
               />
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-[15px] font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label htmlFor="password" className="block text-[15px] font-medium text-foreground mb-2">
                 密码
               </label>
               <input
@@ -233,14 +243,14 @@ export default function Login({ onClose, onLogin }: LoginProps) {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder={activeTab === 'login' ? '输入密码' : '设置密码'}
-                className="w-full h-11 px-3.5 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-500 focus:border-gray-900 dark:focus:border-gray-500 outline-none placeholder:text-gray-400 dark:placeholder:text-gray-500 dark:bg-gray-800 dark:text-white"
+                className="w-full h-11 px-3.5 border border-border rounded-lg focus:ring-2 focus:ring-ring focus:border-primary outline-none placeholder:text-muted-foreground bg-input text-foreground"
                 required
               />
             </div>
 
             {/* 错误提示 */}
             {error && (
-              <div className="text-red-500 text-[15px]">{error}</div>
+              <div className="text-destructive text-[15px]">{error}</div>
             )}
 
             {/* 提交按钮 */}
@@ -288,18 +298,19 @@ export default function Login({ onClose, onLogin }: LoginProps) {
                 }
               }}
               disabled={isLoading}
-              className="w-full h-11 bg-gray-900 dark:bg-gray-700 text-white text-[15px] font-medium rounded-lg hover:bg-gray-800 dark:hover:bg-gray-600 transition-colors disabled:opacity-50"
+              className="w-full h-11 bg-primary text-primary-foreground text-[15px] font-medium rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50"
             >
-              {isLoading ? '处理中...' : (activeTab === 'login' ? '登录' : '注册')}
+              {isLoading ? '处理中...' : '继续'}
             </button>
           </form>
 
-          {/* 其他登录选项 */}
-          <div className="mt-5 text-center">
-            <button className="text-[15px] text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300">
-              使用单点登录 (SSO)
-            </button>
-          </div>
+          {/* 底部条款 */}
+          <p className="mt-5 text-center text-sm text-muted-foreground">
+            继续操作即表示你确认已理解并同意
+            <a href="#" className="text-primary hover:underline">条款和条件</a>
+            和
+            <a href="#" className="text-primary hover:underline">隐私政策</a>
+          </p>
         </div>
       </div>
     </div>

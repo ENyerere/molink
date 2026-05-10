@@ -101,14 +101,14 @@ const BlockElement = (props: RenderElementProps) => {
     <div
       {...attributes}
       className={`relative group flex items-center p-2 rounded transition-all ${
-        selected ? 'bg-blue-100 dark:bg-blue-900 my-2 shadow-sm' : 'my-1'
+        selected ? 'bg-primary/20 my-2 shadow-sm' : 'my-1'
       }`}
       onClick={handleClick}
     >
       {/* 拖动按钮 */}
       <button
         contentEditable={false}
-        className="absolute -left-6 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab select-none text-gray-500 dark:text-gray-400"
+        className="absolute -left-6 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab select-none text-muted-foreground"
         onMouseDown={handleDragMouseDown}
         title="拖动移动此块"
         aria-label="drag block"
@@ -122,7 +122,7 @@ const BlockElement = (props: RenderElementProps) => {
       {indicator && (
         <div
           contentEditable={false}
-          className="fixed z-50 h-[2px] bg-blue-500"
+          className="fixed z-50 h-[2px] bg-primary"
           style={{
             top: `${indicator.top}px`,
             left: `${indicator.left}px`,
