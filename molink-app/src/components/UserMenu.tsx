@@ -1,5 +1,6 @@
 import { useRef, useEffect } from 'react';
 import { Settings, UserPlus, Check, LogOut, Smartphone } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 interface UserMenuProps {
   isOpen: boolean;
@@ -7,7 +8,6 @@ interface UserMenuProps {
   userName?: string;
   userEmail?: string;
   onOpenSettings: () => void;
-  onLogout?: () => void;
 }
 
 export default function UserMenu({
@@ -16,8 +16,8 @@ export default function UserMenu({
   userName = 'User',
   userEmail,
   onOpenSettings,
-  onLogout
 }: UserMenuProps) {
+  const { signOut } = useAuth();
   const menuRef = useRef<HTMLDivElement>(null);
 
   // 点击外部关闭
@@ -85,18 +85,16 @@ export default function UserMenu({
         <button className="w-full text-left px-3 py-2 text-sm text-secondary-foreground hover:bg-accent transition-colors">
           添加另一个账号
         </button>
-        {onLogout && (
-          <button
-            onClick={() => {
-              onClose();
-              onLogout();
-            }}
-            className="w-full text-left px-3 py-2 text-sm text-secondary-foreground hover:bg-accent transition-colors flex items-center gap-2"
-          >
-            <LogOut className="w-4 h-4" />
-            登出
-          </button>
-        )}
+        <button
+          onClick={() => {
+            onClose();
+            signOut();
+          }}
+          className="w-full text-left px-3 py-2 text-sm text-secondary-foreground hover:bg-accent transition-colors flex items-center gap-2"
+        >
+          <LogOut className="w-4 h-4" />
+          登出
+        </button>
       </div>
 
       <div className="border-t border-border my-1" />
