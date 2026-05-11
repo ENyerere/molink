@@ -15,6 +15,7 @@ import {
 import type { PageData } from './App';
 import { withMarkdownShortcuts } from './withMarkdownShortcuts';
 import BlockElement, { type BlockElementType } from './BlockElement';
+import Leaf from './Leaf';
 import { Smile, Image, MessageSquare, MoveVertical } from 'lucide-react';
 import IconPicker, { PageIcon } from './components/IconPicker';
 
@@ -148,15 +149,40 @@ export default function Editor({
   const [dragSelecting, setDragSelecting] = useState(false);
   const [selectionRect, setSelectionRect] = useState<{ left: number; top: number; width: number; height: number; } | null>(null);
   const startPos = useRef<{ x: number; y: number } | null>(null);
+  const blockRectsRef = useRef<{ path: number[]; rect: DOMRect }[]>([]);
+  const prevSelectedRef = useRef<Map<string, boolean>>(new Map());
+  const hasDraggedRef = useRef(false);
 
   useEffect(() => {
     if (!dragSelecting) return;
 
     document.body.style.userSelect = 'none';
+    hasDraggedRef.current = false;
+
+    // mousedown 时一次性缓存所有块的 rect，避免 mousemove 中频繁调用 getBoundingClientRect
+    blockRectsRef.current = [];
+    for (const [node, path] of SlateEditor.nodes(editor, {
+      at: [],
+      match: (n) => SlateElement.isElement(n) && SlateEditor.isBlock(editor, n),
+    })) {
+      try {
+        const dom = ReactEditor.toDOMNode(editor as ReactEditor, node as SlateElement);
+        blockRectsRef.current.push({ path, rect: dom.getBoundingClientRect() });
+      } catch {}
+    }
+    prevSelectedRef.current = new Map();
 
     const onMouseMove = (e: MouseEvent) => {
       if (!startPos.current || !containerRef.current) return;
-      const cx = e.clientX, cy = e.clientY, sx = startPos.current.x, sy = startPos.current.y;
+      const cx = e.clientX,
+        cy = e.clientY,
+        sx = startPos.current.x,
+        sy = startPos.current.y;
+      const dx = Math.abs(cx - sx);
+      const dy = Math.abs(cy - sy);
+      if (dx < 4 && dy < 4) return; // 移动距离小于阈值，视为点击，不启动框选
+
+      hasDraggedRef.current = true;
       const cr = containerRef.current.getBoundingClientRect();
       const left = Math.min(cx, sx) - cr.left;
       const top = Math.min(cy, sy) - cr.top;
@@ -164,23 +190,28 @@ export default function Editor({
       const height = Math.abs(cy - sy);
       setSelectionRect({ left, top, width, height });
 
-      const rectViewport = { left: Math.min(cx, sx), right: Math.max(cx, sx), top: Math.min(cy, sy), bottom: Math.max(cy, sy) };
+      const rectViewport = {
+        left: Math.min(cx, sx),
+        right: Math.max(cx, sx),
+        top: Math.min(cy, sy),
+        bottom: Math.max(cy, sy),
+      };
 
-      for (const [node, path] of SlateEditor.nodes(editor, {
-        at: [],
-        match: n => SlateElement.isElement(n) && SlateEditor.isBlock(editor, n),
-      })) {
-        try {
-          const dom = ReactEditor.toDOMNode(editor as ReactEditor, node as SlateElement);
-          const brect = dom.getBoundingClientRect();
+      // 只更新状态有变化的块，避免不必要的渲染
+      SlateEditor.withoutNormalizing(editor, () => {
+        for (const { path, rect } of blockRectsRef.current) {
           const overlap =
-            rectViewport.left < brect.right &&
-            rectViewport.right > brect.left &&
-            rectViewport.top < brect.bottom &&
-            rectViewport.bottom > brect.top;
-          Transforms.setNodes<BlockElementType>(editor, { selected: overlap }, { at: path });
-        } catch {}
-      }
+            rectViewport.left < rect.right &&
+            rectViewport.right > rect.left &&
+            rectViewport.top < rect.bottom &&
+            rectViewport.bottom > rect.top;
+          const pathKey = JSON.stringify(path);
+          if (prevSelectedRef.current.get(pathKey) !== overlap) {
+            prevSelectedRef.current.set(pathKey, overlap);
+            Transforms.setNodes<BlockElementType>(editor, { selected: overlap }, { at: path });
+          }
+        }
+      });
     };
 
     const onMouseUp = () => {
@@ -213,14 +244,13 @@ export default function Editor({
       className="relative"
       onMouseDown={(e) => {
         if (e.button !== 0) return;
-        if (e.target instanceof HTMLElement && e.target.closest('[data-slate-node="element"]')) return;
         startPos.current = { x: e.clientX, y: e.clientY };
         setDragSelecting(true);
       }}
     >
       {selectionRect && (
         <div
-          className="absolute border border-primary/50 bg-primary/20 pointer-events-none z-50"
+          className="absolute bg-primary/15 pointer-events-none z-50"
           style={selectionRect}
         />
       )}
@@ -348,8 +378,39 @@ export default function Editor({
         >
           <Editable
             renderElement={(props) => <BlockElement {...props} />}
-            placeholder="输入内容..."
+            renderLeaf={(props) => <Leaf {...props} />}
+            placeholder="输入内容，或输入 / 打开命令菜单..."
             className="prose dark:prose-invert max-w-none outline-none border-none focus:outline-none"
+            onKeyDown={(event) => {
+              // 行内格式化快捷键
+              if (!event.ctrlKey && !event.metaKey) return;
+              const mark = (() => {
+                switch (event.key.toLowerCase()) {
+                  case 'b': return 'bold';
+                  case 'i': return 'italic';
+                  case 'u': return 'underline';
+                  case 'k': return 'link';
+                  default: return null;
+                }
+              })();
+              if (!mark) return;
+              event.preventDefault();
+              if (mark === 'link') {
+                const url = window.prompt('输入链接地址:');
+                if (url) {
+                  SlateEditor.addMark(editor, 'link', url);
+                } else {
+                  SlateEditor.removeMark(editor, 'link');
+                }
+              } else {
+                const isActive = SlateEditor.marks(editor)?.[mark as string] === true;
+                if (isActive) {
+                  SlateEditor.removeMark(editor, mark);
+                } else {
+                  SlateEditor.addMark(editor, mark, true);
+                }
+              }
+            }}
           />
         </Slate>
       </div>
