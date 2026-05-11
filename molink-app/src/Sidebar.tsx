@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import type { PageData, User } from './App';
 import {
   Search, Home, Briefcase, Inbox, Database,
@@ -248,6 +248,7 @@ export default function Sidebar({
 }: SidebarProps) {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const userMenuTriggerRef = useRef<HTMLButtonElement>(null);
 
   const activePage = pages.find((p) => p.id === activePageId);
 
@@ -279,6 +280,7 @@ export default function Sidebar({
       {/* 工作区头部 */}
       <div className="px-3 py-2 flex items-center gap-1">
         <button
+          ref={userMenuTriggerRef}
           onClick={() => setShowUserMenu((prev) => !prev)}
           className="flex items-center gap-1.5 px-2 py-1.5 rounded-md hover:bg-accent transition-colors min-w-0 flex-1"
         >
@@ -334,6 +336,7 @@ export default function Sidebar({
         userName={user?.name}
         userEmail={user?.email}
         onOpenSettings={() => setShowSettings(true)}
+        triggerRef={userMenuTriggerRef}
       />
 
       {/* 功能导航 */}

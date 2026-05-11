@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import AnimatedPresence from '../AnimatedPresence';
 
 interface LoginProps {
+  isOpen: boolean;
   onClose?: () => void;
   onLogin?: () => void;
 }
 
-export default function Login({ onClose, onLogin }: LoginProps) {
+export default function Login({ isOpen, onClose, onLogin }: LoginProps) {
   const { signIn, signUp } = useAuth();
   const [activeTab, setActiveTab] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('');
@@ -43,8 +45,20 @@ export default function Login({ onClose, onLogin }: LoginProps) {
   };
 
   return (
+    <AnimatedPresence
+      show={isOpen}
+      duration={200}
+      enterFrom="opacity-0"
+      enterTo="opacity-100"
+    >
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
-      <div className="bg-card rounded-xl w-full max-w-[440px] shadow-2xl">
+      <div
+        className="bg-card rounded-xl w-full max-w-[440px] shadow-2xl transition-all duration-200 ease-out"
+        style={{
+          opacity: isOpen ? 1 : 0,
+          transform: isOpen ? 'scale(1)' : 'scale(0.95)',
+        }}
+      >
         {/* 标题栏 */}
         <div className="flex items-center justify-between pt-8 px-8">
           <div>
@@ -184,5 +198,6 @@ export default function Login({ onClose, onLogin }: LoginProps) {
         </div>
       </div>
     </div>
+    </AnimatedPresence>
   );
 }
