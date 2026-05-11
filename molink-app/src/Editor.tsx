@@ -16,6 +16,9 @@ import type { PageData } from './App';
 import { withMarkdownShortcuts } from './withMarkdownShortcuts';
 import BlockElement, { type BlockElementType } from './BlockElement';
 import Leaf from './Leaf';
+
+// 跨页面块剪贴板
+let clipboardBlocks: any[] | null = null;
 import { Smile, Image, MessageSquare, MoveVertical } from 'lucide-react';
 import IconPicker, { PageIcon } from './components/IconPicker';
 
@@ -510,6 +513,42 @@ export default function Editor({
             placeholder="输入内容，或输入 / 打开命令菜单..."
             className="prose dark:prose-invert max-w-none outline-none border-none focus:outline-none"
             onKeyDown={(event) => {
+              // Ctrl+C 复制选中的块
+              if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'c') {
+                const selected: any[] = [];
+                for (const [node] of SlateEditor.nodes(editor, {
+                  at: [],
+                  match: (n) => SlateElement.isElement(n) && SlateEditor.isBlock(editor, n) && (n as BlockElementType).selected,
+                })) {
+                  const clone = JSON.parse(JSON.stringify(node));
+                  delete clone.selected;
+                  selected.push(clone);
+                }
+                if (selected.length > 0) {
+                  clipboardBlocks = selected;
+                  event.preventDefault();
+                }
+                return;
+              }
+
+              // Ctrl+V 粘贴块
+              if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'v') {
+                if (clipboardBlocks && clipboardBlocks.length > 0) {
+                  event.preventDefault();
+                  SlateEditor.withoutNormalizing(editor, () => {
+                    for (const block of clipboardBlocks!) {
+                      const clone = JSON.parse(JSON.stringify(block));
+                      delete clone.selected;
+                      const at = editor.selection
+                        ? SlateEditor.after(editor, editor.selection.anchor)
+                        : SlateEditor.end(editor, []);
+                      Transforms.insertNodes(editor, clone, { at: at || undefined });
+                    }
+                  });
+                }
+                return;
+              }
+
               // 行内格式化快捷键
               if (!event.ctrlKey && !event.metaKey) return;
               const mark = (() => {
