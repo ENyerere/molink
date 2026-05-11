@@ -1,4 +1,4 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState, useLayoutEffect } from 'react';
 import { Settings, UserPlus, Check, LogOut, Smartphone } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -8,6 +8,7 @@ interface UserMenuProps {
   userName?: string;
   userEmail?: string;
   onOpenSettings: () => void;
+  triggerRef?: React.RefObject<HTMLElement | null>;
 }
 
 export default function UserMenu({
@@ -16,15 +17,42 @@ export default function UserMenu({
   userName = 'User',
   userEmail,
   onOpenSettings,
+  triggerRef,
 }: UserMenuProps) {
   const { signOut } = useAuth();
   const menuRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState({ top: 0, left: 0 });
+  const [mounted, setMounted] = useState(false);
+  const [visible, setVisible] = useState(false);
+
+  // mount / unmount 生命周期 + 动画
+  useEffect(() => {
+    if (isOpen) {
+      setMounted(true);
+      const raf = requestAnimationFrame(() => setVisible(true));
+      return () => cancelAnimationFrame(raf);
+    } else {
+      setVisible(false);
+      const timer = setTimeout(() => setMounted(false), 150);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen]);
+
+  // 根据触发按钮计算菜单位置（fixed 定位，脱离 Sidebar 约束）
+  useLayoutEffect(() => {
+    if (!isOpen || !triggerRef?.current) return;
+    const rect = triggerRef.current.getBoundingClientRect();
+    setPos({ top: rect.bottom + 6, left: rect.left });
+  }, [isOpen, triggerRef]);
 
   // 点击外部关闭
   useEffect(() => {
     if (!isOpen) return;
     const handler = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        if (triggerRef?.current && triggerRef.current.contains(e.target as Node)) {
+          return;
+        }
         onClose();
       }
     };
@@ -32,12 +60,18 @@ export default function UserMenu({
     return () => document.removeEventListener('mousedown', handler);
   }, [isOpen, onClose]);
 
-  if (!isOpen) return null;
+  if (!mounted) return null;
 
   return (
     <div
       ref={menuRef}
-      className="absolute top-12 left-3 w-72 bg-popover rounded-lg shadow-xl border border-border z-50 py-1"
+      className="fixed w-72 bg-popover rounded-lg shadow-xl border border-border z-[100] py-1 transition-all duration-150 ease-out"
+      style={{
+        top: pos.top,
+        left: pos.left,
+        opacity: visible ? 1 : 0,
+        transform: visible ? 'translateY(0)' : 'translateY(-4px)',
+      }}
     >
       {/* 顶部操作 */}
       <div className="px-2 py-1 flex gap-2">

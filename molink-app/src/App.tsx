@@ -9,6 +9,7 @@ import { useAuth } from './context/AuthContext';
 import { workspacesApi, pagesApi, blocksApi, filesApi } from './api';
 import type { Workspace, BackendBlock } from './api';
 import { PageIcon } from './components/IconPicker';
+import AnimatedPresence from './components/AnimatedPresence';
 
 export interface PageData {
   id: string;
@@ -497,12 +498,11 @@ export default function App() {
       />
 
       {/* 登录弹窗 */}
-      {showLogin && (
-        <Login
-          onClose={() => setShowLogin(false)}
-          onLogin={handleLoginSuccess}
-        />
-      )}
+      <Login
+        isOpen={showLogin}
+        onClose={() => setShowLogin(false)}
+        onLogin={handleLoginSuccess}
+      />
 
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* 顶部标题栏 */}
@@ -586,9 +586,20 @@ export default function App() {
       </div>
 
       {/* 页面迁移确认对话框 */}
-      {showMigrationDialog && (
+      <AnimatedPresence
+        show={showMigrationDialog}
+        duration={200}
+        enterFrom="opacity-0"
+        enterTo="opacity-100"
+      >
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[60]">
-          <div className="bg-card rounded-xl w-full max-w-[420px] shadow-2xl p-8">
+          <div
+            className="bg-card rounded-xl w-full max-w-[420px] shadow-2xl p-8 transition-all duration-200 ease-out"
+            style={{
+              opacity: showMigrationDialog ? 1 : 0,
+              transform: showMigrationDialog ? 'scale(1)' : 'scale(0.95)',
+            }}
+          >
             <div className="flex items-center justify-center mb-4">
               <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -619,7 +630,7 @@ export default function App() {
             </div>
           </div>
         </div>
-      )}
+      </AnimatedPresence>
     </div>
   );
 }

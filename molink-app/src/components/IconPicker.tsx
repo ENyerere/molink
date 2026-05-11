@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from 'react';
+import AnimatedPresence from './AnimatedPresence';
 import {
   Search, Shuffle, X, Image as ImageIcon,
   ArrowRight, ArrowLeft, ArrowUp, ArrowDown, ArrowUpRight, ArrowDownRight,
@@ -380,6 +381,7 @@ export default function IconPicker({ isOpen, onClose, onSelect, currentIcon, anc
   }, [isOpen, onClose]);
 
   useEffect(() => {
+    if (!isOpen) return;
     const onClick = (e: MouseEvent) => {
       if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
         setShowColorPicker(false);
@@ -388,7 +390,7 @@ export default function IconPicker({ isOpen, onClose, onSelect, currentIcon, anc
     };
     document.addEventListener('mousedown', onClick);
     return () => document.removeEventListener('mousedown', onClick);
-  }, [onClose]);
+  }, [isOpen, onClose]);
 
   useEffect(() => {
     if (!isOpen || activeTab !== 'upload') return;
@@ -476,17 +478,25 @@ export default function IconPicker({ isOpen, onClose, onSelect, currentIcon, anc
   const recentIcons = getRecent('icon');
   const emojiCategories = useMemo(() => Array.from(new Set(filteredEmojis.map(e => e.category))), [filteredEmojis]);
 
-  if (!isOpen) return null;
-
   return (
+    <AnimatedPresence
+      show={isOpen}
+      duration={150}
+      enterFrom="opacity-0"
+      enterTo="opacity-100"
+    >
     <div className="fixed inset-0 z-[100]">
       {/* 遮罩层 — 阻止点击穿透，点击后关闭 */}
       <div className="absolute inset-0" onClick={onClose} />
       {/* Picker 卡片 */}
       <div
         ref={pickerRef}
-        className="absolute bg-card rounded-lg w-[380px] max-w-[90vw] shadow-2xl border border-border flex flex-col max-h-[380px] overflow-hidden"
-        style={{ top: position.top, left: position.left }}
+        className="absolute bg-card rounded-lg w-[380px] max-w-[90vw] shadow-2xl border border-border flex flex-col max-h-[380px] overflow-hidden transition-transform duration-150 ease-out"
+        style={{
+          top: position.top,
+          left: position.left,
+          transform: isOpen ? 'scale(1)' : 'scale(0.97)',
+        }}
       >
         {/* Header */}
         <div className="flex items-center justify-between px-4 pt-3 pb-0 shrink-0">
@@ -637,6 +647,7 @@ export default function IconPicker({ isOpen, onClose, onSelect, currentIcon, anc
         )}
       </div>
     </div>
+    </AnimatedPresence>
   );
 }
 

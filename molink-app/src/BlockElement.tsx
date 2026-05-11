@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import {
   type RenderElementProps,
   useSlateStatic,
@@ -14,6 +14,7 @@ import {
 import type { PageData } from './App';
 import { PageIcon } from './components/IconPicker';
 import { FileText } from 'lucide-react';
+import AnimatedPresence from './components/AnimatedPresence';
 
 /* ==================== TYPES ==================== */
 export type BlockElementType = {
@@ -509,7 +510,7 @@ function getContentPreview(content: any[]): string {
 function PageLinkPreview({ page }: { page: PageData }) {
   const previewText = getContentPreview(page.content);
   return (
-    <div className="absolute top-full left-0 mt-1 w-64 bg-card rounded-lg shadow-xl border border-border p-3 z-50 pointer-events-none">
+    <div className="w-64 bg-card rounded-lg shadow-xl border border-border p-3 pointer-events-none">
       {page.cover && (
         <div
           className="w-full h-24 rounded-md mb-2 bg-cover bg-center"
@@ -572,9 +573,15 @@ function PageLinkPreview({ page }: { page: PageData }) {
         </div>
 
         {/* 预览框 */}
-        {showPreview && targetPage && (
-          <PageLinkPreview page={targetPage} />
-        )}
+        <AnimatedPresence
+          show={showPreview && !!targetPage}
+          duration={200}
+          enterFrom="opacity-0 -translate-y-1"
+          enterTo="opacity-100 translate-y-0"
+          className="absolute top-full left-0 mt-1 z-50 pointer-events-none"
+        >
+          {targetPage && <PageLinkPreview page={targetPage} />}
+        </AnimatedPresence>
 
         {/* Slate 占位节点 — 不占据布局空间 */}
         <span className="absolute w-0 h-0 overflow-hidden">

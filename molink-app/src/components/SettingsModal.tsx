@@ -1,6 +1,7 @@
 import { useRef, useEffect } from 'react';
 import { X, Sun, Moon, Monitor } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
+import AnimatedPresence from './AnimatedPresence';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -21,16 +22,24 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     return () => document.removeEventListener('keydown', handler);
   }, [isOpen, onClose]);
 
-  if (!isOpen) return null;
-
   return (
+    <AnimatedPresence
+      show={isOpen}
+      duration={200}
+      enterFrom="opacity-0"
+      enterTo="opacity-100"
+    >
     <div className="fixed inset-0 z-[70] flex items-center justify-center">
       {/* 背景遮罩（不模糊） */}
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
 
       <div
         ref={modalRef}
-        className="relative bg-card rounded-xl shadow-2xl w-full max-w-[520px] max-h-[80vh] flex flex-col overflow-hidden"
+        className="relative bg-card rounded-xl shadow-2xl w-full max-w-[520px] max-h-[80vh] flex flex-col overflow-hidden transition-all duration-200 ease-out"
+        style={{
+          opacity: isOpen ? 1 : 0,
+          transform: isOpen ? 'scale(1)' : 'scale(0.95)',
+        }}
       >
         {/* 标题栏 */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border">
@@ -115,5 +124,6 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
         </div>
       </div>
     </div>
+    </AnimatedPresence>
   );
 }
