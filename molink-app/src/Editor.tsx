@@ -147,11 +147,29 @@ export default function Editor({
   // —— 框选逻辑 ——
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [dragSelecting, setDragSelecting] = useState(false);
-  const [selectionRect, setSelectionRect] = useState<{ left: number; top: number; width: number; height: number; } | null>(null);
+  const selectionRectRef = useRef<HTMLDivElement | null>(null);
   const startPos = useRef<{ x: number; y: number } | null>(null);
   const blockRectsRef = useRef<{ path: number[]; rect: DOMRect }[]>([]);
   const prevSelectedRef = useRef<Map<string, boolean>>(new Map());
   const hasDraggedRef = useRef(false);
+
+  // 直接操作 DOM 更新框选矩形，避免 React re-render 导致的掉帧
+  const updateSelectionRectDOM = useCallback(
+    (rect: { left: number; top: number; width: number; height: number } | null) => {
+      const el = selectionRectRef.current;
+      if (!el) return;
+      if (!rect) {
+        el.style.display = 'none';
+        return;
+      }
+      el.style.display = 'block';
+      el.style.left = `${rect.left}px`;
+      el.style.top = `${rect.top}px`;
+      el.style.width = `${rect.width}px`;
+      el.style.height = `${rect.height}px`;
+    },
+    []
+  );
 
   useEffect(() => {
     if (!dragSelecting) return;
@@ -159,7 +177,7 @@ export default function Editor({
     document.body.style.userSelect = 'none';
     hasDraggedRef.current = false;
 
-    // mousedown 时一次性缓存所有块的 rect，避免 mousemove 中频繁调用 getBoundingClientRect
+    // mousedown 时一次性缓存所有块的 rect
     blockRectsRef.current = [];
     for (const [node, path] of SlateEditor.nodes(editor, {
       at: [],
@@ -180,7 +198,7 @@ export default function Editor({
         sy = startPos.current.y;
       const dx = Math.abs(cx - sx);
       const dy = Math.abs(cy - sy);
-      if (dx < 4 && dy < 4) return; // 移动距离小于阈值，视为点击，不启动框选
+      if (dx < 4 && dy < 4) return;
 
       hasDraggedRef.current = true;
       const cr = containerRef.current.getBoundingClientRect();
@@ -188,7 +206,7 @@ export default function Editor({
       const top = Math.min(cy, sy) - cr.top;
       const width = Math.abs(cx - sx);
       const height = Math.abs(cy - sy);
-      setSelectionRect({ left, top, width, height });
+      updateSelectionRectDOM({ left, top, width, height });
 
       const rectViewport = {
         left: Math.min(cx, sx),
@@ -197,7 +215,6 @@ export default function Editor({
         bottom: Math.max(cy, sy),
       };
 
-      // 只更新状态有变化的块，避免不必要的渲染
       SlateEditor.withoutNormalizing(editor, () => {
         for (const { path, rect } of blockRectsRef.current) {
           const overlap =
@@ -216,7 +233,7 @@ export default function Editor({
 
     const onMouseUp = () => {
       setDragSelecting(false);
-      setSelectionRect(null);
+      updateSelectionRectDOM(null);
       startPos.current = null;
       document.body.style.userSelect = '';
       document.removeEventListener('mousemove', onMouseMove);
@@ -230,7 +247,7 @@ export default function Editor({
       document.removeEventListener('mouseup', onMouseUp);
       document.body.style.userSelect = '';
     };
-  }, [dragSelecting, editor]);
+  }, [dragSelecting, editor, updateSelectionRectDOM]);
 
   // 隐藏的文件输入
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -248,12 +265,10 @@ export default function Editor({
         setDragSelecting(true);
       }}
     >
-      {selectionRect && (
-        <div
-          className="absolute bg-primary/15 pointer-events-none z-50"
-          style={selectionRect}
-        />
-      )}
+      <div
+        ref={selectionRectRef}
+        className="absolute bg-primary/15 pointer-events-none z-50 hidden"
+      />
 
       {/* 封面区域（独立 hover） */}
       {page.cover && (

@@ -89,7 +89,7 @@ const BlockElement = (props: RenderElementProps) => {
 
   /* ---- 块级样式 ---- */
   const blockClass = useMemo(() => {
-    const base = 'relative py-[3px] px-1 rounded transition-colors';
+    const base = 'relative py-[3px] px-1 rounded transition-colors my-[2px]';
     switch (element.type) {
       case 'heading-one':
         return `${base} text-[2rem] font-bold text-foreground tracking-tight mt-6 mb-2 leading-tight`;
@@ -199,8 +199,23 @@ const BlockElement = (props: RenderElementProps) => {
       e.stopPropagation();
       const fromPath = path;
 
+      // 收集所有选中的块路径
+      const selectedPaths: Path[] = [];
+      for (const [node, p] of SlateEditor.nodes(editor, {
+        at: [],
+        match: (n) => SlateElement.isElement(n) && SlateEditor.isBlock(editor, n) && (n as BlockElementType).selected,
+      })) {
+        selectedPaths.push(p);
+      }
+      const isMultiSelect = selectedPaths.length > 1 && selectedPaths.some((p) => Path.equals(p, fromPath));
+
       const onMouseMove = (ev: MouseEvent) => {
-        // 遍历所有 Slate 块节点，找 Y 坐标最接近的
+        if (isMultiSelect) {
+          setIndicator(null); // 多选时不显示插入指示线
+          return;
+        }
+
+        // 单选：遍历所有 Slate 块节点，找 Y 坐标最接近的
         let bestTarget: {
           node: SlateElement;
           path: Path;
@@ -245,7 +260,55 @@ const BlockElement = (props: RenderElementProps) => {
         document.removeEventListener('mousemove', onMouseMove);
         document.removeEventListener('mouseup', onMouseUp);
 
-        // 重新计算目标（mouseUp 时位置可能不同）
+        if (isMultiSelect) {
+          // === 多选批量移动 ===
+          selectedPaths.sort(Path.compare);
+          // 深拷贝节点内容
+          const nodesToMove = selectedPaths.map((p) => {
+            const node = Node.get(editor, p);
+            return JSON.parse(JSON.stringify(node));
+          });
+
+          // 确定目标位置（基于删除前的 DOM）
+          let targetIndex = -1;
+          let minDist = Infinity;
+          for (const [node, p] of SlateEditor.nodes(editor, {
+            at: [],
+            match: (n) => SlateElement.isElement(n) && SlateEditor.isBlock(editor, n),
+          })) {
+            try {
+              const dom = ReactEditor.toDOMNode(editor as ReactEditor, node as SlateElement);
+              const rect = dom.getBoundingClientRect();
+              const midY = rect.top + rect.height / 2;
+              const dist = Math.abs(ev.clientY - midY);
+              if (dist < minDist) {
+                minDist = dist;
+                targetIndex = ev.clientY < midY ? p[0] : p[0] + 1;
+              }
+            } catch {}
+          }
+          if (targetIndex === -1) return;
+
+          // 调整目标 index（删除的节点在目标之前时，目标要前移）
+          let adjustedIndex = targetIndex;
+          for (const p of selectedPaths) {
+            if (p[0] < targetIndex) {
+              adjustedIndex--;
+            }
+          }
+          adjustedIndex = Math.max(0, adjustedIndex);
+
+          // 从后往前删除，然后批量插入
+          SlateEditor.withoutNormalizing(editor, () => {
+            for (let i = selectedPaths.length - 1; i >= 0; i--) {
+              Transforms.removeNodes(editor, { at: selectedPaths[i] });
+            }
+            Transforms.insertNodes(editor, nodesToMove, { at: [adjustedIndex] });
+          });
+          return;
+        }
+
+        // === 单选移动 ===
         let bestTarget: {
           node: SlateElement;
           path: Path;
@@ -293,13 +356,13 @@ const BlockElement = (props: RenderElementProps) => {
   return (
     <div
       {...attributes}
-      className={`${blockClass} group ${selected ? 'bg-primary/8' : ''}`}
+      className={`${blockClass} group ${selected ? 'bg-primary/15' : ''}`}
       onClick={handleClick}
     >
       {/* 拖拽手柄 — select-none + SVG 防止被复制 */}
       <span
         contentEditable={false}
-        className="absolute -left-7 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab select-none text-muted-foreground hover:text-foreground p-1"
+        className="absolute -left-7 top-[3px] opacity-0 group-hover:opacity-100 transition-opacity cursor-grab select-none text-muted-foreground hover:text-foreground p-1"
         onMouseDown={handleDragMouseDown}
         title="拖动移动此块"
       >
