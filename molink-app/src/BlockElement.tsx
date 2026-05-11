@@ -11,6 +11,9 @@ import {
   Path,
   Node,
 } from 'slate';
+import type { PageData } from './App';
+import { PageIcon } from './components/IconPicker';
+import { FileText } from 'lucide-react';
 
 /* ==================== TYPES ==================== */
 export type BlockElementType = {
@@ -27,10 +30,12 @@ export type BlockElementType = {
     | 'blockquote'
     | 'code-block'
     | 'math-block'
-    | 'emphasis-block';
+    | 'emphasis-block'
+    | 'page-link';
   children: { text: string }[];
   selected?: boolean;
   checked?: boolean; // for todo
+  pageId?: string;   // for page-link
 };
 
 export type CustomText = {
@@ -59,8 +64,8 @@ const DragHandleIcon = () => (
 );
 
 /* ==================== COMPONENT ==================== */
-const BlockElement = (props: RenderElementProps) => {
-  const { attributes, children, element } = props;
+const BlockElement = (props: RenderElementProps & { pages?: PageData[]; onActivatePage?: (id: string) => void }) => {
+  const { attributes, children, element, pages, onActivatePage } = props;
   const editor = useSlateStatic();
   const selected = (element as BlockElementType).selected;
 
@@ -112,6 +117,8 @@ const BlockElement = (props: RenderElementProps) => {
       case 'todo':
       case 'toggle-list':
         return `${base} flex items-start gap-1`;
+      case 'page-link':
+        return `${base} cursor-pointer`;
       default:
         return `${base} text-base text-foreground leading-relaxed`;
     }
@@ -353,10 +360,116 @@ const BlockElement = (props: RenderElementProps) => {
     [editor, path]
   );
 
+  /* ---- 从 Slate 内容提取文本预览 ---- */
+function getContentPreview(content: any[]): string {
+  let text = '';
+  const extract = (nodes: any[]) => {
+    for (const node of nodes) {
+      if (text.length > 120) break;
+      if (node.text) {
+        text += node.text;
+      } else if (node.children) {
+        extract(node.children);
+      }
+    }
+  };
+  extract(content);
+  return text.slice(0, 120) + (text.length > 120 ? '...' : '');
+}
+
+/* ---- page-link 块特殊渲染 ---- */
+function PageLinkPreview({ page }: { page: PageData }) {
+  const previewText = getContentPreview(page.content);
+  return (
+    <div className="absolute left-full top-0 ml-2 w-64 bg-card rounded-lg shadow-xl border border-border p-3 z-50 pointer-events-none">
+      {page.cover && (
+        <div
+          className="w-full h-24 rounded-md mb-2 bg-cover bg-center"
+          style={{ backgroundImage: `url(${page.cover})` }}
+        />
+      )}
+      <div className="flex items-center gap-2">
+        {page.icon ? <PageIcon icon={page.icon} size={16} /> : <FileText className="w-4 h-4 text-muted-foreground" />}
+        <span className="font-medium text-sm text-card-foreground truncate">
+          {page.title || '无标题'}
+        </span>
+      </div>
+      {previewText && (
+        <p className="mt-2 text-xs text-muted-foreground line-clamp-3 leading-relaxed">
+          {previewText}
+        </p>
+      )}
+    </div>
+  );
+}
+
+  if (element.type === 'page-link') {
+    const pageId = (element as BlockElementType).pageId;
+    const targetPage = pages?.find(p => p.id === pageId);
+    const [showPreview, setShowPreview] = useState(false);
+
+    return (
+      <div
+        {...attributes}
+        className={`${blockClass} group`}
+        data-block-selected={selected ? 'true' : undefined}
+        contentEditable={false}
+        onMouseEnter={() => setShowPreview(true)}
+        onMouseLeave={() => setShowPreview(false)}
+        onClick={(e) => {
+          e.stopPropagation();
+          handleClick();
+          onActivatePage?.(pageId!);
+        }}
+      >
+        {/* 拖拽手柄 */}
+        <span
+          contentEditable={false}
+          className="absolute -left-7 top-[3px] opacity-0 group-hover:opacity-100 transition-opacity cursor-grab select-none text-muted-foreground hover:text-foreground p-1"
+          onMouseDown={handleDragMouseDown}
+          title="拖动移动此块"
+        >
+          <DragHandleIcon />
+        </span>
+
+        <div className="flex items-center gap-2 py-1">
+          {targetPage?.icon ? (
+            <PageIcon icon={targetPage.icon} size={18} />
+          ) : (
+            <FileText className="w-4 h-4 text-muted-foreground" />
+          )}
+          <span className="text-sm text-foreground hover:underline">
+            {targetPage?.title || '未命名页面'}
+          </span>
+        </div>
+
+        {/* 预览框 */}
+        {showPreview && targetPage && (
+          <PageLinkPreview page={targetPage} />
+        )}
+
+        {children}
+
+        {indicator && (
+          <div
+            contentEditable={false}
+            className="fixed z-50 h-[2px] bg-primary"
+            style={{
+              top: `${indicator.top}px`,
+              left: `${indicator.left}px`,
+              width: `${indicator.width}px`,
+            }}
+          />
+        )}
+      </div>
+    );
+  }
+
   return (
     <div
       {...attributes}
-      className={`${blockClass} group ${selected ? 'bg-primary/15' : ''}`}
+      className={`${blockClass} group`}
+      data-block-selected={selected ? 'true' : undefined}
       onClick={handleClick}
     >
       {/* 拖拽手柄 — select-none + SVG 防止被复制 */}
