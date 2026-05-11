@@ -363,6 +363,9 @@ export default function Editor({
       className="relative min-h-full"
       onMouseDown={(e) => {
         if (e.button !== 0) return;
+        // 在块内容区域内不启动框选
+        const target = e.target as HTMLElement;
+        if (target.closest('[data-slate-block]')) return;
         startPos.current = { x: e.clientX, y: e.clientY };
         setDragSelecting(true);
       }}
@@ -378,7 +381,7 @@ export default function Editor({
           ref={coverRef}
           className="absolute left-0 right-0 overflow-hidden transition-[height] duration-300 select-none group/cover z-0"
           style={{ height: `${coverPx}px`, cursor: isRepositioning ? 'ns-resize' : 'default' }}
-          onMouseDown={handleCoverDrag}
+          onMouseDown={(e) => { e.stopPropagation(); handleCoverDrag(e); }}
         >
           <img
             src={page.cover}
@@ -442,11 +445,11 @@ export default function Editor({
       <div className="max-w-3xl mx-auto px-[30px] group/header">
         {/* 图标区域：有封面时重叠到封面底部，无封面时在空白区 */}
         {page.icon && (
-          <div className="relative z-10" style={{ marginTop: page.cover ? -(TOP_MARGIN_PX + 39) : -39 }}>
+          <div className="relative z-10 pb-3" style={{ marginTop: page.cover ? -(TOP_MARGIN_PX + 39) : -39 }}>
             <button
               ref={iconTriggerRef}
               onClick={() => setShowIconPicker(true)}
-              className="block transition-opacity hover:opacity-80"
+              className="block transition-all duration-200 rounded-md hover:bg-accent/30 hover:backdrop-blur-sm"
             >
               <PageIcon icon={page.icon} size={78} />
             </button>
@@ -454,12 +457,12 @@ export default function Editor({
         )}
 
         {/* 标题上方操作栏 */}
-        <div className="flex items-center gap-3 mb-2 relative z-10">
+        <div className="flex items-center gap-3 mb-2">
           {!page.icon && (
             <button
               ref={addIconTriggerRef}
               onClick={() => setShowIconPicker(true)}
-              className="flex items-center gap-1.5 text-sm text-muted-foreground opacity-0 group-hover/header:opacity-100 transition-opacity hover:text-foreground"
+              className="flex items-center gap-1.5 px-2 py-1 text-sm text-muted-foreground opacity-0 group-hover/header:opacity-100 transition-opacity hover:bg-accent rounded-md transition-colors"
             >
               <Smile className="w-4 h-4" />
               添加图标
@@ -468,13 +471,13 @@ export default function Editor({
           {!page.cover && (
             <button
               onClick={() => fileInputRef.current?.click()}
-              className="flex items-center gap-1.5 text-sm text-muted-foreground opacity-0 group-hover/header:opacity-100 transition-opacity hover:text-foreground"
+              className="flex items-center gap-1.5 px-2 py-1 text-sm text-muted-foreground opacity-0 group-hover/header:opacity-100 transition-opacity hover:bg-accent rounded-md transition-colors"
             >
               <Image className="w-4 h-4" />
               添加封面
             </button>
           )}
-          <button className="flex items-center gap-1.5 text-sm text-muted-foreground opacity-0 group-hover/header:opacity-100 transition-opacity hover:text-foreground">
+          <button className="flex items-center gap-1.5 px-2 py-1 text-sm text-muted-foreground opacity-0 group-hover/header:opacity-100 transition-opacity hover:bg-accent rounded-md transition-colors">
             <MessageSquare className="w-4 h-4" />
             添加评论
           </button>
@@ -512,6 +515,7 @@ export default function Editor({
             renderLeaf={(props) => <Leaf {...props} />}
             placeholder="输入内容，或输入 / 打开命令菜单..."
             className="prose dark:prose-invert max-w-none outline-none border-none focus:outline-none"
+            spellCheck={false}
             onKeyDown={(event) => {
               // Ctrl+C 复制选中的块
               if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'c') {

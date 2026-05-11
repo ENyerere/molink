@@ -51,16 +51,11 @@ export type CustomText = {
 
 /* ==================== DRAG HANDLE ICON ==================== */
 const DragHandleIcon = () => (
-  <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor" className="opacity-50">
-    <circle cx="2.5" cy="2.5" r="1.2" />
-    <circle cx="6" cy="2.5" r="1.2" />
-    <circle cx="9.5" cy="2.5" r="1.2" />
-    <circle cx="2.5" cy="6" r="1.2" />
-    <circle cx="6" cy="6" r="1.2" />
-    <circle cx="9.5" cy="6" r="1.2" />
-    <circle cx="2.5" cy="9.5" r="1.2" />
-    <circle cx="6" cy="9.5" r="1.2" />
-    <circle cx="9.5" cy="9.5" r="1.2" />
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" className="opacity-40 group-hover:opacity-70 transition-opacity">
+    <circle cx="4.5" cy="4.5" r="1.6" />
+    <circle cx="11.5" cy="4.5" r="1.6" />
+    <circle cx="4.5" cy="11.5" r="1.6" />
+    <circle cx="11.5" cy="11.5" r="1.6" />
   </svg>
 );
 
@@ -78,7 +73,7 @@ const BlockElement = (props: RenderElementProps & { pages?: PageData[]; onActiva
 
   const path = ReactEditor.findPath(editor as ReactEditor, element);
 
-  /* ---- 点击选中当前块，取消其他块 ---- */
+  /* ---- 点击块时只清除选中状态，不选中当前块 ---- */
   const handleClick = useCallback(() => {
     requestAnimationFrame(() => {
       SlateEditor.withoutNormalizing(editor, () => {
@@ -88,10 +83,9 @@ const BlockElement = (props: RenderElementProps & { pages?: PageData[]; onActiva
         })) {
           Transforms.setNodes<BlockElementType>(editor, { selected: false }, { at: p });
         }
-        Transforms.setNodes<BlockElementType>(editor, { selected: true }, { at: path });
       });
     });
-  }, [editor, path]);
+  }, [editor]);
 
   /* ---- 块级样式 ---- */
   const blockClass = useMemo(() => {
@@ -206,6 +200,7 @@ const BlockElement = (props: RenderElementProps & { pages?: PageData[]; onActiva
       e.preventDefault();
       e.stopPropagation();
       const fromPath = path;
+
       const startMousePos = { x: e.clientX, y: e.clientY };
 
       // 收集所有选中的块路径
@@ -389,7 +384,24 @@ const BlockElement = (props: RenderElementProps & { pages?: PageData[]; onActiva
         document.removeEventListener('mousemove', onMouseMove);
         document.removeEventListener('mouseup', onMouseUp);
 
-        if (!hasStartedDrag) return;
+        if (!hasStartedDrag) {
+          // 拖拽未真正启动（只是点了一下）：单独选中当前块
+          SlateEditor.withoutNormalizing(editor, () => {
+            for (const [, p] of SlateEditor.nodes(editor, {
+              at: [],
+              match: (n) => SlateElement.isElement(n) && SlateEditor.isBlock(editor, n),
+            })) {
+              Transforms.setNodes<BlockElementType>(editor, { selected: false }, { at: p });
+            }
+            Transforms.setNodes<BlockElementType>(editor, { selected: true }, { at: fromPath });
+          });
+          return;
+        }
+
+        // 拖拽真正启动了：确保当前块被选中
+        SlateEditor.withoutNormalizing(editor, () => {
+          Transforms.setNodes<BlockElementType>(editor, { selected: true }, { at: fromPath });
+        });
 
         if (isMultiSelect) {
           // === 多选批量移动 ===
@@ -542,6 +554,7 @@ function PageLinkPreview({ page }: { page: PageData }) {
         {...attributes}
         className={`${blockClass} group`}
         data-block-selected={selected ? 'true' : undefined}
+        data-slate-block="true"
         contentEditable={false}
         onMouseEnter={() => setShowPreview(true)}
         onMouseLeave={() => setShowPreview(false)}
@@ -554,7 +567,7 @@ function PageLinkPreview({ page }: { page: PageData }) {
         {/* 拖拽手柄 */}
         <span
           contentEditable={false}
-          className="absolute -left-7 top-[3px] opacity-0 group-hover:opacity-100 transition-opacity cursor-grab select-none text-muted-foreground hover:text-foreground p-1"
+          className="absolute -left-7 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab select-none text-muted-foreground hover:text-foreground p-1"
           onMouseDown={handleDragMouseDown}
           title="拖动移动此块"
         >
@@ -608,6 +621,7 @@ function PageLinkPreview({ page }: { page: PageData }) {
       {...attributes}
       className={`${blockClass} group`}
       data-block-selected={selected ? 'true' : undefined}
+      data-slate-block="true"
       onClick={handleClick}
     >
       {/* 拖拽手柄 — select-none + SVG 防止被复制 */}
