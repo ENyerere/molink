@@ -4,6 +4,7 @@ import {
   Editor as SlateEditor,
   Transforms,
   Element as SlateElement,
+  Range,
   type Descendant,
 } from 'slate';
 import {
@@ -21,6 +22,7 @@ import Leaf from './Leaf';
 let clipboardBlocks: any[] | null = null;
 import { Smile, Image, MessageSquare, MoveVertical } from 'lucide-react';
 import IconPicker, { PageIcon } from './components/IconPicker';
+import SlashCommandMenu from './components/SlashCommandMenu';
 
 const COVER_VH = 30;
 const TOP_MARGIN_PX = 60;
@@ -58,6 +60,58 @@ export default function Editor({
   const [isRepositioning, setIsRepositioning] = useState(false);
   const coverRef = useRef<HTMLDivElement | null>(null);
 
+  // —— Slash 命令菜单 ——
+  const [slashMenuOpen, setSlashMenuOpen] = useState(false);
+  const [slashMenuQuery, setSlashMenuQuery] = useState('');
+  const [slashMenuPos, setSlashMenuPos] = useState({ top: 0, left: 0 });
+  const slashMenuOpenRef = useRef(false);
+  useEffect(() => { slashMenuOpenRef.current = slashMenuOpen; }, [slashMenuOpen]);
+
+  // 菜单位置：在 DOM 更新后计算，确保能拿到正确的块级节点位置
+  useEffect(() => {
+    if (!slashMenuOpen) return;
+    const raf = requestAnimationFrame(() => {
+      const { selection } = editor;
+      if (!selection) return;
+      const blockEntry = SlateEditor.above(editor, {
+        match: (n) => SlateElement.isElement(n) && SlateEditor.isBlock(editor, n),
+      });
+      if (!blockEntry) return;
+      const [block] = blockEntry;
+      try {
+        const domNode = ReactEditor.toDOMNode(editor as ReactEditor, block as SlateElement);
+        const rect = domNode.getBoundingClientRect();
+        setSlashMenuPos({ top: rect.bottom + 4, left: rect.left });
+      } catch {}
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [slashMenuOpen, slashMenuQuery, editor]);
+
+  const handleSlashSelect = (type: string) => {
+    const { selection } = editor;
+    if (!selection) {
+      setSlashMenuOpen(false);
+      return;
+    }
+    SlateEditor.withoutNormalizing(editor, () => {
+      const blockEntry = SlateEditor.above(editor, {
+        match: (n) => SlateElement.isElement(n) && SlateEditor.isBlock(editor, n),
+      });
+      if (!blockEntry) return;
+      const [, path] = blockEntry;
+      // 选中并删除当前块内所有文本（包括 / 和搜索词）
+      const blockStart = SlateEditor.start(editor, path);
+      const blockEnd = SlateEditor.end(editor, path);
+      Transforms.select(editor, { anchor: blockStart, focus: blockEnd });
+      Transforms.delete(editor);
+      // 设置新块类型
+      const newProps: Partial<BlockElementType> = { type: type as any };
+      if (type === 'todo') newProps.checked = false;
+      Transforms.setNodes(editor, newProps, { at: path });
+    });
+    setSlashMenuOpen(false);
+  };
+
   // 页面切换时同步封面位置
   useEffect(() => {
     const pos = page.coverPosition ?? 50;
@@ -89,9 +143,38 @@ export default function Editor({
   const handleChange = useCallback(
     (value: Descendant[]) => {
       if (isSyncingRef.current) return;
+
+      // Slash 命令菜单检测（在 onChange 中检测比 onKeyDown 更可靠）
+      const { selection } = editor;
+      if (selection && Range.isCollapsed(selection)) {
+        const blockEntry = SlateEditor.above(editor, {
+          match: (n) => SlateElement.isElement(n) && SlateEditor.isBlock(editor, n),
+        });
+        if (blockEntry) {
+          const [block] = blockEntry;
+          if (block.type === 'paragraph') {
+            const text = block.children.map((c: any) => c.text).join('');
+            if (text.startsWith('/')) {
+              if (!slashMenuOpenRef.current) {
+                setSlashMenuOpen(true);
+              }
+              setSlashMenuQuery(text.slice(1));
+            } else if (slashMenuOpenRef.current) {
+              setSlashMenuOpen(false);
+            }
+          } else if (slashMenuOpenRef.current) {
+            setSlashMenuOpen(false);
+          }
+        } else if (slashMenuOpenRef.current) {
+          setSlashMenuOpen(false);
+        }
+      } else if (slashMenuOpenRef.current) {
+        setSlashMenuOpen(false);
+      }
+
       updatePage(page.id, { content: value });
     },
-    [page.id, updatePage]
+    [page.id, updatePage, editor]
   );
 
   // 同步 page-link 块到 Slate 内容
@@ -517,6 +600,12 @@ export default function Editor({
             className="prose dark:prose-invert max-w-none outline-none border-none focus:outline-none"
             spellCheck={false}
             onKeyDown={(event) => {
+              // 如果 slash 菜单打开，让菜单独占导航键
+              if (slashMenuOpen && ['ArrowUp', 'ArrowDown', 'Enter', 'Escape'].includes(event.key)) {
+                event.preventDefault();
+                return;
+              }
+
               // Ctrl+C 复制选中的块
               if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'c') {
                 const selected: any[] = [];
@@ -584,6 +673,17 @@ export default function Editor({
             }}
           />
         </Slate>
+
+        {/* Slash 命令菜单 */}
+        {slashMenuOpen && (
+          <SlashCommandMenu
+            editor={editor as ReactEditor}
+            query={slashMenuQuery}
+            onSelect={handleSlashSelect}
+            onClose={() => setSlashMenuOpen(false)}
+            position={slashMenuPos}
+          />
+        )}
 
         {/* 底部留白：滚动到最后还能继续滚动约 1/3 视口高度 */}
         <div style={{ height: '33vh' }} />
