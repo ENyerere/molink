@@ -77,6 +77,12 @@
   border-radius: 0.25rem;
 }
 
+/* Slate placeholder 垂直居中 */
+[data-slate-placeholder] {
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+}
+
 ::view-transition-old(root), ::view-transition-new(root) {
     animation: none;
     mix-blend-mode: normal;
