@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import Sidebar from './Sidebar';
 import Editor from './Editor';
 import Login from './components/auth/Login';
@@ -17,6 +17,14 @@ export interface PageData {
   cover?: string;
   coverPosition?: number;
   icon?: string;
+  parentId?: string;
+}
+
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  avatar?: string;
 }
 
 // Slate content ↔ Backend Block 转换
@@ -107,27 +115,34 @@ export default function App() {
   const loadPages = useCallback(async (wsId: string) => {
     try {
       setApiLoading(true);
-      const backendPages = await pagesApi.list(wsId);
       const loadedPages: PageData[] = [];
       const idMap: Record<string, string> = {};
-
       const coverPositions = loadCoverPositions();
-      for (const bp of backendPages) {
-        const blocks = await blocksApi.list(bp.id);
-        const content = blocksToSlate(blocks);
-        if (blocks.length > 0) {
-          idMap[bp.id] = blocks[0].id;
-        }
-        loadedPages.push({
-          id: bp.id,
-          title: bp.title,
-          content,
-          cover: bp.cover_image || undefined,
-          coverPosition: coverPositions[bp.id],
-          icon: bp.icon || undefined,
-        });
-      }
 
+      const loadRecursive = async (parentId?: string) => {
+        const backendPages = parentId
+          ? await pagesApi.getChildren(parentId)
+          : await pagesApi.list(wsId);
+        for (const bp of backendPages) {
+          const blocks = await blocksApi.list(bp.id);
+          const content = blocksToSlate(blocks);
+          if (blocks.length > 0) {
+            idMap[bp.id] = blocks[0].id;
+          }
+          loadedPages.push({
+            id: bp.id,
+            title: bp.title,
+            content,
+            cover: bp.cover_image || undefined,
+            coverPosition: coverPositions[bp.id],
+            icon: bp.icon || undefined,
+            parentId: bp.parent_id || undefined,
+          });
+          await loadRecursive(bp.id);
+        }
+      };
+
+      await loadRecursive();
       blockIdMap.current = idMap;
       setPages(loadedPages);
       if (loadedPages.length > 0 && !activePageId) {
@@ -190,14 +205,14 @@ export default function App() {
   // ==========================================
   // 页面操作
   // ==========================================
-  const addPage = async () => {
-    const id = uuidv4();
+  const addPage = async (parentId?: string) => {
     const emptyContent: Descendant[] = [{ type: 'paragraph', children: [{ text: '' }] } as Element];
 
     if (user && workspace) {
       try {
         const bp = await pagesApi.create({
           workspace_id: workspace.id,
+          parent_id: parentId,
           title: '',
           page_type: 'page',
         });
@@ -215,6 +230,7 @@ export default function App() {
           content: emptyContent,
           cover: bp.cover_image || undefined,
           icon: bp.icon || undefined,
+          parentId: bp.parent_id || undefined,
         };
         setPages(prev => [...prev, newPage]);
         if (activePageId) setBackStack(prev => [...prev, activePageId]);
@@ -227,15 +243,16 @@ export default function App() {
     }
 
     // 未登录降级
-    addLocalPage();
+    addLocalPage(parentId);
   };
 
-  const addLocalPage = () => {
+  const addLocalPage = (parentId?: string) => {
     const id = uuidv4();
     const newPage: PageData = {
       id,
       title: '',
       content: [{ type: 'paragraph', children: [{ text: '' }] } as Element],
+      parentId,
     };
     setPages(prev => [...prev, newPage]);
     if (activePageId) setBackStack(prev => [...prev, activePageId]);
@@ -250,9 +267,21 @@ export default function App() {
     setActivePageId(id);
   };
 
-  const closePage = (id: string) => {
+  const getDescendantIds = useCallback((pageId: string, allPages: PageData[]): string[] => {
+    const descendants: string[] = [];
+    const children = allPages.filter(p => p.parentId === pageId);
+    for (const child of children) {
+      descendants.push(child.id);
+      descendants.push(...getDescendantIds(child.id, allPages));
+    }
+    return descendants;
+  }, []);
+
+  const closePage = useCallback((id: string) => {
     setPages(prev => {
-      const newPages = prev.filter(p => p.id !== id);
+      const descendantIds = getDescendantIds(id, prev);
+      const allIdsToRemove = new Set([id, ...descendantIds]);
+      const newPages = prev.filter(p => !allIdsToRemove.has(p.id));
       if (id === activePageId) {
         const idx = prev.findIndex(p => p.id === id);
         const nextActive = newPages[idx] || newPages[idx - 1] || null;
@@ -265,8 +294,14 @@ export default function App() {
     // 已登录时同步删除后端
     if (user) {
       pagesApi.delete(id).catch(err => console.error('删除页面失败:', err));
+      // 级联删除子页面（后端如支持级联可忽略这些错误）
+      const descendantIds = getDescendantIds(id, pages);
+      for (const descId of descendantIds) {
+        pagesApi.delete(descId).catch(err => console.error('删除子页面失败:', err));
+      }
     }
-  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, pages, getDescendantIds, activePageId]);
 
   const goBack = () => {
     setBackStack(prev => {
@@ -421,6 +456,25 @@ export default function App() {
 
   const activePage = pages.find(p => p.id === activePageId);
 
+  // 计算面包屑路径
+  const breadcrumbPath = useMemo(() => {
+    if (!activePage) return [];
+    const path: PageData[] = [];
+    let current: PageData | undefined = activePage;
+    while (current) {
+      path.unshift(current);
+      if (!current.parentId) break;
+      current = pages.find(p => p.id === current!.parentId);
+    }
+    return path;
+  }, [activePage, pages]);
+
+  // 当前页面的子页面
+  const childPages = useMemo(() => {
+    if (!activePageId) return [];
+    return pages.filter(p => p.parentId === activePageId);
+  }, [pages, activePageId]);
+
   if (authLoading || apiLoading) {
     return (
       <div className="flex h-screen items-center justify-center bg-background text-foreground">
@@ -437,6 +491,7 @@ export default function App() {
         activePageId={activePageId}
         setActivePageId={activatePage}
         addPage={addPage}
+        closePage={closePage}
         user={user ? { id: user.id, name: user.full_name || user.email.split('@')[0], email: user.email, avatar: user.avatar_url || undefined } : null}
         onShowLogin={() => setShowLogin(true)}
       />
@@ -470,14 +525,32 @@ export default function App() {
               <ChevronRight className="w-4 h-4" />
             </button>
             {activePage && (
-              <div className="flex items-center gap-2 ml-2">
-                {activePage.icon && (
-                  <PageIcon icon={activePage.icon} size={16} />
-                )}
-                <span className="text-sm font-medium text-foreground truncate max-w-[200px]">
-                  {activePage.title || '无标题'}
-                </span>
-                <span className="flex items-center gap-1 text-xs text-muted-foreground">
+              <div className="flex items-center gap-1 ml-2">
+                {breadcrumbPath.map((page, idx) => (
+                  <React.Fragment key={page.id}>
+                    {idx > 0 && (
+                      <span className="text-muted-foreground mx-0.5">/</span>
+                    )}
+                    <button
+                      onClick={() => {
+                        if (idx < breadcrumbPath.length - 1) {
+                          setActivePageId(page.id);
+                        }
+                      }}
+                      className={`flex items-center gap-1 text-sm truncate max-w-[140px] transition-colors ${
+                        idx === breadcrumbPath.length - 1
+                          ? 'font-medium text-foreground cursor-default'
+                          : 'text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      {page.icon && (
+                        <PageIcon icon={page.icon} size={14} />
+                      )}
+                      <span>{page.title || '无标题'}</span>
+                    </button>
+                  </React.Fragment>
+                ))}
+                <span className="flex items-center gap-1 text-xs text-muted-foreground ml-1">
                   <Lock className="w-3 h-3" />
                   私人
                 </span>
@@ -503,8 +576,10 @@ export default function App() {
           {activePageId && activePage && (
             <Editor
               page={activePage}
+              childPages={childPages}
               updatePage={updatePage}
               uploadCover={uploadCover}
+              onActivatePage={activatePage}
             />
           )}
         </div>

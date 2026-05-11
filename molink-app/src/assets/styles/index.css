@@ -71,6 +71,12 @@
   }
 }
 
+/* Slate 块级框选高亮 — 纯 CSS，不经过 React re-render */
+[data-block-selected="true"] {
+  background-color: hsl(var(--primary) / 0.15);
+  border-radius: 0.25rem;
+}
+
 ::view-transition-old(root), ::view-transition-new(root) {
     animation: none;
     mix-blend-mode: normal;

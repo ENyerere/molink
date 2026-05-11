@@ -25,14 +25,19 @@ const NO_COVER_PX = 120;
 
 export default function Editor({
   page,
+  childPages,
   updatePage,
   uploadCover,
+  onActivatePage,
 }: {
   page: PageData;
+  childPages: PageData[];
   updatePage: (id: string, newData: Partial<PageData>) => void;
   uploadCover: (pageId: string, file: File) => Promise<string | null>;
+  onActivatePage?: (id: string) => void;
 }) {
   const editor = useMemo(() => withMarkdownShortcuts(withReact(createEditor())), []);
+  const isSyncingRef = useRef(false);
 
   const [coverPx, setCoverPx] = useState<number>(
     page.cover ? Math.round(window.innerHeight * (COVER_VH / 100)) : NO_COVER_PX
@@ -80,10 +85,56 @@ export default function Editor({
 
   const handleChange = useCallback(
     (value: Descendant[]) => {
+      if (isSyncingRef.current) return;
       updatePage(page.id, { content: value });
     },
     [page.id, updatePage]
   );
+
+  // 同步 page-link 块到 Slate 内容
+  const childPageIdsKey = useMemo(() => childPages.map(c => c.id).join(','), [childPages]);
+
+  useEffect(() => {
+    if (!editor || childPages.length === 0) return;
+
+    const existing = Array.from(SlateEditor.nodes(editor, {
+      at: [],
+      match: (n) => SlateElement.isElement(n) && n.type === 'page-link',
+    }));
+
+    const neededIds = childPages.map(c => c.id);
+    const existingIds = existing.map(([n]) => (n as any).pageId);
+
+    const needsSync =
+      neededIds.length !== existingIds.length ||
+      !neededIds.every((id, i) => id === existingIds[i]);
+
+    if (!needsSync) return;
+
+    isSyncingRef.current = true;
+
+    SlateEditor.withoutNormalizing(editor, () => {
+      // 从后往前移除所有 page-link
+      for (let i = existing.length - 1; i >= 0; i--) {
+        const [, path] = existing[i];
+        Transforms.removeNodes(editor, { at: path });
+      }
+
+      // 在末尾插入新的 page-link
+      for (const child of childPages) {
+        Transforms.insertNodes(editor, {
+          type: 'page-link',
+          pageId: child.id,
+          children: [{ text: '' }],
+        } as any);
+      }
+    });
+
+    // 延迟重置标志，跳过这次触发的 onChange
+    requestAnimationFrame(() => {
+      isSyncingRef.current = false;
+    });
+  }, [editor, childPageIdsKey, childPages]);
 
   // 封面上传处理
   const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -149,9 +200,8 @@ export default function Editor({
   const [dragSelecting, setDragSelecting] = useState(false);
   const selectionRectRef = useRef<HTMLDivElement | null>(null);
   const startPos = useRef<{ x: number; y: number } | null>(null);
-  const blockRectsRef = useRef<{ path: number[]; rect: DOMRect }[]>([]);
-  const prevSelectedRef = useRef<Map<string, boolean>>(new Map());
   const hasDraggedRef = useRef(false);
+  const prevSelectedDOMsRef = useRef<Set<HTMLElement>>(new Set());
 
   // 直接操作 DOM 更新框选矩形，避免 React re-render 导致的掉帧
   const updateSelectionRectDOM = useCallback(
@@ -177,21 +227,43 @@ export default function Editor({
     document.body.style.userSelect = 'none';
     hasDraggedRef.current = false;
 
-    // mousedown 时一次性缓存所有块的 rect
-    blockRectsRef.current = [];
+    // 框选开始时，清除所有之前的选中状态（DOM + Slate）
+    SlateEditor.withoutNormalizing(editor, () => {
+      for (const [node, path] of SlateEditor.nodes(editor, {
+        at: [],
+        match: (n) => SlateElement.isElement(n) && SlateEditor.isBlock(editor, n),
+      })) {
+        try {
+          const dom = ReactEditor.toDOMNode(editor as ReactEditor, node as SlateElement);
+          delete (dom as HTMLElement).dataset.blockSelected;
+        } catch {}
+        if ((node as BlockElementType).selected) {
+          Transforms.setNodes<BlockElementType>(editor, { selected: false }, { at: path });
+        }
+      }
+    });
+    prevSelectedDOMsRef.current.clear();
+
+    // mousedown 时缓存所有块的 DOM + rect
+    const blockEntries: { path: number[]; dom: HTMLElement; rect: DOMRect }[] = [];
     for (const [node, path] of SlateEditor.nodes(editor, {
       at: [],
       match: (n) => SlateElement.isElement(n) && SlateEditor.isBlock(editor, n),
     })) {
       try {
         const dom = ReactEditor.toDOMNode(editor as ReactEditor, node as SlateElement);
-        blockRectsRef.current.push({ path, rect: dom.getBoundingClientRect() });
+        blockEntries.push({ path, dom: dom as HTMLElement, rect: dom.getBoundingClientRect() });
       } catch {}
     }
-    prevSelectedRef.current = new Map();
 
-    const onMouseMove = (e: MouseEvent) => {
-      if (!startPos.current || !containerRef.current) return;
+    let rafId: number | null = null;
+    let lastEvent: MouseEvent | null = null;
+
+    const tick = () => {
+      rafId = null;
+      const e = lastEvent;
+      if (!e || !startPos.current || !containerRef.current) return;
+
       const cx = e.clientX,
         cy = e.clientY,
         sx = startPos.current.x,
@@ -215,25 +287,51 @@ export default function Editor({
         bottom: Math.max(cy, sy),
       };
 
-      SlateEditor.withoutNormalizing(editor, () => {
-        for (const { path, rect } of blockRectsRef.current) {
-          const overlap =
-            rectViewport.left < rect.right &&
-            rectViewport.right > rect.left &&
-            rectViewport.top < rect.bottom &&
-            rectViewport.bottom > rect.top;
-          const pathKey = JSON.stringify(path);
-          if (prevSelectedRef.current.get(pathKey) !== overlap) {
-            prevSelectedRef.current.set(pathKey, overlap);
-            Transforms.setNodes<BlockElementType>(editor, { selected: overlap }, { at: path });
-          }
+      // 先清除上一次 tick 中设置的所有选中
+      for (const dom of prevSelectedDOMsRef.current) {
+        delete dom.dataset.blockSelected;
+      }
+      prevSelectedDOMsRef.current.clear();
+
+      // 直接操作 DOM，完全不经过 React / Slate，避免 re-render
+      for (const { dom, rect } of blockEntries) {
+        const overlap =
+          rectViewport.left < rect.right &&
+          rectViewport.right > rect.left &&
+          rectViewport.top < rect.bottom &&
+          rectViewport.bottom > rect.top;
+        if (overlap) {
+          dom.dataset.blockSelected = 'true';
+          prevSelectedDOMsRef.current.add(dom);
         }
-      });
+      }
+    };
+
+    const onMouseMove = (e: MouseEvent) => {
+      lastEvent = e;
+      if (!rafId) {
+        rafId = requestAnimationFrame(tick);
+      }
     };
 
     const onMouseUp = () => {
+      if (rafId) {
+        cancelAnimationFrame(rafId);
+        rafId = null;
+      }
       setDragSelecting(false);
       updateSelectionRectDOM(null);
+
+      // 把 DOM 状态同步回 Slate
+      if (hasDraggedRef.current) {
+        SlateEditor.withoutNormalizing(editor, () => {
+          for (const { dom, path } of blockEntries) {
+            const selected = dom.dataset.blockSelected === 'true';
+            Transforms.setNodes<BlockElementType>(editor, { selected }, { at: path });
+          }
+        });
+      }
+
       startPos.current = null;
       document.body.style.userSelect = '';
       document.removeEventListener('mousemove', onMouseMove);
@@ -243,6 +341,7 @@ export default function Editor({
     document.addEventListener('mousemove', onMouseMove);
     document.addEventListener('mouseup', onMouseUp);
     return () => {
+      if (rafId) cancelAnimationFrame(rafId);
       document.removeEventListener('mousemove', onMouseMove);
       document.removeEventListener('mouseup', onMouseUp);
       document.body.style.userSelect = '';
@@ -258,7 +357,7 @@ export default function Editor({
   return (
     <div
       ref={containerRef}
-      className="relative"
+      className="relative min-h-full"
       onMouseDown={(e) => {
         if (e.button !== 0) return;
         startPos.current = { x: e.clientX, y: e.clientY };
@@ -388,11 +487,25 @@ export default function Editor({
         <Slate
           key={page.id}
           editor={editor as ReactEditor}
-          initialValue={page.content as Descendant[] || [{ type: 'paragraph', children: [{ text: '' }] }]}
+          initialValue={(() => {
+            const base = (page.content as Descendant[] || [{ type: 'paragraph', children: [{ text: '' }] }]);
+            // 过滤掉已有的 page-link 块
+            const filtered = base.filter((n: any) => {
+              if (!SlateElement.isElement(n)) return true;
+              return n.type !== 'page-link';
+            });
+            // 追加当前子页面的 page-link 块
+            const links = childPages.map(child => ({
+              type: 'page-link',
+              pageId: child.id,
+              children: [{ text: '' }],
+            }));
+            return [...filtered, ...links];
+          })()}
           onChange={handleChange}
         >
           <Editable
-            renderElement={(props) => <BlockElement {...props} />}
+            renderElement={(props) => <BlockElement {...props} pages={childPages} onActivatePage={onActivatePage} />}
             renderLeaf={(props) => <Leaf {...props} />}
             placeholder="输入内容，或输入 / 打开命令菜单..."
             className="prose dark:prose-invert max-w-none outline-none border-none focus:outline-none"
