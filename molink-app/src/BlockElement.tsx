@@ -560,7 +560,7 @@ function PageLinkPreview({ page }: { page: PageData }) {
           <DragHandleIcon />
         </span>
 
-        <div className="flex items-center gap-2 py-1">
+        <div className="flex items-center gap-2 py-0.5">
           {targetPage?.icon ? (
             <PageIcon icon={targetPage.icon} size={18} />
           ) : (
@@ -576,7 +576,10 @@ function PageLinkPreview({ page }: { page: PageData }) {
           <PageLinkPreview page={targetPage} />
         )}
 
-        {children}
+        {/* Slate 占位节点 — 不占据布局空间 */}
+        <span className="absolute w-0 h-0 overflow-hidden">
+          {children}
+        </span>
 
         {indicator && (
           <div

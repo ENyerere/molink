@@ -580,6 +580,9 @@ export default function Editor({
             }}
           />
         </Slate>
+
+        {/* 底部留白：滚动到最后还能继续滚动约 1/3 视口高度 */}
+        <div style={{ height: '33vh' }} />
       </div>
 
       {/* 隐藏的文件输入 */}
