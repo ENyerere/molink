@@ -118,7 +118,7 @@ const BlockElement = (props: RenderElementProps & { pages?: PageData[]; onActiva
       case 'toggle-list':
         return `${base} flex items-start gap-1`;
       case 'page-link':
-        return `${base} cursor-pointer`;
+        return 'relative py-0 px-1 rounded transition-colors my-[2px] cursor-pointer';
       default:
         return `${base} text-base text-foreground leading-relaxed`;
     }
@@ -205,6 +205,7 @@ const BlockElement = (props: RenderElementProps & { pages?: PageData[]; onActiva
       e.preventDefault();
       e.stopPropagation();
       const fromPath = path;
+      const startMousePos = { x: e.clientX, y: e.clientY };
 
       // 收集所有选中的块路径
       const selectedPaths: Path[] = [];
@@ -214,15 +215,119 @@ const BlockElement = (props: RenderElementProps & { pages?: PageData[]; onActiva
       })) {
         selectedPaths.push(p);
       }
-      const isMultiSelect = selectedPaths.length > 1 && selectedPaths.some((p) => Path.equals(p, fromPath));
+      const selectedCount = selectedPaths.length;
+      const isMultiSelect = selectedCount > 1 && selectedPaths.some((p) => Path.equals(p, fromPath));
+
+      // 选中块组的范围（多选时）
+      const selectedRange = isMultiSelect
+        ? { min: Math.min(...selectedPaths.map(p => p[0])), max: Math.max(...selectedPaths.map(p => p[0])) }
+        : null;
+
+      let ghost: HTMLElement | null = null;
+      let hasStartedDrag = false;
+      let ghostOffset = { x: 0, y: 0 };
 
       const onMouseMove = (ev: MouseEvent) => {
-        if (isMultiSelect) {
-          setIndicator(null); // 多选时不显示插入指示线
-          return;
+        const dx = Math.abs(ev.clientX - startMousePos.x);
+        const dy = Math.abs(ev.clientY - startMousePos.y);
+
+        // 启动拖拽阈值
+        if (!hasStartedDrag && dx < 4 && dy < 4) return;
+        hasStartedDrag = true;
+
+        // 创建拖拽虚影（第一次超过阈值时）
+        if (!ghost) {
+          ghost = document.createElement('div');
+          ghost.style.position = 'fixed';
+          ghost.style.pointerEvents = 'none';
+          ghost.style.zIndex = '9999';
+          ghost.style.opacity = '0.55';
+          ghost.style.filter = 'contrast(0.5) brightness(1.4)';
+
+          const cleanupClone = (el: HTMLElement) => {
+            // 移除选中蓝色背景
+            el.removeAttribute('data-block-selected');
+            // 移除拖拽手柄
+            el.querySelectorAll('span[contenteditable="false"]').forEach(child => {
+              const htmlChild = child as HTMLElement;
+              if (htmlChild.classList.contains('absolute') || htmlChild.classList.contains('cursor-grab')) {
+                child.remove();
+              }
+            });
+            // 移除固定指示线
+            el.querySelectorAll('div[contenteditable="false"]').forEach(child => {
+              const htmlChild = child as HTMLElement;
+              if (htmlChild.classList.contains('fixed')) {
+                child.remove();
+              }
+            });
+            // 仅重置定位相关属性，保持其他所有样式（宽度、行高、padding、margin 等）
+            el.style.position = 'static';
+          };
+
+          let sourceRect: DOMRect | null = null;
+
+          if (isMultiSelect) {
+            // 多选：克隆所有选中的块
+            selectedPaths.sort(Path.compare);
+            for (const p of selectedPaths) {
+              try {
+                const node = Node.get(editor, p);
+                const dom = ReactEditor.toDOMNode(editor as ReactEditor, node as SlateElement);
+                const clone = dom.cloneNode(true) as HTMLElement;
+                cleanupClone(clone);
+                ghost.appendChild(clone);
+                if (Path.equals(p, fromPath)) {
+                  sourceRect = dom.getBoundingClientRect();
+                }
+              } catch {}
+            }
+          } else {
+            // 单选：克隆当前块
+            try {
+              const dom = ReactEditor.toDOMNode(editor as ReactEditor, element as SlateElement);
+              const clone = dom.cloneNode(true) as HTMLElement;
+              cleanupClone(clone);
+              ghost.appendChild(clone);
+              sourceRect = dom.getBoundingClientRect();
+            } catch {
+              ghost.textContent = '块';
+            }
+          }
+
+          document.body.appendChild(ghost);
+          document.body.style.cursor = 'grabbing';
+
+          // 让虚影宽度和原始块完全一致，确保文本换行和原块一样
+          if (sourceRect) {
+            ghost.style.width = `${sourceRect.width}px`;
+
+            // 计算被拖拽块在 ghost 内部的 Y 偏移（前面有多少个块的高度）
+            let draggedBlockOffsetY = 0;
+            if (isMultiSelect) {
+              for (const p of selectedPaths) {
+                if (Path.equals(p, fromPath)) break;
+                try {
+                  const node = Node.get(editor, p);
+                  const dom = ReactEditor.toDOMNode(editor as ReactEditor, node as SlateElement);
+                  draggedBlockOffsetY += dom.getBoundingClientRect().height;
+                } catch {}
+              }
+            }
+
+            // ghost 位置使得被拖拽块的第一行对准鼠标附近
+            ghostOffset.x = sourceRect.left - startMousePos.x;
+            ghostOffset.y = sourceRect.top - startMousePos.y - draggedBlockOffsetY;
+          }
         }
 
-        // 单选：遍历所有 Slate 块节点，找 Y 坐标最接近的
+        // 更新虚影位置：跟随鼠标，保持初始相对偏移
+        if (ghost) {
+          ghost.style.left = `${ev.clientX + ghostOffset.x}px`;
+          ghost.style.top = `${ev.clientY + ghostOffset.y}px`;
+        }
+
+        // 计算插入指示线
         let bestTarget: {
           node: SlateElement;
           path: Path;
@@ -254,18 +359,36 @@ const BlockElement = (props: RenderElementProps & { pages?: PageData[]; onActiva
         }
 
         if (bestTarget) {
-          setIndicator({
-            top: bestTarget.before ? bestTarget.rect.top : bestTarget.rect.bottom,
-            left: bestTarget.rect.left,
-            width: bestTarget.rect.width,
-          });
+          const targetIndex = bestTarget.path[0];
+          // 多选时：如果目标在选中块组内部，不显示指示线
+          const isInsideSelection = selectedRange !== null &&
+            targetIndex >= selectedRange.min &&
+            targetIndex <= selectedRange.max;
+
+          if (isInsideSelection) {
+            setIndicator(null);
+          } else {
+            setIndicator({
+              top: bestTarget.before ? bestTarget.rect.top : bestTarget.rect.bottom,
+              left: bestTarget.rect.left,
+              width: bestTarget.rect.width,
+            });
+          }
         }
       };
 
       const onMouseUp = (ev: MouseEvent) => {
+        // 移除虚影
+        if (ghost) {
+          ghost.remove();
+          ghost = null;
+        }
+        document.body.style.cursor = '';
         setIndicator(null);
         document.removeEventListener('mousemove', onMouseMove);
         document.removeEventListener('mouseup', onMouseUp);
+
+        if (!hasStartedDrag) return;
 
         if (isMultiSelect) {
           // === 多选批量移动 ===
@@ -304,6 +427,11 @@ const BlockElement = (props: RenderElementProps & { pages?: PageData[]; onActiva
             }
           }
           adjustedIndex = Math.max(0, adjustedIndex);
+
+          // 多选时：如果目标在选中块组内部，不移动
+          if (selectedRange !== null && adjustedIndex >= selectedRange.min && adjustedIndex <= selectedRange.max + 1) {
+            return;
+          }
 
           // 从后往前删除，然后批量插入
           SlateEditor.withoutNormalizing(editor, () => {
@@ -357,7 +485,7 @@ const BlockElement = (props: RenderElementProps & { pages?: PageData[]; onActiva
       document.addEventListener('mousemove', onMouseMove);
       document.addEventListener('mouseup', onMouseUp);
     },
-    [editor, path]
+    [editor, path, element]
   );
 
   /* ---- 从 Slate 内容提取文本预览 ---- */
@@ -381,7 +509,7 @@ function getContentPreview(content: any[]): string {
 function PageLinkPreview({ page }: { page: PageData }) {
   const previewText = getContentPreview(page.content);
   return (
-    <div className="absolute left-full top-0 ml-2 w-64 bg-card rounded-lg shadow-xl border border-border p-3 z-50 pointer-events-none">
+    <div className="absolute top-full left-0 mt-1 w-64 bg-card rounded-lg shadow-xl border border-border p-3 z-50 pointer-events-none">
       {page.cover && (
         <div
           className="w-full h-24 rounded-md mb-2 bg-cover bg-center"
