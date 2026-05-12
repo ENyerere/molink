@@ -589,17 +589,17 @@ export default function App() {
       <AnimatedPresence
         show={showMigrationDialog}
         duration={200}
-        enterFrom="opacity-0"
-        enterTo="opacity-100"
+        enterFrom="opacity-0 backdrop-blur-[0px] bg-black/0"
+        enterTo="opacity-100 backdrop-blur-sm bg-black/60"
+        className="fixed inset-0 z-[100] flex items-center justify-center"
       >
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[60]">
-          <div
-            className="bg-card rounded-xl w-full max-w-[420px] shadow-2xl p-8 transition-all duration-200 ease-out"
-            style={{
-              opacity: showMigrationDialog ? 1 : 0,
-              transform: showMigrationDialog ? 'scale(1)' : 'scale(0.95)',
-            }}
-          >
+        <div
+          className="bg-card rounded-xl w-full max-w-[420px] shadow-2xl p-8 transition-all duration-200 ease-out"
+          style={{
+            opacity: showMigrationDialog ? 1 : 0,
+            transform: showMigrationDialog ? 'scale(1)' : 'scale(0.95)',
+          }}
+        >
             <div className="flex items-center justify-center mb-4">
               <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -629,7 +629,6 @@ export default function App() {
               </button>
             </div>
           </div>
-        </div>
       </AnimatedPresence>
     </div>
   );

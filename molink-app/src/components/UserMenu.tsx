@@ -9,6 +9,7 @@ interface UserMenuProps {
   userEmail?: string;
   onOpenSettings: () => void;
   triggerRef?: React.RefObject<HTMLElement | null>;
+  isLoggedIn?: boolean;
 }
 
 export default function UserMenu({
@@ -18,6 +19,7 @@ export default function UserMenu({
   userEmail,
   onOpenSettings,
   triggerRef,
+  isLoggedIn = false,
 }: UserMenuProps) {
   const { signOut } = useAuth();
   const menuRef = useRef<HTMLDivElement>(null);
@@ -85,51 +87,59 @@ export default function UserMenu({
           <Settings className="w-4 h-4" />
           设置
         </button>
-        <button className="flex-1 flex items-center justify-center gap-2 py-1.5 px-3 rounded-md hover:bg-accent text-sm text-secondary-foreground border border-border transition-colors">
-          <UserPlus className="w-4 h-4" />
-          邀请成员
-        </button>
+        {isLoggedIn && (
+          <button className="flex-1 flex items-center justify-center gap-2 py-1.5 px-3 rounded-md hover:bg-accent text-sm text-secondary-foreground border border-border transition-colors">
+            <UserPlus className="w-4 h-4" />
+            邀请成员
+          </button>
+        )}
       </div>
 
       <div className="border-t border-border my-1" />
 
       {/* 账号信息 */}
       <div className="px-3 py-2">
-        {userEmail && (
+        {isLoggedIn && userEmail && (
           <div className="text-xs text-muted-foreground mb-2">{userEmail}</div>
         )}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="w-6 h-6 rounded bg-secondary flex items-center justify-center text-xs font-medium text-secondary-foreground">
-              {userName.charAt(0).toUpperCase()}
+              {isLoggedIn ? userName.charAt(0).toUpperCase() : '?'}
             </div>
-            <span className="text-sm text-foreground">{userName} 的 Molink</span>
+            <span className="text-sm text-foreground">
+              {isLoggedIn ? `${userName} 的 Molink` : '临时工作空间'}
+            </span>
           </div>
-          <Check className="w-4 h-4 text-foreground" />
+          {isLoggedIn && <Check className="w-4 h-4 text-foreground" />}
         </div>
       </div>
 
-      <div className="border-t border-border my-1" />
+      {isLoggedIn && (
+        <>
+          <div className="border-t border-border my-1" />
 
-      {/* 账号操作 */}
-      <div className="py-1">
-        <button className="w-full text-left px-3 py-2 text-sm text-secondary-foreground hover:bg-accent transition-colors">
-          创建工作账号
-        </button>
-        <button className="w-full text-left px-3 py-2 text-sm text-secondary-foreground hover:bg-accent transition-colors">
-          添加另一个账号
-        </button>
-        <button
-          onClick={() => {
-            onClose();
-            signOut();
-          }}
-          className="w-full text-left px-3 py-2 text-sm text-secondary-foreground hover:bg-accent transition-colors flex items-center gap-2"
-        >
-          <LogOut className="w-4 h-4" />
-          登出
-        </button>
-      </div>
+          {/* 账号操作 */}
+          <div className="py-1">
+            <button className="w-full text-left px-3 py-2 text-sm text-secondary-foreground hover:bg-accent transition-colors">
+              创建工作账号
+            </button>
+            <button className="w-full text-left px-3 py-2 text-sm text-secondary-foreground hover:bg-accent transition-colors">
+              添加另一个账号
+            </button>
+            <button
+              onClick={() => {
+                onClose();
+                signOut();
+              }}
+              className="w-full text-left px-3 py-2 text-sm text-secondary-foreground hover:bg-accent transition-colors flex items-center gap-2"
+            >
+              <LogOut className="w-4 h-4" />
+              登出
+            </button>
+          </div>
+        </>
+      )}
 
       <div className="border-t border-border my-1" />
 

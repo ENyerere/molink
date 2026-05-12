@@ -337,6 +337,7 @@ export default function Sidebar({
         userEmail={user?.email}
         onOpenSettings={() => setShowSettings(true)}
         triggerRef={userMenuTriggerRef}
+        isLoggedIn={!!user}
       />
 
       {/* 功能导航 */}
