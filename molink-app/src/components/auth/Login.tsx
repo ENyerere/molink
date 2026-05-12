@@ -48,10 +48,10 @@ export default function Login({ isOpen, onClose, onLogin }: LoginProps) {
     <AnimatedPresence
       show={isOpen}
       duration={200}
-      enterFrom="opacity-0"
-      enterTo="opacity-100"
+      enterFrom="opacity-0 backdrop-blur-[0px] bg-black/0"
+      enterTo="opacity-100 backdrop-blur-sm bg-black/60"
+      className="fixed inset-0 z-[100] flex items-center justify-center"
     >
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
       <div
         className="bg-card rounded-xl w-full max-w-[440px] shadow-2xl transition-all duration-200 ease-out"
         style={{
@@ -76,9 +76,9 @@ export default function Login({ isOpen, onClose, onLogin }: LoginProps) {
         </div>
 
         {/* 标签页 */}
-        <div className="flex mt-6 px-8">
+        <div className="flex mt-6 px-8 relative">
           <button
-            className={`mr-8 pb-3 text-[15px] font-medium border-b-2 transition-colors ${
+            className={`mr-8 pb-3 text-[15px] font-medium border-b-2 transition-all duration-200 ${
               activeTab === 'login'
                 ? 'text-foreground border-primary'
                 : 'text-muted-foreground border-transparent hover:text-foreground'
@@ -88,7 +88,7 @@ export default function Login({ isOpen, onClose, onLogin }: LoginProps) {
             登录
           </button>
           <button
-            className={`pb-3 text-[15px] font-medium border-b-2 transition-colors ${
+            className={`pb-3 text-[15px] font-medium border-b-2 transition-all duration-200 ${
               activeTab === 'register'
                 ? 'text-foreground border-primary'
                 : 'text-muted-foreground border-transparent hover:text-foreground'
@@ -99,7 +99,7 @@ export default function Login({ isOpen, onClose, onLogin }: LoginProps) {
           </button>
         </div>
 
-        <div className="p-8 pt-6 space-y-5">
+        <div className="p-8 pt-6">
           {/* 第三方登录（占位） */}
           <div className="space-y-2.5">
             <button disabled className="w-full relative h-11 border border-border rounded-lg opacity-50 cursor-not-allowed">
@@ -121,34 +121,38 @@ export default function Login({ isOpen, onClose, onLogin }: LoginProps) {
           </div>
 
           {/* 分隔线 */}
-          <div className="relative">
+          <div className="relative mt-5">
             <div className="absolute inset-0 flex items-center">
               <div className="w-full border-t border-border"></div>
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-2 text-muted-foreground bg-card">
+              <span className="px-2 text-muted-foreground bg-card transition-opacity duration-200">
                 或使用邮箱{activeTab === 'login' ? '登录' : '注册'}
               </span>
             </div>
           </div>
 
-          {/* 表单 */}
-          {activeTab === 'register' && (
-            <div>
-              <label className="block text-[15px] font-medium text-foreground mb-2">
-                姓名
-              </label>
-              <input
-                type="text"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                placeholder="你的名字"
-                className="w-full h-11 px-3.5 border border-border rounded-lg focus:ring-2 focus:ring-ring focus:border-primary outline-none placeholder:text-muted-foreground bg-input text-foreground"
-              />
-            </div>
-          )}
+          {/* 姓名输入框 - 可折叠 */}
+          <div
+            className={`overflow-hidden transition-all duration-200 ease-out ${
+              activeTab === 'register'
+                ? 'max-h-[88px] opacity-100 mt-5'
+                : 'max-h-0 opacity-0 mt-0'
+            }`}
+          >
+            <label className="block text-[15px] font-medium text-foreground mb-2">
+              姓名
+            </label>
+            <input
+              type="text"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              placeholder="你的名字"
+              className="w-full h-11 px-3.5 border border-border rounded-lg focus:ring-2 focus:ring-ring focus:border-primary outline-none placeholder:text-muted-foreground bg-input text-foreground"
+            />
+          </div>
 
-          <div>
+          <div className="mt-5">
             <label className="block text-[15px] font-medium text-foreground mb-2">
               邮箱地址
             </label>
@@ -161,7 +165,7 @@ export default function Login({ isOpen, onClose, onLogin }: LoginProps) {
             />
           </div>
 
-          <div>
+          <div className="mt-5">
             <label className="block text-[15px] font-medium text-foreground mb-2">
               密码
             </label>
@@ -176,20 +180,20 @@ export default function Login({ isOpen, onClose, onLogin }: LoginProps) {
 
           {/* 错误提示 */}
           {error && (
-            <div className="text-destructive text-[15px]">{error}</div>
+            <div className="mt-5 text-destructive text-[15px]">{error}</div>
           )}
 
           {/* 提交按钮 */}
           <button
             onClick={handleSubmit}
             disabled={isLoading}
-            className="w-full h-11 bg-primary text-primary-foreground text-[15px] font-medium rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50"
+            className="w-full h-11 bg-primary text-primary-foreground text-[15px] font-medium rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 mt-5"
           >
             {isLoading ? '处理中...' : '继续'}
           </button>
 
           {/* 底部条款 */}
-          <p className="text-center text-sm text-muted-foreground">
+          <p className="text-center text-sm text-muted-foreground mt-5">
             继续操作即表示你确认已理解并同意
             <a href="#" className="text-primary hover:underline">条款和条件</a>
             和
@@ -197,7 +201,6 @@ export default function Login({ isOpen, onClose, onLogin }: LoginProps) {
           </p>
         </div>
       </div>
-    </div>
     </AnimatedPresence>
   );
 }
