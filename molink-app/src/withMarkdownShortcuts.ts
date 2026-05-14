@@ -1,5 +1,5 @@
 // withMarkdownShortcuts.ts
-import { Editor, Transforms, Range, Point, Element as SlateElement, Text, Node } from 'slate';
+import { Editor, Transforms, Range, Point, Path, Element as SlateElement, Text, Node } from 'slate';
 
 const blockShortcuts: Record<string, string> = {
   '#': 'heading-one',
@@ -125,9 +125,11 @@ export const withMarkdownShortcuts = (editor: Editor) => {
     const isEmpty =
       Node.string(element).trim().length === 0;
 
-    // 空块 + 在末尾 => 退出当前块类型，回到 paragraph
+    // 空块 + 在末尾 => 在当前块后插入新 paragraph，保持当前块类型
     if (isEmpty && toggleOffBlocks.has(element.type as string)) {
-      Transforms.setNodes(editor, { type: 'paragraph' } as Partial<SlateElement>, { at: path });
+      const nextPath = Path.next(path);
+      Transforms.insertNodes(editor, { type: 'paragraph', children: [{ text: '' }] } as Partial<SlateElement>, { at: nextPath });
+      Transforms.select(editor, { path: [...nextPath, 0], offset: 0 });
       return;
     }
 
@@ -195,6 +197,17 @@ export const withMarkdownShortcuts = (editor: Editor) => {
               { type: 'paragraph', checked: undefined } as Partial<SlateElement>,
               { at: path }
             );
+            return;
+          }
+          // 空 paragraph 在块首按 backspace：直接删除当前块，光标移到前一个块末尾
+          const isEmpty = Node.string(element).trim().length === 0;
+          if (isEmpty && path[0] > 0) {
+            const prevPath = Path.previous(path);
+            Transforms.removeNodes(editor, { at: path });
+            try {
+              const prevEnd = Editor.end(editor, prevPath);
+              Transforms.select(editor, { anchor: prevEnd, focus: prevEnd });
+            } catch {}
             return;
           }
         }
