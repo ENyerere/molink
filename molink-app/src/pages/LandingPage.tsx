@@ -73,7 +73,7 @@ export default function LandingPage({ onEnterWorkspace, onLogin }: LandingPagePr
             onClick={onLogin}
             className="text-sm font-medium text-zinc-400 hover:text-white transition-colors"
           >
-            登录
+            Sign Up / Log In
           </button>
         </header>
       </BlurFade>
@@ -106,12 +106,6 @@ export default function LandingPage({ onEnterWorkspace, onLogin }: LandingPagePr
                   className="group relative h-12 px-8 bg-blue-500 text-white text-[15px] font-medium rounded-xl hover:bg-blue-400 transition-all duration-300 shadow-lg shadow-blue-500/20 hover:shadow-blue-400/30 hover:scale-[1.02] active:scale-[0.98]"
                 >
                   开始使用
-                </button>
-                <button
-                  onClick={onLogin}
-                  className="h-12 px-8 border border-zinc-700 text-zinc-300 text-[15px] font-medium rounded-xl hover:bg-zinc-800 hover:border-zinc-600 transition-all duration-300"
-                >
-                  登录
                 </button>
               </div>
             </BlurFade>

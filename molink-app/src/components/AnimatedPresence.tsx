@@ -30,11 +30,18 @@ export default function AnimatedPresence({
   useEffect(() => {
     if (show) {
       setMounted(true);
-      // 下一帧再切到 enterTo，确保浏览器已经 mount 完成，transition 能生效
-      const raf = requestAnimationFrame(() => {
-        setAnimating(true);
+      // 双 raf：第一帧让浏览器先绘制 enterFrom，第二帧再切到 enterTo，
+      // 否则浏览器从来没看到过 enterFrom，transition 会被跳过。
+      let raf2: number;
+      const raf1 = requestAnimationFrame(() => {
+        raf2 = requestAnimationFrame(() => {
+          setAnimating(true);
+        });
       });
-      return () => cancelAnimationFrame(raf);
+      return () => {
+        cancelAnimationFrame(raf1);
+        cancelAnimationFrame(raf2);
+      };
     } else {
       setAnimating(false);
       const timer = setTimeout(() => {

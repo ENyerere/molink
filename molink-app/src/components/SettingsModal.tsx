@@ -129,7 +129,8 @@ function SelectButton({ children }: { children: React.ReactNode }) {
 /*  Account Page                                                    */
 /* ================================================================ */
 function AccountPage() {
-  const { user, signOut } = useAuth();
+  const { user } = useAuth();
+  const isLoggedIn = !!user;
   const name = user?.full_name || '访客';
   const email = user?.email;
   const initial = name.charAt(0).toUpperCase();
@@ -137,7 +138,9 @@ function AccountPage() {
   return (
     <div>
       <h2 className="text-3xl font-bold text-card-foreground tracking-tight">我</h2>
-      <p className="text-muted-foreground mt-2 text-[15px]">管理你的档案、登录信息和设备</p>
+      <p className="text-muted-foreground mt-2 text-[15px]">
+        {isLoggedIn ? '管理你的档案、登录信息和设备' : '你当前正在以访客身份浏览'}
+      </p>
 
       <Divider />
 
@@ -153,73 +156,84 @@ function AccountPage() {
             <input
               type="text"
               defaultValue={name}
-              className="h-9 px-3 text-sm bg-input border border-border rounded-md text-foreground outline-none focus:ring-2 focus:ring-ring w-48"
+              disabled={!isLoggedIn}
+              className="h-9 px-3 text-sm bg-input border border-border rounded-md text-foreground outline-none focus:ring-2 focus:ring-ring w-48 disabled:opacity-50 disabled:cursor-not-allowed"
             />
           </div>
           <p className="text-sm text-muted-foreground mt-3">
-            使用 Molink 头像或
-            <span className="text-primary hover:underline cursor-pointer">添加照片</span>
-            或
-            <span className="text-primary hover:underline cursor-pointer">创建自定义头像</span>
+            {isLoggedIn ? (
+              <>
+                使用 Molink 头像或
+                <span className="text-primary hover:underline cursor-pointer">添加照片</span>
+                或
+                <span className="text-primary hover:underline cursor-pointer">创建自定义头像</span>
+              </>
+            ) : (
+              '登录后可管理你的账号信息'
+            )}
           </p>
         </div>
       </div>
 
-      <Divider />
+      {isLoggedIn && (
+        <>
+          <Divider />
 
-      <SectionTitle>账号安全</SectionTitle>
+          <SectionTitle>账号安全</SectionTitle>
 
-      <SettingRow
-        title="邮件地址"
-        description={email || '未绑定邮箱'}
-        action={<GhostButton>管理电子邮件地址</GhostButton>}
-      />
+          <SettingRow
+            title="邮件地址"
+            description={email || '未绑定邮箱'}
+            action={<GhostButton>管理电子邮件地址</GhostButton>}
+          />
 
-      <Divider />
+          <Divider />
 
-      <SettingRow
-        title="密码"
-        description="更改用于登录的密码"
-        action={<GhostButton>更改密码</GhostButton>}
-      />
+          <SettingRow
+            title="密码"
+            description="更改用于登录的密码"
+            action={<GhostButton>更改密码</GhostButton>}
+          />
 
-      <Divider />
+          <Divider />
 
-      <SettingRow
-        title="两步验证"
-        description="为你的账号多加一层安全保障"
-        action={<GhostButton>添加验证方法</GhostButton>}
-      />
+          <SettingRow
+            title="两步验证"
+            description="为你的账号多加一层安全保障"
+            action={<GhostButton>添加验证方法</GhostButton>}
+          />
 
-      <Divider />
+          <Divider />
 
-      <SectionTitle>支持</SectionTitle>
+          <SectionTitle>支持</SectionTitle>
 
-      <SettingRow
-        title="支持访问权限"
-        description="授予 Molink 支持团队对你账号的临时访问权限，以便代表你解决问题或恢复内容。你可以随时撤销访问权限。"
-        action={<Toggle checked={false} onChange={() => {}} />}
-      />
+          <SettingRow
+            title="支持访问权限"
+            description="授予 Molink 支持团队对你账号的临时访问权限，以便代表你解决问题或恢复内容。你可以随时撤销访问权限。"
+            action={<Toggle checked={false} onChange={() => {}} />}
+          />
 
-      <Divider />
+          <Divider />
 
-      <SettingRow
-        title="删除我的账号"
-        description="永久删除你的账号。你将无法再访问你的页面和你所属的任何工作空间。"
-        action={<GhostButton danger>删除我的账号</GhostButton>}
-      />
+          <SettingRow
+            title="删除我的账号"
+            description="永久删除你的账号。你将无法再访问你的页面和你所属的任何工作空间。"
+            action={<GhostButton danger>删除我的账号</GhostButton>}
+          />
 
-      <Divider />
+          <Divider />
 
-      <SectionTitle>设备</SectionTitle>
+          <SectionTitle>设备</SectionTitle>
 
-      <div className="py-4">
-        <div className="text-[15px] font-medium text-card-foreground">从所有设备登出</div>
-        <p className="text-sm text-muted-foreground mt-1">登出其他设备上的所有活动会话（当前设备除外）</p>
-        <button className="mt-3 h-8 px-3 text-[13px] font-medium text-red-600 dark:text-red-400 border border-red-200 dark:border-red-900/50 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
-          从所有设备登出
-        </button>
-      </div>
+          <div className="py-4">
+            <div className="text-[15px] font-medium text-card-foreground">从所有设备登出</div>
+            <p className="text-sm text-muted-foreground mt-1">登出其他设备上的所有活动会话（当前设备除外）</p>
+            <button className="mt-3 h-8 px-3 text-[13px] font-medium text-red-600 dark:text-red-400 border border-red-200 dark:border-red-900/50 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+              从所有设备登出
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -536,8 +550,17 @@ function NotificationsPage() {
 /*  Main SettingsModal                                              */
 /* ================================================================ */
 export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
-  const [activeTab, setActiveTab] = useState<SettingsTab>('account');
   const { user } = useAuth();
+  const isLoggedIn = !!user;
+
+  const availableNavGroups = isLoggedIn
+    ? NAV_GROUPS
+    : [{ label: '个人', items: [{ id: 'preferences' as SettingsTab, label: '偏好', icon: SlidersHorizontal }] }];
+
+  const allAvailableItems = availableNavGroups.flatMap((g) => g.items);
+  const firstAvailableTab = allAvailableItems[0]?.id ?? 'preferences';
+
+  const [activeTab, setActiveTab] = useState<SettingsTab>(firstAvailableTab);
   const modalRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -549,7 +572,17 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     return () => document.removeEventListener('keydown', handler);
   }, [isOpen, onClose]);
 
-  const tabLabel = NAV_GROUPS.flatMap((g) => g.items).find((i) => i.id === activeTab)?.label;
+  // 打开弹窗时，如果当前 tab 对未登录用户不可用，自动切换到第一个可用 tab
+  useEffect(() => {
+    if (isOpen) {
+      const isValidTab = allAvailableItems.some((item) => item.id === activeTab);
+      if (!isValidTab) {
+        setActiveTab(firstAvailableTab);
+      }
+    }
+  }, [isOpen, activeTab, firstAvailableTab, allAvailableItems]);
+
+  const tabLabel = allAvailableItems.find((i) => i.id === activeTab)?.label;
 
   return (
     <AnimatedPresence
@@ -574,7 +607,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
           {/* 左侧导航 */}
           <div className="w-60 flex-shrink-0 border-r border-border flex flex-col bg-card">
             {/* 用户信息 */}
-            <div className="px-4 py-5 border-b border-border">
+            <div className={`px-4 py-5 ${isLoggedIn ? 'border-b border-border' : ''}`}>
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center text-sm font-semibold text-secondary-foreground flex-shrink-0">
                   {user?.full_name?.charAt(0).toUpperCase() || '?'}
@@ -592,7 +625,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
 
             {/* 导航分组 */}
             <nav className="flex-1 overflow-y-auto py-2">
-              {NAV_GROUPS.map((group) => (
+              {availableNavGroups.map((group) => (
                 <div key={group.label} className="mb-2">
                   <div className="px-4 py-2 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
                     {group.label}
@@ -623,10 +656,12 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
           {/* 右侧内容 */}
           <div className="flex-1 flex flex-col min-w-0 bg-background">
             {/* 标题栏 */}
-            <div className="flex items-center justify-between px-6 py-3.5 border-b border-border flex-shrink-0">
-              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                {tabLabel}
-              </span>
+            <div className={`flex items-center px-6 py-3.5 flex-shrink-0 ${isLoggedIn ? 'justify-between border-b border-border' : 'justify-end'}`}>
+              {isLoggedIn && (
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  {tabLabel}
+                </span>
+              )}
               <button
                 onClick={onClose}
                 className="text-muted-foreground hover:text-foreground transition-colors p-1 rounded-md hover:bg-accent"

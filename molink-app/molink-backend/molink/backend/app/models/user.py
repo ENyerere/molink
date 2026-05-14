@@ -15,7 +15,9 @@ class User(Base):
     
     id = Column(CHAR(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     email = Column(String(255), unique=True, index=True, nullable=False)
-    password_hash = Column(String(255), nullable=False)
+    password_hash = Column(String(255), nullable=True)
+    provider = Column(String(20), nullable=True)
+    provider_id = Column(String(100), nullable=True)
     full_name = Column(String(100), nullable=True)
     avatar_url = Column(String(500), nullable=True)
     settings = Column(Text, nullable=True)  # JSON存储用户设置
