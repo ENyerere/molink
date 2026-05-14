@@ -1,7 +1,8 @@
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import {
   type RenderElementProps,
   useSlateStatic,
+  useFocused,
   ReactEditor,
 } from 'slate-react';
 import {
@@ -73,8 +74,70 @@ const BlockElement = (props: RenderElementProps & { pages?: PageData[]; onActiva
 
   const path = ReactEditor.findPath(editor as ReactEditor, element);
 
+  /* ---- 失去 focus 后短暂隐藏拖拽手柄（按回车切块时），需等鼠标移动才恢复 ---- */
+  const focused = useFocused();
+  const [suppressHover, setSuppressHover] = useState(false);
+  const wasFocusedRef = useRef(focused);
+
+  useEffect(() => {
+    if (wasFocusedRef.current && !focused) {
+      setSuppressHover(true);
+    }
+    wasFocusedRef.current = focused;
+  }, [focused]);
+
+  useEffect(() => {
+    if (!suppressHover) return;
+    const handler = () => setSuppressHover(false);
+    document.addEventListener('mousemove', handler);
+    return () => document.removeEventListener('mousemove', handler);
+  }, [suppressHover]);
+
+  const dragHandleVisibleClass = suppressHover ? '' : 'group-hover:opacity-100';
+
+  /* ---- 块级 placeholder ---- */
+  const blockPlaceholder = useMemo(() => {
+    if (element.type === 'paragraph') {
+      // "输入内容..." 提示只在最后一个空 paragraph 显示
+      const isLastBlock = path.length > 0 && path[0] === editor.children.length - 1;
+      return isLastBlock ? '输入内容，或输入 / 打开命令菜单...' : undefined;
+    }
+    const map: Record<string, string> = {
+      'heading-one': '标题 1',
+      'heading-two': '标题 2',
+      'heading-three': '标题 3',
+      'heading-four': '标题 4',
+      'bulleted-list': '项目符号列表',
+      'numbered-list': '有序列表',
+      'todo': '待办清单',
+      'toggle-list': '折叠列表',
+      'blockquote': '引用',
+      'code-block': '代码',
+      'math-block': '数学公式',
+      'emphasis-block': '强调块',
+    };
+    return map[element.type];
+  }, [element.type, path, editor.children.length]);
+
+  const isEmpty = useMemo(() => {
+    if (element.type === 'page-link') return false;
+    return (
+      element.children.length === 1 &&
+      element.children[0].text === '' &&
+      !element.children[0].bold &&
+      !element.children[0].italic &&
+      !element.children[0].code &&
+      !element.children[0].underline &&
+      !element.children[0].strikethrough
+    );
+  }, [element.children]);
+
   /* ---- 点击块时只清除选中状态，不选中当前块 ---- */
-  const handleClick = useCallback(() => {
+  const handleClick = useCallback((e: React.MouseEvent) => {
+    // 如果点击的是拖拽手柄，不要清除选中（让拖拽手柄的 mouseUp 来处理选中）
+    const target = e.target as HTMLElement;
+    const dragHandle = target.closest('span[contenteditable="false"]');
+    if (dragHandle && dragHandle.classList.contains('cursor-grab')) return;
     requestAnimationFrame(() => {
       SlateEditor.withoutNormalizing(editor, () => {
         for (const [, p] of SlateEditor.nodes(editor, {
@@ -384,6 +447,19 @@ const BlockElement = (props: RenderElementProps & { pages?: PageData[]; onActiva
         document.removeEventListener('mousemove', onMouseMove);
         document.removeEventListener('mouseup', onMouseUp);
 
+        // 阻止本次 mouseDown 触发的 click 事件传播到块根元素
+        // 否则块根 div 的 onClick={handleClick} 会把刚设置的 selected 清掉
+        try {
+          const blockEl = ReactEditor.toDOMNode(editor as ReactEditor, element as SlateElement);
+          const stopClick = (e: MouseEvent) => {
+            if (blockEl && (blockEl === e.target || blockEl.contains(e.target as Node))) {
+              e.stopPropagation();
+            }
+            document.removeEventListener('click', stopClick, true);
+          };
+          document.addEventListener('click', stopClick, true);
+        } catch {}
+
         if (!hasStartedDrag) {
           // 拖拽未真正启动（只是点了一下）：单独选中当前块
           SlateEditor.withoutNormalizing(editor, () => {
@@ -560,14 +636,14 @@ function PageLinkPreview({ page }: { page: PageData }) {
         onMouseLeave={() => setShowPreview(false)}
         onClick={(e) => {
           e.stopPropagation();
-          handleClick();
+          handleClick(e);
           onActivatePage?.(pageId!);
         }}
       >
         {/* 拖拽手柄 */}
         <span
           contentEditable={false}
-          className="absolute -left-7 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab select-none text-muted-foreground hover:text-foreground p-1"
+          className={`absolute -left-7 top-1/2 -translate-y-1/2 opacity-0 ${dragHandleVisibleClass} transition-opacity cursor-grab select-none text-muted-foreground hover:text-foreground p-1`}
           onMouseDown={handleDragMouseDown}
           title="拖动移动此块"
         >
@@ -627,7 +703,7 @@ function PageLinkPreview({ page }: { page: PageData }) {
       {/* 拖拽手柄 — select-none + SVG 防止被复制 */}
       <span
         contentEditable={false}
-        className="absolute -left-7 top-[3px] opacity-0 group-hover:opacity-100 transition-opacity cursor-grab select-none text-muted-foreground hover:text-foreground p-1"
+        className={`absolute -left-7 top-[3px] opacity-0 ${dragHandleVisibleClass} transition-opacity cursor-grab select-none text-muted-foreground hover:text-foreground p-1`}
         onMouseDown={handleDragMouseDown}
         title="拖动移动此块"
       >
@@ -638,7 +714,17 @@ function PageLinkPreview({ page }: { page: PageData }) {
       {prefix}
 
       {/* 内容 */}
-      <div className="flex-1 min-w-0">{children}</div>
+      <div className="flex-1 min-w-0 relative">
+        {children}
+        {isEmpty && blockPlaceholder && (
+          <span
+            contentEditable={false}
+            className="absolute left-0 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none select-none opacity-50"
+          >
+            {blockPlaceholder}
+          </span>
+        )}
+      </div>
 
       {/* 拖拽指示线 */}
       {indicator && (

@@ -267,8 +267,17 @@ export default function Sidebar({
     return auto;
   }, [pages, activePageId]);
 
-  // 最近访问的页面（前5个，仅限顶层）
-  const recentPages = pages.filter((p) => !p.parentId).slice(0, 5);
+  // 最近修改的页面（前5个，仅限顶层，按 updatedAt 降序）
+  const recentPages = useMemo(() => {
+    return pages
+      .filter((p) => !p.parentId)
+      .sort((a, b) => {
+        const tA = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
+        const tB = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+        return tB - tA;
+      })
+      .slice(0, 5);
+  }, [pages]);
   // 从树中筛选出最近页面对应的节点（保留子节点关系）
   const recentNodes = useMemo(() => {
     const recentIds = new Set(recentPages.map((p) => p.id));

@@ -2,11 +2,13 @@ import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import Sidebar from './Sidebar';
 import Editor from './Editor';
 import Login from './components/auth/Login';
+import LandingPage from './pages/LandingPage';
 import { v4 as uuidv4 } from 'uuid';
 import type { Descendant, Element } from 'slate';
 import { ChevronLeft, ChevronRight, Share2, Star, MoreHorizontal, Lock } from 'lucide-react';
 import { useAuth } from './context/AuthContext';
 import { workspacesApi, pagesApi, blocksApi, filesApi } from './api';
+import { AnimatePresence, motion } from 'motion/react';
 import type { Workspace, BackendBlock } from './api';
 import { PageIcon } from './components/IconPicker';
 import AnimatedPresence from './components/AnimatedPresence';
@@ -19,6 +21,10 @@ export interface PageData {
   coverPosition?: number;
   icon?: string;
   parentId?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  createdBy?: string;
+  updatedBy?: string;
 }
 
 export interface User {
@@ -45,7 +51,6 @@ function slateToBlockContent(content: Descendant[]): Record<string, any> {
 // 未登录时用 localStorage 作为降级
 // ==========================================
 const LOCAL_PAGES_KEY = 'molink-pages';
-const LOCAL_SHOW_LOGIN = 'molink:showLogin';
 const COVER_POSITIONS_KEY = 'molink-cover-positions';
 
 function loadLocalPages(): PageData[] {
@@ -90,6 +95,7 @@ export default function App() {
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
   const [apiLoading, setApiLoading] = useState(false);
 
+  const [showWorkspace, setShowWorkspace] = useState(false);
   const [showMigrationDialog, setShowMigrationDialog] = useState(false);
   const [guestPageCount, setGuestPageCount] = useState(0);
 
@@ -138,6 +144,10 @@ export default function App() {
             coverPosition: coverPositions[bp.id],
             icon: bp.icon || undefined,
             parentId: bp.parent_id || undefined,
+            createdAt: bp.created_at,
+            updatedAt: bp.updated_at,
+            createdBy: bp.created_by || undefined,
+            updatedBy: bp.created_by || undefined,
           });
           await loadRecursive(bp.id);
         }
@@ -173,6 +183,13 @@ export default function App() {
   // ==========================================
   // 未登录：从 localStorage 加载
   // ==========================================
+  // 认证状态变化时：已登录用户直接进入工作区
+  useEffect(() => {
+    if (user) {
+      setShowWorkspace(true);
+    }
+  }, [user]);
+
   useEffect(() => {
     if (authLoading) return;
     if (user) return; // 已登录时不需要本地数据
@@ -181,17 +198,9 @@ export default function App() {
     if (local.length > 0) {
       setPages(local);
       setActivePageId(local[0].id);
-    } else {
-      addLocalPage();
     }
-
-    // 未登录时每天首次打开显示登录弹窗
-    const lastPrompt = localStorage.getItem(LOCAL_SHOW_LOGIN);
-    const today = new Date().toDateString();
-    if (lastPrompt !== today) {
-      setShowLogin(true);
-      localStorage.setItem(LOCAL_SHOW_LOGIN, today);
-    }
+    // 不再自动创建空页面或触发登录弹窗
+    // 用户通过 Landing Page 选择"开始使用"或"登录"
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, user]);
 
@@ -232,6 +241,10 @@ export default function App() {
           cover: bp.cover_image || undefined,
           icon: bp.icon || undefined,
           parentId: bp.parent_id || undefined,
+          createdAt: bp.created_at,
+          updatedAt: bp.updated_at,
+          createdBy: bp.created_by || undefined,
+          updatedBy: bp.created_by || undefined,
         };
         setPages(prev => [...prev, newPage]);
         if (activePageId) setBackStack(prev => [...prev, activePageId]);
@@ -249,11 +262,17 @@ export default function App() {
 
   const addLocalPage = (parentId?: string) => {
     const id = uuidv4();
+    const now = new Date().toISOString();
+    const userId = user?.id;
     const newPage: PageData = {
       id,
       title: '',
       content: [{ type: 'paragraph', children: [{ text: '' }] } as Element],
       parentId,
+      createdAt: now,
+      updatedAt: now,
+      createdBy: userId,
+      updatedBy: userId,
     };
     setPages(prev => [...prev, newPage]);
     if (activePageId) setBackStack(prev => [...prev, activePageId]);
@@ -333,7 +352,14 @@ export default function App() {
   // 更新页面（标题 + 内容 + 封面）
   // ==========================================
   const updatePage = useCallback(async (id: string, newData: Partial<PageData>) => {
-    setPages(prev => prev.map(p => p.id === id ? { ...p, ...newData } : p));
+    const now = new Date().toISOString();
+    const userId = user?.id;
+    const dataWithTimestamp: Partial<PageData> = {
+      ...newData,
+      updatedAt: now,
+      updatedBy: userId,
+    };
+    setPages(prev => prev.map(p => p.id === id ? { ...p, ...dataWithTimestamp } : p));
 
     if (!user) return; // 未登录不调用后端
 
@@ -485,9 +511,47 @@ export default function App() {
     );
   }
 
+  const isLanding = !user && !showWorkspace;
+
   return (
-    <div className="flex h-screen bg-background">
-      <Sidebar
+    <div className="relative h-screen w-full overflow-hidden bg-background">
+      <AnimatePresence mode="wait">
+        {isLanding ? (
+          <motion.div
+            key="landing"
+            className="absolute inset-0 z-20"
+            initial={{ opacity: 1 }}
+            exit={{ opacity: 0, y: -30, filter: "blur(8px)" }}
+            transition={{ duration: 0.5, ease: "easeInOut" }}
+          >
+            <LandingPage
+              onEnterWorkspace={() => {
+                setShowWorkspace(true);
+                const local = loadLocalPages();
+                if (local.length === 0) {
+                  addLocalPage();
+                } else {
+                  setPages(local);
+                  setActivePageId(local[0].id);
+                }
+              }}
+              onLogin={() => setShowLogin(true)}
+            />
+            <Login
+              isOpen={showLogin}
+              onClose={() => setShowLogin(false)}
+              onLogin={handleLoginSuccess}
+            />
+          </motion.div>
+        ) : (
+          <motion.div
+            key="workspace"
+            className="flex h-full w-full"
+            initial={{ opacity: 0, scale: 0.98 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.4, ease: "easeOut" }}
+          >
+            <Sidebar
         pages={pages}
         activePageId={activePageId}
         setActivePageId={activatePage}
@@ -630,6 +694,9 @@ export default function App() {
             </div>
           </div>
       </AnimatedPresence>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

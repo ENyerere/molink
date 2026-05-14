@@ -4,7 +4,9 @@ import {
   Editor as SlateEditor,
   Transforms,
   Element as SlateElement,
+  Node,
   Range,
+  Path,
   type Descendant,
 } from 'slate';
 import {
@@ -18,8 +20,6 @@ import { withMarkdownShortcuts } from './withMarkdownShortcuts';
 import BlockElement, { type BlockElementType } from './BlockElement';
 import Leaf from './Leaf';
 
-// 跨页面块剪贴板
-let clipboardBlocks: any[] | null = null;
 import { Smile, Image, MessageSquare, MoveVertical } from 'lucide-react';
 import IconPicker, { PageIcon } from './components/IconPicker';
 import SlashCommandMenu from './components/SlashCommandMenu';
@@ -27,6 +27,86 @@ import SlashCommandMenu from './components/SlashCommandMenu';
 const COVER_VH = 30;
 const TOP_MARGIN_PX = 60;
 const NO_COVER_PX = 120;
+
+// 块类型 ↔ 文本标记前缀
+const BLOCK_PREFIXES: Record<string, string> = {
+  'heading-one': '# ',
+  'heading-two': '## ',
+  'heading-three': '### ',
+  'heading-four': '#### ',
+  'bulleted-list': '- ',
+  'numbered-list': '1. ',
+  'toggle-list': '>> ',
+  'blockquote': '> ',
+};
+
+function serializeBlocks(blocks: any[]): string {
+  return blocks
+    .map((block) => {
+      const text = block.children.map((c: any) => c.text).join('').replace(/\n/g, ' ');
+      if (block.type === 'todo') {
+        const prefix = block.checked ? '- [x] ' : '- [ ] ';
+        return prefix + text;
+      }
+      const prefix = BLOCK_PREFIXES[block.type] || '';
+      return prefix + text;
+    })
+    .join('\n');
+}
+
+// 覆盖 Slate React 的 setFragmentData：当选中块存在时，直接写入带标记纯文本
+const originalSetFragmentData = ReactEditor.setFragmentData.bind(ReactEditor);
+ReactEditor.setFragmentData = (editor, data, origin) => {
+  const selected: any[] = [];
+  for (const [node] of SlateEditor.nodes(editor, {
+    at: [],
+    match: (n) => SlateElement.isElement(n) && SlateEditor.isBlock(editor, n) && (n as BlockElementType).selected,
+  })) {
+    selected.push(node);
+  }
+  if (selected.length > 0 && (origin === 'copy' || origin === 'cut')) {
+    const text = serializeBlocks(selected);
+    data.setData('text/plain', text);
+    data.setData('text/html', '');
+  } else {
+    originalSetFragmentData(editor, data, origin);
+  }
+};
+
+function parseClipboardText(text: string): any[] {
+  const lines = text.split('\n');
+  const blocks: any[] = [];
+
+  for (const line of lines) {
+    const trimmed = line.trimStart();
+    // 顺序很重要：先匹配更长的前缀
+    if (trimmed.startsWith('- [x] ')) {
+      blocks.push({ type: 'todo', checked: true, children: [{ text: trimmed.slice(6) }] });
+    } else if (trimmed.startsWith('- [ ] ')) {
+      blocks.push({ type: 'todo', checked: false, children: [{ text: trimmed.slice(6) }] });
+    } else if (trimmed.startsWith('#### ')) {
+      blocks.push({ type: 'heading-four', children: [{ text: trimmed.slice(5) }] });
+    } else if (trimmed.startsWith('### ')) {
+      blocks.push({ type: 'heading-three', children: [{ text: trimmed.slice(4) }] });
+    } else if (trimmed.startsWith('## ')) {
+      blocks.push({ type: 'heading-two', children: [{ text: trimmed.slice(3) }] });
+    } else if (trimmed.startsWith('# ')) {
+      blocks.push({ type: 'heading-one', children: [{ text: trimmed.slice(2) }] });
+    } else if (trimmed.startsWith('>> ')) {
+      blocks.push({ type: 'toggle-list', children: [{ text: trimmed.slice(3) }] });
+    } else if (trimmed.startsWith('> ')) {
+      blocks.push({ type: 'blockquote', children: [{ text: trimmed.slice(2) }] });
+    } else if (trimmed.startsWith('- ')) {
+      blocks.push({ type: 'bulleted-list', children: [{ text: trimmed.slice(2) }] });
+    } else if (trimmed.startsWith('1. ')) {
+      blocks.push({ type: 'numbered-list', children: [{ text: trimmed.slice(3) }] });
+    } else {
+      blocks.push({ type: 'paragraph', children: [{ text: line }] });
+    }
+  }
+
+  return blocks;
+}
 
 export default function Editor({
   page,
@@ -64,6 +144,8 @@ export default function Editor({
   const [slashMenuOpen, setSlashMenuOpen] = useState(false);
   const [slashMenuQuery, setSlashMenuQuery] = useState('');
   const [slashMenuPos, setSlashMenuPos] = useState({ top: 0, left: 0 });
+
+
   const slashMenuOpenRef = useRef(false);
   useEffect(() => { slashMenuOpenRef.current = slashMenuOpen; }, [slashMenuOpen]);
 
@@ -416,6 +498,16 @@ export default function Editor({
             Transforms.setNodes<BlockElementType>(editor, { selected }, { at: path });
           }
         });
+
+        // 阻止框选释放后可能触发的 click 事件到达块根元素的 onClick，避免 selected 被清掉
+        const stopClick = (e: MouseEvent) => {
+          const target = e.target as HTMLElement;
+          if (target.closest('[data-slate-block]')) {
+            e.stopImmediatePropagation();
+          }
+          document.removeEventListener('click', stopClick, true);
+        };
+        document.addEventListener('click', stopClick, true);
       }
 
       startPos.current = null;
@@ -449,6 +541,10 @@ export default function Editor({
         // 在块内容区域内不启动框选
         const target = e.target as HTMLElement;
         if (target.closest('[data-slate-block]')) return;
+        // 把焦点移回编辑器并阻止浏览器改焦点，确保后续 copy 事件在 Editable 上触发
+        const editableEl = ReactEditor.toDOMNode(editor as ReactEditor, editor);
+        (editableEl as HTMLElement)?.focus();
+        e.preventDefault();
         startPos.current = { x: e.clientX, y: e.clientY };
         setDragSelecting(true);
       }}
@@ -596,49 +692,12 @@ export default function Editor({
           <Editable
             renderElement={(props) => <BlockElement {...props} pages={childPages} onActivatePage={onActivatePage} />}
             renderLeaf={(props) => <Leaf {...props} />}
-            placeholder="输入内容，或输入 / 打开命令菜单..."
             className="prose dark:prose-invert max-w-none outline-none border-none focus:outline-none"
             spellCheck={false}
             onKeyDown={(event) => {
               // 如果 slash 菜单打开，让菜单独占导航键
               if (slashMenuOpen && ['ArrowUp', 'ArrowDown', 'Enter', 'Escape'].includes(event.key)) {
                 event.preventDefault();
-                return;
-              }
-
-              // Ctrl+C 复制选中的块
-              if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'c') {
-                const selected: any[] = [];
-                for (const [node] of SlateEditor.nodes(editor, {
-                  at: [],
-                  match: (n) => SlateElement.isElement(n) && SlateEditor.isBlock(editor, n) && (n as BlockElementType).selected,
-                })) {
-                  const clone = JSON.parse(JSON.stringify(node));
-                  delete clone.selected;
-                  selected.push(clone);
-                }
-                if (selected.length > 0) {
-                  clipboardBlocks = selected;
-                  event.preventDefault();
-                }
-                return;
-              }
-
-              // Ctrl+V 粘贴块
-              if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'v') {
-                if (clipboardBlocks && clipboardBlocks.length > 0) {
-                  event.preventDefault();
-                  SlateEditor.withoutNormalizing(editor, () => {
-                    for (const block of clipboardBlocks!) {
-                      const clone = JSON.parse(JSON.stringify(block));
-                      delete clone.selected;
-                      const at = editor.selection
-                        ? SlateEditor.after(editor, editor.selection.anchor)
-                        : SlateEditor.end(editor, []);
-                      Transforms.insertNodes(editor, clone, { at: at || undefined });
-                    }
-                  });
-                }
                 return;
               }
 
@@ -670,6 +729,88 @@ export default function Editor({
                   SlateEditor.addMark(editor, mark, true);
                 }
               }
+            }}
+            onPaste={(event) => {
+              const text = event.clipboardData.getData('text/plain');
+              if (!text) return;
+
+              const blocks = parseClipboardText(text);
+              if (blocks.length === 0) return;
+
+              // 只有检测到非 paragraph 标记时才拦截，纯文本让 Slate 默认处理
+              const hasSpecialBlock = blocks.some((b) => b.type !== 'paragraph');
+              if (!hasSpecialBlock) return;
+
+              event.preventDefault();
+
+              // 收集所有选中块
+              const selectedEntries: [SlateElement, Path][] = [];
+              for (const [node, path] of SlateEditor.nodes(editor, {
+                at: [],
+                match: (n) => SlateElement.isElement(n) && SlateEditor.isBlock(editor, n) && (n as BlockElementType).selected,
+              })) {
+                selectedEntries.push([node as SlateElement, path]);
+              }
+
+              // 光标所在的块
+              const currentBlockEntry = editor.selection
+                ? SlateEditor.above(editor, {
+                    match: (n) => SlateElement.isElement(n) && SlateEditor.isBlock(editor, n),
+                  })
+                : null;
+
+              SlateEditor.withoutNormalizing(editor, () => {
+                let insertPath: Path;
+                let shouldSelectEnd = true;
+
+                if (selectedEntries.length > 1) {
+                  // 规则3和5：多选时，忽略光标，找最下面非空白块，插入其下方
+                  const sorted = [...selectedEntries].sort((a, b) => Path.compare(a[1], b[1]));
+                  let lastNonEmptyIdx = sorted.length - 1;
+                  while (lastNonEmptyIdx >= 0) {
+                    const [node] = sorted[lastNonEmptyIdx];
+                    if (node.type === 'paragraph' && Node.string(node).trim().length === 0) {
+                      lastNonEmptyIdx--;
+                    } else {
+                      break;
+                    }
+                  }
+                  const targetPath = sorted[Math.max(0, lastNonEmptyIdx)][1];
+                  insertPath = Path.next(targetPath);
+                } else if (currentBlockEntry) {
+                  const [node, path] = currentBlockEntry;
+                  const isEmptyParagraph = node.type === 'paragraph' && Node.string(node).trim().length === 0;
+
+                  if (isEmptyParagraph) {
+                    // 规则4：覆盖空白文本块
+                    Transforms.removeNodes(editor, { at: path });
+                    insertPath = path;
+                  } else {
+                    // 规则2：有内容的块，插入在其下方
+                    insertPath = Path.next(path);
+                  }
+                } else if (selectedEntries.length === 1) {
+                  // 单选了一个块但光标不在块内，插入在该块下方
+                  const [, path] = selectedEntries[0];
+                  insertPath = Path.next(path);
+                } else {
+                  // 规则1：光标不在任何块内且没有选中，插入到最底部
+                  insertPath = [editor.children.length];
+                }
+
+                for (const block of blocks) {
+                  Transforms.insertNodes(editor, block as any, { at: insertPath });
+                  insertPath = Path.next(insertPath);
+                }
+
+                if (shouldSelectEnd) {
+                  const lastPath = Path.previous(insertPath);
+                  try {
+                    const end = SlateEditor.end(editor, lastPath);
+                    Transforms.select(editor, { anchor: end, focus: end });
+                  } catch {}
+                }
+              });
             }}
           />
         </Slate>
