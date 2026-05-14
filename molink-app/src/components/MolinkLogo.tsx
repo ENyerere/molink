@@ -1,74 +1,32 @@
-import React from "react";
+import { cn } from "../lib/utils";
 
 interface MolinkLogoProps {
-  size?: number;
   className?: string;
-  variant?: "default" | "mono" | "pure";
+  size?: number;
+  color?: string;
+  variant?: string;
 }
 
-export const MolinkLogo: React.FC<MolinkLogoProps> = ({
+export function MolinkLogo({
+  className,
   size = 32,
-  className = "",
-  variant = "default",
-}) => {
-  const isMono = variant === "mono";
-  const isPure = variant === "pure";
-  const showBg = variant === "default";
-
-  const leftColor = isMono ? "currentColor" : "#3b82f6";
-  const rightColor = isMono ? "currentColor" : "#60a5fa";
-  const midColor = isMono ? "currentColor" : "#3b82f6";
-
+  color = "#2563EB",
+}: MolinkLogoProps) {
   return (
     <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 100 100"
       width={size}
       height={size}
-      viewBox="0 0 512 512"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      className={className}
+      className={cn("shrink-0", className)}
+      aria-label="Molink Logo"
     >
-      {showBg && (
-        <rect
-          x="16"
-          y="16"
-          width="480"
-          height="480"
-          rx="112"
-          fill="#09090b"
-        />
-      )}
-
-      {/* 左竖条 */}
-      <rect
-        x="136"
-        y="116"
-        width="72"
-        height="296"
-        rx="36"
-        fill={leftColor}
-        opacity={isMono ? 1 : 0.95}
-      />
-
-      {/* 右竖条 */}
-      <rect
-        x="304"
-        y="116"
-        width="72"
-        height="296"
-        rx="36"
-        fill={rightColor}
-        opacity={isMono ? 0.7 : 0.95}
-      />
-
-      {/* 中间连接块 */}
       <path
-        d="M 208 116 L 256 232 L 304 116 Z"
-        fill={midColor}
-        opacity={isMono ? 0.85 : 0.95}
+        fill={color}
+        d="M 37.5,12 A 40,40 0 1,0 62.5,12 L 53,48 A 3,3 0 0,1 47,48 Z"
       />
     </svg>
   );
-};
+}
 
 export default MolinkLogo;

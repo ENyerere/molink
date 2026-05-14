@@ -3,6 +3,7 @@ import Sidebar from './Sidebar';
 import Editor from './Editor';
 import Login from './components/auth/Login';
 import LandingPage from './pages/LandingPage';
+import LoadingScreen from './components/LoadingScreen';
 import { v4 as uuidv4 } from 'uuid';
 import type { Descendant, Element } from 'slate';
 import { ChevronLeft, ChevronRight, Share2, Star, MoreHorizontal, Lock } from 'lucide-react';
@@ -98,6 +99,7 @@ export default function App() {
   const [showWorkspace, setShowWorkspace] = useState(false);
   const [showMigrationDialog, setShowMigrationDialog] = useState(false);
   const [guestPageCount, setGuestPageCount] = useState(0);
+  const [loadingDone, setLoadingDone] = useState(false);
 
   const blockIdMap = useRef<Record<string, string>>({}); // pageId -> blockId
 
@@ -502,6 +504,10 @@ export default function App() {
     return pages.filter(p => p.parentId === activePageId);
   }, [pages, activePageId]);
 
+  if (!loadingDone) {
+    return <LoadingScreen onFinish={() => setLoadingDone(true)} />;
+  }
+
   if (authLoading || apiLoading) {
     return (
       <div className="flex h-screen items-center justify-center bg-background text-foreground">
@@ -514,7 +520,12 @@ export default function App() {
   const isLanding = !user && !showWorkspace;
 
   return (
-    <div className="relative h-screen w-full overflow-hidden bg-background">
+    <motion.div
+      className="relative h-screen w-full overflow-hidden bg-background"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.5, ease: "easeOut" }}
+    >
       <AnimatePresence mode="wait">
         {isLanding ? (
           <motion.div
@@ -697,6 +708,6 @@ export default function App() {
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
+    </motion.div>
   );
 }

@@ -34,6 +34,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  // 处理 OAuth 回调（URL hash 中的 token）
+  useEffect(() => {
+    const handleOAuthCallback = () => {
+      const hash = window.location.hash;
+      if (hash.includes('token=')) {
+        const queryPart = hash.split('?')[1];
+        if (queryPart) {
+          const params = new URLSearchParams(queryPart);
+          const token = params.get('token');
+          if (token) {
+            localStorage.setItem('access_token', token);
+            window.location.hash = '';
+            loadUser();
+          }
+        }
+      }
+    };
+
+    handleOAuthCallback();
+    window.addEventListener('hashchange', handleOAuthCallback);
+    return () => window.removeEventListener('hashchange', handleOAuthCallback);
+  }, [loadUser]);
+
   useEffect(() => {
     loadUser();
   }, [loadUser]);
