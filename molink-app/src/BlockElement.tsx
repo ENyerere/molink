@@ -672,9 +672,14 @@ function PageLinkPreview({ page }: { page: PageData }) {
           ) : (
             <FileText className="w-4 h-4 text-muted-foreground" />
           )}
-          <span className="text-sm text-foreground hover:underline">
+          <span className={`text-sm hover:underline ${targetPage?.deletedAt ? 'text-muted-foreground line-through' : 'text-foreground'}`}>
             {targetPage?.title || '未命名页面'}
           </span>
+          {targetPage?.deletedAt && (
+            <span className="ml-1 px-1.5 py-0.5 text-[10px] rounded bg-muted text-muted-foreground border border-border">
+              已移入垃圾箱
+            </span>
+          )}
         </div>
 
         {/* 预览框 */}

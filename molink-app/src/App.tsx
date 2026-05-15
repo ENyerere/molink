@@ -26,6 +26,7 @@ export interface PageData {
   coverPosition?: number;
   icon?: string;
   parentId?: string;
+  deletedAt?: string;
   createdAt?: string;
   updatedAt?: string;
   createdBy?: string;
@@ -172,6 +173,7 @@ export default function App() {
             coverPosition: coverPositions[bp.id],
             icon: bp.icon || undefined,
             parentId: bp.parent_id || undefined,
+            deletedAt: bp.deleted_at || undefined,
             createdAt: bp.created_at,
             updatedAt: bp.updated_at,
             createdBy: bp.created_by || undefined,
@@ -182,11 +184,46 @@ export default function App() {
       };
 
       await loadRecursive();
+
+      // 加载回收站中的页面
+      try {
+        const trashPages = await pagesApi.trash(wsId);
+        for (const bp of trashPages) {
+          if (loadedPages.some(p => p.id === bp.id)) continue;
+          const blocks = await blocksApi.list(bp.id);
+          const content = blocksToSlate(blocks);
+          if (blocks.length > 0) {
+            idMap[bp.id] = blocks[0].id;
+          }
+          loadedPages.push({
+            id: bp.id,
+            title: bp.title,
+            content,
+            cover: bp.cover_image || undefined,
+            coverPosition: coverPositions[bp.id],
+            icon: bp.icon || undefined,
+            parentId: bp.parent_id || undefined,
+            deletedAt: bp.deleted_at || undefined,
+            createdAt: bp.created_at,
+            updatedAt: bp.updated_at,
+            createdBy: bp.created_by || undefined,
+            updatedBy: bp.created_by || undefined,
+          });
+        }
+      } catch (err) {
+        console.error('加载回收站页面失败:', err);
+      }
+
       blockIdMap.current = idMap;
       setPages(loadedPages);
-      if (loadedPages.length > 0 && !activePageId) {
-        setActivePageId(loadedPages[0].id);
-      }
+      const activePages = loadedPages.filter(p => !p.deletedAt);
+      setActivePageId(currentId => {
+        if (activePages.length === 0) return null;
+        if (!currentId || activePages.every(p => p.id !== currentId)) {
+          return activePages[0].id;
+        }
+        return currentId;
+      });
     } catch (err) {
       console.error('加载页面失败:', err);
     } finally {
@@ -239,6 +276,25 @@ export default function App() {
       return () => clearTimeout(timeout);
     }
   }, [pages, user]);
+
+  // 活动日志持久化到 localStorage
+  useEffect(() => {
+    if (activities.length > 0) {
+      localStorage.setItem('molink-activities', JSON.stringify(activities));
+    }
+  }, [activities]);
+
+  useEffect(() => {
+    const saved = localStorage.getItem('molink-activities');
+    if (saved) {
+      try {
+        setActivities(JSON.parse(saved));
+      } catch (e) {
+        console.error('加载活动日志失败:', e);
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ==========================================
   // 活动日志
@@ -401,23 +457,25 @@ export default function App() {
     if (pageToDelete) {
       addActivity('delete', pageToDelete);
     }
+    const now = new Date().toISOString();
     setPages(prev => {
       const descendantIds = getDescendantIds(id, prev);
-      const allIdsToRemove = new Set([id, ...descendantIds]);
-      const newPages = prev.filter(p => !allIdsToRemove.has(p.id));
+      const allIds = new Set([id, ...descendantIds]);
+      const newPages = prev.map(p =>
+        allIds.has(p.id) ? { ...p, deletedAt: now } : p
+      );
       if (id === activePageId) {
-        const idx = prev.findIndex(p => p.id === id);
-        const nextActive = newPages[idx] || newPages[idx - 1] || null;
+        const remaining = newPages.filter(p => !p.deletedAt);
+        const nextActive = remaining[0] || null;
         setActivePageId(nextActive?.id || null);
       }
       return newPages;
     });
     setBackStack(prev => prev.filter(pid => pid !== id));
     setForwardStack(prev => prev.filter(pid => pid !== id));
-    // 已登录时同步删除后端
+    // 已登录时同步软删除后端
     if (user) {
       pagesApi.delete(id).catch(err => console.error('删除页面失败:', err));
-      // 级联删除子页面（后端如支持级联可忽略这些错误）
       const descendantIds = getDescendantIds(id, pages);
       for (const descId of descendantIds) {
         pagesApi.delete(descId).catch(err => console.error('删除子页面失败:', err));
@@ -425,6 +483,40 @@ export default function App() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, pages, getDescendantIds, activePageId, addActivity]);
+
+  const restorePage = useCallback(async (id: string) => {
+    setPages(prev => {
+      const descendantIds = getDescendantIds(id, prev);
+      const allIds = new Set([id, ...descendantIds]);
+      return prev.map(p => allIds.has(p.id) ? { ...p, deletedAt: undefined } : p);
+    });
+    if (user) {
+      try {
+        await pagesApi.restore(id);
+      } catch (err) {
+        console.error('恢复页面失败:', err);
+      }
+    }
+  }, [user, getDescendantIds]);
+
+  const permanentDeletePage = useCallback((id: string) => {
+    setPages(prev => {
+      const descendantIds = getDescendantIds(id, prev);
+      const allIdsToRemove = new Set([id, ...descendantIds]);
+      const newPages = prev.filter(p => !allIdsToRemove.has(p.id));
+      if (id === activePageId || descendantIds.includes(activePageId || '')) {
+        const nextActive = newPages[0] || null;
+        setActivePageId(nextActive?.id || null);
+      }
+      return newPages;
+    });
+    setBackStack(prev => prev.filter(pid => pid !== id));
+    setForwardStack(prev => prev.filter(pid => pid !== id));
+    if (user) {
+      pagesApi.permanentDelete(id).catch(err => console.error('永久删除页面失败:', err));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, getDescendantIds, activePageId]);
 
   const goBack = () => {
     setBackStack(prev => {
@@ -653,7 +745,7 @@ export default function App() {
     return path;
   }, [activePage, pages]);
 
-  // 当前页面的子页面
+  // 当前页面的子页面（包含已删除的，用于 page-link 块渲染）
   const childPages = useMemo(() => {
     if (!activePageId) return [];
     return pages.filter(p => p.parentId === activePageId);
@@ -723,6 +815,8 @@ export default function App() {
               setActivePageId={activatePage}
               addPage={addPage}
               closePage={closePage}
+              restorePage={restorePage}
+              permanentDeletePage={permanentDeletePage}
               user={user ? { id: user.id, name: user.full_name || user.email.split('@')[0], email: user.email, avatar: user.avatar_url || undefined } : null}
               onShowLogin={() => setShowLogin(true)}
               activeView={activeView}
@@ -824,6 +918,8 @@ export default function App() {
               updatePage={updatePage}
               uploadCover={uploadCover}
               onActivatePage={activatePage}
+              restorePage={restorePage}
+              permanentDeletePage={permanentDeletePage}
             />
           )}
           {activeView === 'home' && (

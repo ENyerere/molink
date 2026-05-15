@@ -10,6 +10,7 @@ export interface BackendPage {
   cover_image?: string;
   is_favorite: boolean;
   is_archived: boolean;
+  deleted_at?: string;
   position: number;
   created_by?: string;
   created_at: string;
@@ -22,6 +23,7 @@ export interface CreatePageData {
   title?: string;
   page_type?: string;
   icon?: string;
+  cover_image?: string;
 }
 
 export interface UpdatePageData {
@@ -29,8 +31,10 @@ export interface UpdatePageData {
   parent_id?: string;
   icon?: string;
   cover_image?: string;
+  cover_position?: number;
   is_favorite?: boolean;
   is_archived?: boolean;
+  deleted_at?: string | null;
   position?: number;
 }
 
@@ -60,6 +64,18 @@ export const pagesApi = {
 
   delete: async (id: string): Promise<void> => {
     await apiDelete(`/pages/${id}`);
+  },
+
+  restore: async (id: string): Promise<BackendPage> => {
+    return apiPost<BackendPage>(`/pages/${id}/restore`, {});
+  },
+
+  permanentDelete: async (id: string): Promise<void> => {
+    await apiDelete(`/pages/${id}/permanent`);
+  },
+
+  trash: async (workspaceId: string): Promise<BackendPage[]> => {
+    return apiGet<BackendPage[]>('/pages/trash/list', { workspace_id: workspaceId });
   },
 
   getChildren: async (id: string): Promise<BackendPage[]> => {

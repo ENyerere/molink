@@ -12,7 +12,7 @@ export default function HomeView({ pages, onNavigate }: HomeViewProps) {
   const topLevelPages = useMemo(() => pages.filter(p => !p.parentId), [pages]);
   const recentPages = useMemo(() => {
     return [...pages]
-      .sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''))
+      .sort((a, b) => Date.parse(b.updatedAt || '0') - Date.parse(a.updatedAt || '0'))
       .slice(0, 8);
   }, [pages]);
 

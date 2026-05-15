@@ -21,6 +21,7 @@ class PageUpdate(BaseModel):
     cover_image: Optional[str] = None
     is_favorite: Optional[bool] = None
     is_archived: Optional[bool] = None
+    deleted_at: Optional[datetime] = None
     position: Optional[int] = None
 
 
@@ -34,6 +35,7 @@ class PageResponse(BaseModel):
     cover_image: Optional[str] = None
     is_favorite: bool
     is_archived: bool
+    deleted_at: Optional[datetime] = None
     position: int
     created_by: Optional[str] = None
     created_at: datetime
