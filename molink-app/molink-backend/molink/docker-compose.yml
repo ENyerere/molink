@@ -75,20 +75,6 @@ services:
     networks:
       - molink-network
 
-  # 前端 (Nginx)
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    container_name: molink-frontend
-    restart: unless-stopped
-    ports:
-      - "80:80"
-    depends_on:
-      - backend
-    networks:
-      - molink-network
-
 volumes:
   mysql_data:
   redis_data:

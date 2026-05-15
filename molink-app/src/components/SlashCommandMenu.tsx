@@ -112,6 +112,19 @@ const MENU_ITEMS: MenuItem[] = [
     shortcut: '>',
     keywords: '折叠列表 toggle list fold 折叠 展开',
   },
+  {
+    type: 'database',
+    label: '数据库',
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className="opacity-70">
+        <ellipse cx="8" cy="4" rx="6" ry="2.5" />
+        <path d="M2 4v6c0 1.5 2.7 2.5 6 2.5s6-1 6-2.5V4" />
+        <path d="M2 8c0 1.5 2.7 2.5 6 2.5s6-1 6-2.5" />
+      </svg>
+    ),
+    shortcut: '',
+    keywords: '数据库 database table 表格 view 视图',
+  },
 ];
 
 function fuzzyMatch(text: string, query: string): boolean {

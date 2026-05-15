@@ -181,6 +181,24 @@ export default function Editor({
       });
       if (!blockEntry) return;
       const [, path] = blockEntry;
+
+      if (type === 'database') {
+        // 数据库块：替换当前块为数据库块
+        Transforms.removeNodes(editor, { at: path });
+        const dbBlock: BlockElementType = {
+          type: 'database',
+          children: [{ text: '' }],
+          columns: [
+            { id: 'col_1', name: '名称', type: 'text' },
+            { id: 'col_2', name: '状态', type: 'select', options: ['待办', '进行中', '已完成'] },
+          ],
+          rows: [],
+        };
+        Transforms.insertNodes(editor, dbBlock as any, { at: path });
+        setSlashMenuOpen(false);
+        return;
+      }
+
       // 选中并删除当前块内所有文本（包括 / 和搜索词）
       const blockStart = SlateEditor.start(editor, path);
       const blockEnd = SlateEditor.end(editor, path);
@@ -225,6 +243,8 @@ export default function Editor({
   const handleChange = useCallback(
     (value: Descendant[]) => {
       if (isSyncingRef.current) return;
+      // 内容未变化则跳过（防止 updatePage 后 Slate 二次触发 onChange）
+      if (JSON.stringify(page.content) === JSON.stringify(value)) return;
 
       // Slash 命令菜单检测（在 onChange 中检测比 onKeyDown 更可靠）
       const { selection } = editor;
@@ -254,9 +274,44 @@ export default function Editor({
         setSlashMenuOpen(false);
       }
 
-      updatePage(page.id, { content: value });
+      // 比较新旧内容，推断变更类型
+      const oldTexts = page.content.map((node: any) =>
+        node.children ? node.children.map((c: any) => c.text || '').join('') : (node.text || '')
+      );
+      const newTexts = value.map((node: any) =>
+        node.children ? node.children.map((c: any) => c.text || '').join('') : (node.text || '')
+      );
+      const added = newTexts.filter((t: string) => !oldTexts.includes(t));
+      const removed = oldTexts.filter((t: string) => !newTexts.includes(t));
+
+      // 无新增/删除块：可能是纯重排序或纯编辑
+      if (added.length === 0 && removed.length === 0) {
+        const changed = newTexts.filter((t: string, i: number) => oldTexts[i] !== t);
+        if (changed.length === 0) {
+          // 纯重排序，不添加活动
+          updatePage(page.id, { content: value }, null);
+          return;
+        }
+        // 纯编辑，只提取变化的块
+        updatePage(page.id, { content: value }, 'edit', changed.join('\n'));
+        return;
+      }
+
+      if (added.length === 1 && removed.length === 0) {
+        updatePage(page.id, { content: value }, 'block-add', added[0]);
+        return;
+      }
+      if (removed.length === 1 && added.length === 0) {
+        updatePage(page.id, { content: value }, 'block-delete', removed[0]);
+        return;
+      }
+
+      // 多块变更或其他复杂变更
+      const changed = newTexts.filter((t: string, i: number) => oldTexts[i] !== t);
+      const preview = changed.length > 0 ? changed.join('\n') : undefined;
+      updatePage(page.id, { content: value }, 'edit', preview);
     },
-    [page.id, updatePage, editor]
+    [page.id, page.content, updatePage, editor]
   );
 
   // 同步 page-link 块到 Slate 内容

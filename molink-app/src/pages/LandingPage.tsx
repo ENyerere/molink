@@ -2,7 +2,6 @@ import { Globe } from "../components/magicui/globe";
 import { MolinkLogo } from "../components/MolinkLogo";
 import { TextAnimate } from "../components/magicui/text-animate";
 import { BlurFade } from "../components/magicui/blur-fade";
-import { Particles } from "../components/magicui/particles";
 import type { COBEOptions } from "cobe";
 
 interface LandingPageProps {
@@ -40,93 +39,117 @@ const BRAND_GLOBE_CONFIG: COBEOptions = {
 
 export default function LandingPage({ onEnterWorkspace, onLogin }: LandingPageProps) {
   return (
-    <div className="dark relative min-h-screen w-full overflow-hidden flex flex-col" style={{ background: "#09090b" }}>
-      {/* 粒子背景 */}
-      <Particles
-        className="absolute inset-0 z-0"
-        quantity={120}
-        ease={80}
-        color="#3b82f6"
-        size={0.5}
-        staticity={40}
+    <div className="relative min-h-screen w-full overflow-hidden flex flex-col bg-background">
+      {/* Subtle grid background */}
+      <div
+        className="absolute inset-0 z-0 opacity-[0.025]"
+        style={{
+          backgroundImage:
+            "linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)",
+          backgroundSize: "64px 64px",
+        }}
       />
 
-      {/* 背景光晕 */}
+      {/* Soft radial glow */}
       <div
         className="absolute inset-0 pointer-events-none z-0"
         style={{
           background:
-            "radial-gradient(ellipse 70% 50% at 65% 45%, rgba(59,130,246,0.15) 0%, transparent 60%)",
+            "radial-gradient(ellipse 70% 50% at 50% 45%, hsl(217 91% 60% / 0.06) 0%, transparent 60%)",
         }}
       />
 
-      {/* 顶部导航 */}
+      {/* Top nav */}
       <BlurFade delay={0} duration={0.6}>
-        <header className="relative z-10 flex items-center justify-between px-6 sm:px-10 py-6">
-          <div className="flex items-center gap-3">
-            <MolinkLogo size={28} variant="pure" />
-            <span className="text-lg font-semibold text-white tracking-tight">
+        <header className="relative z-10 flex items-center justify-between px-6 sm:px-10 py-5">
+          <div className="flex items-center gap-2.5">
+            <MolinkLogo size={24} variant="pure" />
+            <span className="text-base font-semibold text-foreground tracking-tight">
               Molink
             </span>
           </div>
           <button
             onClick={onLogin}
-            className="text-sm font-medium text-zinc-400 hover:text-white transition-colors"
+            className="h-9 px-4 text-sm font-medium text-muted-foreground hover:text-foreground border border-border hover:border-muted-foreground rounded-lg transition-all duration-200"
           >
-            Sign Up / Log In
+            登录
           </button>
         </header>
       </BlurFade>
 
-      {/* 主内容 */}
+      {/* Hero */}
       <main className="relative z-10 flex-1 flex items-center">
-        <div className="w-full max-w-7xl mx-auto px-6 sm:px-10 grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-4 items-center">
-          {/* 左侧文案 */}
+        <div className="w-full max-w-6xl mx-auto px-6 sm:px-10 grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-8 items-center">
+          {/* Left: copy */}
           <div className="flex flex-col items-start">
+            <BlurFade delay={0.1} duration={0.6}>
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-muted border border-border mb-8">
+                <span className="relative flex h-1.5 w-1.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
+                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-primary" />
+                </span>
+                <span className="text-xs text-muted-foreground font-medium">
+                  模块化编辑器，连接你的思维
+                </span>
+              </div>
+            </BlurFade>
+
             <TextAnimate
               as="h1"
               by="character"
               animation="blurInUp"
               duration={0.8}
-              className="text-5xl sm:text-6xl lg:text-7xl font-bold text-white leading-[1.1] tracking-tight"
+              className="text-5xl sm:text-6xl lg:text-7xl font-bold text-foreground leading-[1.05] tracking-tight"
             >
               你的 AI 工作空间
             </TextAnimate>
 
             <BlurFade delay={0.4} duration={0.6}>
-              <p className="mt-6 text-lg sm:text-xl text-zinc-400 leading-relaxed max-w-md">
+              <p className="mt-5 text-lg text-muted-foreground leading-relaxed max-w-md">
                 用模块化编辑器连接你的想法，让知识自然生长。
               </p>
             </BlurFade>
 
             <BlurFade delay={0.6} duration={0.6}>
-              <div className="mt-10 flex flex-wrap items-center gap-4">
+              <div className="mt-8 flex items-center gap-3">
                 <button
                   onClick={onEnterWorkspace}
-                  className="group relative h-12 px-8 bg-blue-500 text-white text-[15px] font-medium rounded-xl hover:bg-blue-400 transition-all duration-300 shadow-lg shadow-blue-500/20 hover:shadow-blue-400/30 hover:scale-[1.02] active:scale-[0.98]"
+                  className="h-11 px-6 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:opacity-90 active:scale-[0.98] transition-all duration-200"
                 >
                   开始使用
+                </button>
+                <button
+                  onClick={onLogin}
+                  className="h-11 px-6 text-sm font-medium text-secondary-foreground hover:text-foreground border border-border hover:border-muted-foreground rounded-lg transition-all duration-200"
+                >
+                  登录
                 </button>
               </div>
             </BlurFade>
 
             <BlurFade delay={0.8} duration={0.6}>
-              <p className="mt-6 text-sm text-zinc-500">
+              <p className="mt-5 text-xs text-muted-foreground/60">
                 无需注册，即刻体验。
               </p>
             </BlurFade>
           </div>
 
-          {/* 右侧视觉 */}
-          <div className="relative hidden lg:flex items-center justify-center" style={{ height: 480, width: 480 }}>
-            <Globe className="!max-w-[480px] !aspect-square" config={BRAND_GLOBE_CONFIG} />
+          {/* Right: globe */}
+          <div
+            className="relative hidden lg:flex items-center justify-center"
+            style={{ height: 480, width: 480 }}
+          >
+            <Globe
+              className="!max-w-[480px] !aspect-square"
+              config={BRAND_GLOBE_CONFIG}
+            />
           </div>
         </div>
       </main>
 
-      {/* 底部 */}
+      {/* Footer */}
       <BlurFade delay={1} duration={0.6}>
-        <footer className="relative z-10 px-6 sm:px-10 py-6 text-center text-xs text-zinc-600">
+        <footer className="relative z-10 px-6 sm:px-10 py-5 text-center text-xs text-muted-foreground/40">
           © 2025 Molink. 连接你的知识。
         </footer>
       </BlurFade>
