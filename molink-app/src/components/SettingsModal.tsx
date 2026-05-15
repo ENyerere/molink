@@ -590,10 +590,10 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       duration={200}
       enterFrom="opacity-0"
       enterTo="opacity-100"
+      className="fixed inset-0 z-[70] flex items-center justify-center p-4"
     >
-      <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
-        {/* 背景遮罩 */}
-        <div className="absolute inset-0 bg-black/60" onClick={onClose} />
+      {/* 背景遮罩 */}
+      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
 
         {/* 弹窗主体 — 参考 Notion 比例 */}
         <div
@@ -678,7 +678,6 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
             </div>
           </div>
         </div>
-      </div>
     </AnimatedPresence>
   );
 }

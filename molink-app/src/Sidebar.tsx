@@ -16,6 +16,10 @@ interface SidebarProps {
   closePage: (id: string) => void;
   user: User | null;
   onShowLogin?: () => void;
+  activeView?: 'page' | 'home' | 'inbox';
+  onSetView?: (view: 'page' | 'home' | 'inbox') => void;
+  onShowSearch?: () => void;
+  onShowWorkspace?: () => void;
 }
 
 // ============================================================
@@ -245,6 +249,10 @@ export default function Sidebar({
   closePage,
   user,
   onShowLogin,
+  activeView,
+  onSetView,
+  onShowSearch,
+  onShowWorkspace,
 }: SidebarProps) {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -351,10 +359,10 @@ export default function Sidebar({
 
       {/* 功能导航 */}
       <div className="px-1 py-1">
-        <NavItem icon={Search} label="搜索" />
-        <NavItem icon={Home} label="主页" />
-        <NavItem icon={Briefcase} label="工作空间" />
-        <NavItem icon={Inbox} label="收件箱" />
+        <NavItem icon={Search} label="搜索" onClick={onShowSearch} />
+        <NavItem icon={Home} label="主页" isActive={activeView === 'home'} onClick={() => onSetView?.('home')} />
+        <NavItem icon={Briefcase} label="工作空间" onClick={onShowWorkspace} />
+        <NavItem icon={Inbox} label="收件箱" isActive={activeView === 'inbox'} onClick={() => onSetView?.('inbox')} />
         <NavItem icon={Database} label="数据库" />
       </div>
 
@@ -416,10 +424,17 @@ export default function Sidebar({
   );
 }
 
-function NavItem({ icon: Icon, label }: { icon: React.ElementType; label: string }) {
+function NavItem({ icon: Icon, label, isActive, onClick }: { icon: React.ElementType; label: string; isActive?: boolean; onClick?: () => void }) {
   return (
-    <button className="w-full flex items-center gap-3 px-3 py-1.5 rounded-md text-sm text-secondary-foreground hover:bg-accent transition-colors">
-      <Icon className="w-4 h-4 text-muted-foreground" />
+    <button
+      onClick={onClick}
+      className={`w-full flex items-center gap-3 px-3 py-1.5 rounded-md text-sm transition-colors ${
+        isActive
+          ? 'bg-secondary text-foreground font-medium'
+          : 'text-secondary-foreground hover:bg-accent'
+      }`}
+    >
+      <Icon className={`w-4 h-4 ${isActive ? 'text-foreground' : 'text-muted-foreground'}`} />
       {label}
     </button>
   );

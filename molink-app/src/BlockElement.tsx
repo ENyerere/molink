@@ -16,8 +16,21 @@ import type { PageData } from './App';
 import { PageIcon } from './components/IconPicker';
 import { FileText } from 'lucide-react';
 import AnimatedPresence from './components/AnimatedPresence';
+import DatabaseBlock from './components/DatabaseBlock';
 
 /* ==================== TYPES ==================== */
+export interface DatabaseColumn {
+  id: string;
+  name: string;
+  type: 'text' | 'number' | 'select' | 'date' | 'checkbox';
+  options?: string[];
+}
+
+export interface DatabaseRow {
+  id: string;
+  [columnId: string]: any;
+}
+
 export type BlockElementType = {
   type:
     | 'paragraph'
@@ -33,11 +46,14 @@ export type BlockElementType = {
     | 'code-block'
     | 'math-block'
     | 'emphasis-block'
-    | 'page-link';
+    | 'page-link'
+    | 'database';
   children: { text: string }[];
   selected?: boolean;
   checked?: boolean; // for todo
   pageId?: string;   // for page-link
+  columns?: DatabaseColumn[]; // for database
+  rows?: DatabaseRow[];       // for database
 };
 
 export type CustomText = {
@@ -673,6 +689,60 @@ function PageLinkPreview({ page }: { page: PageData }) {
         </AnimatedPresence>
 
         {/* Slate 占位节点 — 不占据布局空间 */}
+        <span className="absolute w-0 h-0 overflow-hidden">
+          {children}
+        </span>
+
+        {indicator && (
+          <div
+            contentEditable={false}
+            className="fixed z-50 h-[2px] bg-primary"
+            style={{
+              top: `${indicator.top}px`,
+              left: `${indicator.left}px`,
+              width: `${indicator.width}px`,
+            }}
+          />
+        )}
+      </div>
+    );
+  }
+
+  if (element.type === 'database') {
+    const dbElement = element as BlockElementType;
+    return (
+      <div
+        {...attributes}
+        className={`${blockClass} group`}
+        data-block-selected={selected ? 'true' : undefined}
+        data-slate-block="true"
+        contentEditable={false}
+        onClick={handleClick}
+      >
+        {/* 拖拽手柄 */}
+        <span
+          contentEditable={false}
+          className={`absolute -left-7 top-1/2 -translate-y-1/2 opacity-0 ${dragHandleVisibleClass} transition-opacity cursor-grab select-none text-muted-foreground hover:text-foreground p-1`}
+          onMouseDown={handleDragMouseDown}
+          title="拖动移动此块"
+        >
+          <DragHandleIcon />
+        </span>
+
+        <DatabaseBlock
+          columns={dbElement.columns || []}
+          rows={dbElement.rows || []}
+          onChange={(cols, rows) => {
+            const path = ReactEditor.findPath(editor, element);
+            Transforms.setNodes(
+              editor,
+              { columns: cols, rows: rows } as Partial<BlockElementType>,
+              { at: path }
+            );
+          }}
+        />
+
+        {/* Slate 占位节点 */}
         <span className="absolute w-0 h-0 overflow-hidden">
           {children}
         </span>

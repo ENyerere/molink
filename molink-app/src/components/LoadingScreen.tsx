@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { MolinkLogo } from "./MolinkLogo";
 
 interface LoadingScreenProps {
@@ -9,42 +9,39 @@ export default function LoadingScreen({ onFinish }: LoadingScreenProps) {
   const [progress, setProgress] = useState(0);
   const [visible, setVisible] = useState(true);
   const [fadeOut, setFadeOut] = useState(false);
+  const onFinishRef = useRef(onFinish);
+  onFinishRef.current = onFinish;
 
   useEffect(() => {
-    // 模拟加载进度
-    const steps = [
-      { target: 25, delay: 100 },
-      { target: 55, delay: 300 },
-      { target: 80, delay: 250 },
-      { target: 100, delay: 400 },
-    ];
-
-    let current = 0;
     const timers: ReturnType<typeof setTimeout>[] = [];
+    let elapsed = 0;
 
-    steps.forEach(({ target, delay }) => {
+    const schedule = (target: number, delay: number, callback?: () => void) => {
+      elapsed += delay;
       const timer = setTimeout(() => {
         setProgress(target);
-        current = target;
-
-        if (target === 100) {
-          // 加载完成，先淡出再隐藏
-          const fadeTimer = setTimeout(() => {
-            setFadeOut(true);
-            const hideTimer = setTimeout(() => {
-              setVisible(false);
-              onFinish?.();
-            }, 600);
-            timers.push(hideTimer);
-          }, 400);
-          timers.push(fadeTimer);
-        }
-      }, delay + (current === 0 ? 0 : 200));
+        callback?.();
+      }, elapsed);
       timers.push(timer);
+    };
+
+    schedule(25, 100);
+    schedule(55, 200);
+    schedule(80, 200);
+    schedule(100, 200, () => {
+      const fadeTimer = setTimeout(() => {
+        setFadeOut(true);
+        const hideTimer = setTimeout(() => {
+          setVisible(false);
+          onFinishRef.current?.();
+        }, 600);
+        timers.push(hideTimer);
+      }, 400);
+      timers.push(fadeTimer);
     });
 
     return () => timers.forEach(clearTimeout);
-  }, [onFinish]);
+  }, []);
 
   if (!visible) return null;
 

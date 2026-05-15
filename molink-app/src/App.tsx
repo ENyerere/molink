@@ -4,6 +4,10 @@ import Editor from './Editor';
 import Login from './components/auth/Login';
 import LandingPage from './pages/LandingPage';
 import LoadingScreen from './components/LoadingScreen';
+import SearchModal from './components/SearchModal';
+import HomeView from './components/HomeView';
+import WorkspacePanel from './components/WorkspacePanel';
+import InboxView from './components/InboxView';
 import { v4 as uuidv4 } from 'uuid';
 import type { Descendant, Element } from 'slate';
 import { ChevronLeft, ChevronRight, Share2, Star, MoreHorizontal, Lock } from 'lucide-react';
@@ -33,6 +37,20 @@ export interface User {
   name: string;
   email: string;
   avatar?: string;
+}
+
+export interface Activity {
+  id: string;
+  type: 'edit' | 'delete' | 'create' | 'icon-change' | 'block-add' | 'block-delete';
+  userName: string;
+  userInitial: string;
+  pageId: string;
+  pageTitle: string;
+  pageIcon?: string;
+  preview?: string;
+  oldIcon?: string;
+  newIcon?: string;
+  timestamp: string;
 }
 
 // Slate content ↔ Backend Block 转换
@@ -100,6 +118,14 @@ export default function App() {
   const [showMigrationDialog, setShowMigrationDialog] = useState(false);
   const [guestPageCount, setGuestPageCount] = useState(0);
   const [loadingDone, setLoadingDone] = useState(false);
+
+  // 视图状态
+  const [activeView, setActiveView] = useState<'page' | 'home' | 'inbox'>('page');
+  const [showSearch, setShowSearch] = useState(false);
+  const [showWorkspacePanel, setShowWorkspacePanel] = useState(false);
+
+  // 活动日志（收件箱）
+  const [activities, setActivities] = useState<Activity[]>([]);
 
   const blockIdMap = useRef<Record<string, string>>({}); // pageId -> blockId
 
@@ -215,6 +241,74 @@ export default function App() {
   }, [pages, user]);
 
   // ==========================================
+  // 活动日志
+  // ==========================================
+  // 合并同一页面短时间内的连续编辑（30 秒窗口）
+  const addActivity = useCallback((type: Activity['type'], page: PageData, preview?: string) => {
+    const userName = user?.full_name || user?.email.split('@')[0] || '访客';
+    const now = new Date().toISOString();
+    const MERGE_WINDOW_MS = 30_000; // 30 秒
+
+    setActivities(prev => {
+      // icon-change 不受合并机制影响
+      const shouldMerge = type !== 'icon-change';
+
+      if (shouldMerge) {
+        // 查找同一页面、同一类型、同一用户、30 秒内的已有活动
+        const existingIdx = prev.findIndex(a =>
+          a.type === type &&
+          a.pageId === page.id &&
+          a.userName === userName &&
+          (new Date(now).getTime() - new Date(a.timestamp).getTime()) < MERGE_WINDOW_MS
+        );
+
+        if (existingIdx !== -1) {
+          // 合并：更新 timestamp 和 preview
+          const updated = [...prev];
+          updated[existingIdx] = {
+            ...updated[existingIdx],
+            pageTitle: page.title || '无标题',
+            pageIcon: page.icon,
+            preview: preview !== undefined ? preview : updated[existingIdx].preview,
+            timestamp: now,
+          };
+          // 将更新后的活动移到最前面
+          const [moved] = updated.splice(existingIdx, 1);
+          return [moved, ...updated];
+        }
+      }
+
+      // 新建活动
+      const activity: Activity = {
+        id: uuidv4(),
+        type,
+        userName,
+        userInitial: userName.charAt(0).toUpperCase(),
+        pageId: page.id,
+        pageTitle: page.title || '无标题',
+        pageIcon: page.icon,
+        preview,
+        timestamp: now,
+      };
+      return [activity, ...prev];
+    });
+  }, [user]);
+
+  // 从 Slate 内容提取预览文本（按块换行）
+  const extractPreview = useCallback((content: Descendant[]): string => {
+    const lines: string[] = [];
+    for (const node of content as any[]) {
+      if (node.children) {
+        const line = node.children.map((c: any) => c.text || '').join('');
+        if (line.trim()) lines.push(line.trim());
+      } else if (node.text) {
+        if (node.text.trim()) lines.push(node.text.trim());
+      }
+    }
+    return lines.join('\n').slice(0, 800);
+  }, []);
+
+  // ==========================================
   // 页面操作
   // ==========================================
   const addPage = async (parentId?: string) => {
@@ -249,6 +343,7 @@ export default function App() {
           updatedBy: bp.created_by || undefined,
         };
         setPages(prev => [...prev, newPage]);
+        addActivity('create', newPage);
         if (activePageId) setBackStack(prev => [...prev, activePageId]);
         setForwardStack([]);
         setActivePageId(bp.id);
@@ -277,16 +372,18 @@ export default function App() {
       updatedBy: userId,
     };
     setPages(prev => [...prev, newPage]);
+    addActivity('create', newPage);
     if (activePageId) setBackStack(prev => [...prev, activePageId]);
     setForwardStack([]);
     setActivePageId(id);
   };
 
   const activatePage = (id: string) => {
-    if (id === activePageId) return;
-    if (activePageId) setBackStack(prev => [...prev, activePageId]);
+    if (id === activePageId && activeView === 'page') return;
+    if (activePageId && activeView === 'page') setBackStack(prev => [...prev, activePageId]);
     setForwardStack([]);
     setActivePageId(id);
+    setActiveView('page');
   };
 
   const getDescendantIds = useCallback((pageId: string, allPages: PageData[]): string[] => {
@@ -300,6 +397,10 @@ export default function App() {
   }, []);
 
   const closePage = useCallback((id: string) => {
+    const pageToDelete = pages.find(p => p.id === id);
+    if (pageToDelete) {
+      addActivity('delete', pageToDelete);
+    }
     setPages(prev => {
       const descendantIds = getDescendantIds(id, prev);
       const allIdsToRemove = new Set([id, ...descendantIds]);
@@ -323,7 +424,7 @@ export default function App() {
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, pages, getDescendantIds, activePageId]);
+  }, [user, pages, getDescendantIds, activePageId, addActivity]);
 
   const goBack = () => {
     setBackStack(prev => {
@@ -351,9 +452,28 @@ export default function App() {
   const canGoForward = forwardStack.length > 0;
 
   // ==========================================
+  // 全局快捷键
+  // ==========================================
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setShowSearch(prev => !prev);
+      }
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, []);
+
+  // ==========================================
   // 更新页面（标题 + 内容 + 封面）
   // ==========================================
-  const updatePage = useCallback(async (id: string, newData: Partial<PageData>) => {
+  const updatePage = useCallback(async (
+    id: string,
+    newData: Partial<PageData>,
+    activityType?: Activity['type'] | null,
+    activityPreview?: string,
+  ) => {
     const now = new Date().toISOString();
     const userId = user?.id;
     const dataWithTimestamp: Partial<PageData> = {
@@ -362,6 +482,41 @@ export default function App() {
       updatedBy: userId,
     };
     setPages(prev => prev.map(p => p.id === id ? { ...p, ...dataWithTimestamp } : p));
+
+    // 记录活动（activityType 显式传 null 时跳过）
+    const page = pages.find(p => p.id === id);
+    if (page && activityType !== null) {
+      const updatedPage = { ...page, ...dataWithTimestamp };
+      let type: Activity['type'] = activityType || 'edit';
+      let preview = activityPreview;
+
+      // 图标变更自动推断
+      if (newData.icon !== undefined && activityType === undefined) {
+        type = 'icon-change';
+        preview = undefined;
+      }
+
+      if (type === 'icon-change') {
+        const activity: Activity = {
+          id: uuidv4(),
+          type: 'icon-change',
+          userName: user?.full_name || user?.email.split('@')[0] || '访客',
+          userInitial: (user?.full_name || user?.email.split('@')[0] || '访客').charAt(0).toUpperCase(),
+          pageId: updatedPage.id,
+          pageTitle: updatedPage.title || '无标题',
+          pageIcon: updatedPage.icon,
+          oldIcon: page.icon,
+          newIcon: newData.icon || undefined,
+          timestamp: now,
+        };
+        setActivities(prev => [activity, ...prev]);
+      } else {
+        if (preview === undefined && newData.content) {
+          preview = extractPreview(newData.content);
+        }
+        addActivity(type, updatedPage, preview);
+      }
+    }
 
     if (!user) return; // 未登录不调用后端
 
@@ -405,7 +560,7 @@ export default function App() {
     } catch (err) {
       console.error('保存页面失败:', err);
     }
-  }, [user, pages]);
+  }, [user, pages, addActivity, extractPreview, setActivities]);
 
   // 封面上传
   const uploadCover = async (pageId: string, file: File): Promise<string | null> => {
@@ -563,14 +718,18 @@ export default function App() {
             transition={{ duration: 0.4, ease: "easeOut" }}
           >
             <Sidebar
-        pages={pages}
-        activePageId={activePageId}
-        setActivePageId={activatePage}
-        addPage={addPage}
-        closePage={closePage}
-        user={user ? { id: user.id, name: user.full_name || user.email.split('@')[0], email: user.email, avatar: user.avatar_url || undefined } : null}
-        onShowLogin={() => setShowLogin(true)}
-      />
+              pages={pages}
+              activePageId={activePageId}
+              setActivePageId={activatePage}
+              addPage={addPage}
+              closePage={closePage}
+              user={user ? { id: user.id, name: user.full_name || user.email.split('@')[0], email: user.email, avatar: user.avatar_url || undefined } : null}
+              onShowLogin={() => setShowLogin(true)}
+              activeView={activeView}
+              onSetView={setActiveView}
+              onShowSearch={() => setShowSearch(true)}
+              onShowWorkspace={() => setShowWorkspacePanel(true)}
+            />
 
       {/* 登录弹窗 */}
       <Login
@@ -599,7 +758,7 @@ export default function App() {
             >
               <ChevronRight className="w-4 h-4" />
             </button>
-            {activePage && (
+            {activeView === 'page' && activePage && (
               <div className="flex items-center gap-1 ml-2">
                 {breadcrumbPath.map((page, idx) => (
                   <React.Fragment key={page.id}>
@@ -631,6 +790,16 @@ export default function App() {
                 </span>
               </div>
             )}
+            {activeView === 'home' && (
+              <div className="flex items-center gap-2 ml-2">
+                <span className="text-sm font-medium text-foreground">主页</span>
+              </div>
+            )}
+            {activeView === 'inbox' && (
+              <div className="flex items-center gap-2 ml-2">
+                <span className="text-sm font-medium text-foreground">收件箱</span>
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-1">
             <button className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-sm text-secondary-foreground hover:bg-accent rounded-md transition-colors">
@@ -646,9 +815,9 @@ export default function App() {
           </div>
         </div>
 
-        {/* 编辑区 */}
-        <div className="flex-1 overflow-auto">
-          {activePageId && activePage && (
+        {/* 编辑区 / 主页 / 收件箱 */}
+        <div className="flex-1 overflow-auto bg-background">
+          {activeView === 'page' && activePageId && activePage && (
             <Editor
               page={activePage}
               childPages={childPages}
@@ -657,8 +826,37 @@ export default function App() {
               onActivatePage={activatePage}
             />
           )}
+          {activeView === 'home' && (
+            <HomeView pages={pages} onNavigate={activatePage} />
+          )}
+          {activeView === 'inbox' && (
+            <InboxView
+              activities={activities}
+              onNavigate={activatePage}
+            />
+          )}
         </div>
       </div>
+
+      {/* 搜索弹窗 */}
+      <SearchModal
+        isOpen={showSearch}
+        onClose={() => setShowSearch(false)}
+        pages={pages}
+        onNavigate={(id) => {
+          activatePage(id);
+          setShowSearch(false);
+        }}
+      />
+
+      {/* 工作空间面板 */}
+      <WorkspacePanel
+        isOpen={showWorkspacePanel}
+        onClose={() => setShowWorkspacePanel(false)}
+        workspace={workspace}
+        pageCount={pages.length}
+        userName={user?.full_name || user?.email.split('@')[0]}
+      />
 
       {/* 页面迁移确认对话框 */}
       <AnimatedPresence
