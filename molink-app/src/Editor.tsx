@@ -20,7 +20,7 @@ import { withMarkdownShortcuts } from './withMarkdownShortcuts';
 import BlockElement, { type BlockElementType } from './BlockElement';
 import Leaf from './Leaf';
 
-import { Smile, Image, MessageSquare, MoveVertical } from 'lucide-react';
+import { Smile, Image, MessageSquare, MoveVertical, RotateCcw, Trash2 } from 'lucide-react';
 import IconPicker, { PageIcon } from './components/IconPicker';
 import SlashCommandMenu from './components/SlashCommandMenu';
 
@@ -114,12 +114,16 @@ export default function Editor({
   updatePage,
   uploadCover,
   onActivatePage,
+  restorePage,
+  permanentDeletePage,
 }: {
   page: PageData;
   childPages: PageData[];
   updatePage: (id: string, newData: Partial<PageData>) => void;
   uploadCover: (pageId: string, file: File) => Promise<string | null>;
   onActivatePage?: (id: string) => void;
+  restorePage?: (id: string) => void;
+  permanentDeletePage?: (id: string) => void;
 }) {
   const editor = useMemo(() => withMarkdownShortcuts(withReact(createEditor())), []);
   const isSyncingRef = useRef(false);
@@ -596,6 +600,8 @@ export default function Editor({
         // 在块内容区域内不启动框选
         const target = e.target as HTMLElement;
         if (target.closest('[data-slate-block]')) return;
+        // 在输入框/按钮上时不拦截焦点
+        if (target.closest('input, textarea, button, [contenteditable="true"]')) return;
         // 把焦点移回编辑器并阻止浏览器改焦点，确保后续 copy 事件在 Editable 上触发
         const editableEl = ReactEditor.toDOMNode(editor as ReactEditor, editor);
         (editableEl as HTMLElement)?.focus();
@@ -608,6 +614,32 @@ export default function Editor({
         ref={selectionRectRef}
         className="absolute bg-primary/15 pointer-events-none z-50 hidden"
       />
+
+      {/* 已删除页面横幅 */}
+      {page.deletedAt && (
+        <div className="sticky top-0 z-50 bg-destructive/10 border-b border-destructive/20 px-4 py-2 flex items-center justify-between">
+          <div className="flex items-center gap-2 text-sm text-destructive">
+            <Trash2 className="w-4 h-4" />
+            <span>此页面已移至回收站</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => restorePage?.(page.id)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-secondary hover:bg-secondary/80 rounded-md transition-colors"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              恢复
+            </button>
+            <button
+              onClick={() => permanentDeletePage?.(page.id)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-destructive text-destructive-foreground hover:bg-destructive/90 rounded-md transition-colors"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              永久删除
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* 封面区域（独立 hover） */}
       {page.cover && (

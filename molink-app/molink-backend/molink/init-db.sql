@@ -43,6 +43,7 @@ CREATE TABLE IF NOT EXISTS pages (
     cover_image VARCHAR(500),
     is_favorite BOOLEAN DEFAULT FALSE,
     is_archived BOOLEAN DEFAULT FALSE,
+    deleted_at DATETIME NULL,
     position INT DEFAULT 0,
     created_by CHAR(36),
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,

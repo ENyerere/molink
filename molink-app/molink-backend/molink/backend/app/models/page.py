@@ -31,6 +31,7 @@ class Page(Base):
     cover_image = Column(String(500), nullable=True)
     is_favorite = Column(Boolean, default=False)
     is_archived = Column(Boolean, default=False)
+    deleted_at = Column(DateTime, nullable=True)
     position = Column(Integer, default=0)
     created_by = Column(CHAR(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)

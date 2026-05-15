@@ -41,7 +41,7 @@ export default function SearchModal({ isOpen, onClose, pages, onNavigate }: Sear
     const q = query.toLowerCase();
     const scored: SearchResult[] = [];
 
-    for (const page of pages) {
+    for (const page of pages.filter(p => !p.deletedAt)) {
       const title = (page.title || '').toLowerCase();
       const content = extractText(page.content).toLowerCase();
       let score = 0;
@@ -115,14 +115,14 @@ export default function SearchModal({ isOpen, onClose, pages, onNavigate }: Sear
       enterTo="opacity-100"
       className="fixed inset-0 z-[100] flex items-start justify-center pt-[18vh] p-4"
     >
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/20" onClick={onClose} />
       <div
         className="relative bg-card rounded-xl shadow-2xl w-full max-w-[640px] overflow-hidden flex flex-col"
         style={{ maxHeight: '60vh' }}
         onKeyDown={handleKeyDown}
       >
         {/* 搜索输入 */}
-        <div className="flex items-center gap-3 px-4 py-3.5 border-b border-border">
+        <div className="flex items-center gap-3 px-4 py-3.5">
           <Search className="w-5 h-5 text-muted-foreground flex-shrink-0" />
           <input
             ref={inputRef}

@@ -17,6 +17,7 @@ import os
 from app.core.config import settings
 from app.core.database import engine, Base
 from app.core.redis import close_redis
+from app.core.migration import auto_migrate
 from app.api.v1 import api_router
 from app.api.websocket import router as ws_router
 
@@ -24,8 +25,11 @@ from app.api.websocket import router as ws_router
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """应用生命周期管理"""
-    # 启动时创建数据库表
+    # 启动时创建数据库表（只创建不存在的表，不修改已有表）
     Base.metadata.create_all(bind=engine)
+    
+    # 自动迁移：检测并添加缺失的列
+    auto_migrate()
     
     # 确保上传目录存在
     os.makedirs(settings.UPLOAD_DIR, exist_ok=True)

@@ -4,6 +4,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional
+from datetime import datetime
 import json
 
 from app.core.database import get_db
@@ -44,7 +45,8 @@ async def list_pages(
     
     query = db.query(Page).filter(
         Page.workspace_id == workspace_id,
-        Page.is_archived == is_archived
+        Page.is_archived == is_archived,
+        Page.deleted_at == None
     )
     
     if parent_id:
@@ -85,6 +87,23 @@ async def create_page(
     db.refresh(page)
     
     return PageResponse.model_validate(page)
+
+
+@router.get("/trash/list", response_model=List[PageResponse])
+async def list_trash_pages(
+    workspace_id: str = Query(..., description="工作空间ID"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """获取回收站中的页面列表"""
+    check_workspace_access(workspace_id, current_user.id, db)
+    
+    pages = db.query(Page).filter(
+        Page.workspace_id == workspace_id,
+        Page.deleted_at != None
+    ).order_by(Page.deleted_at.desc()).all()
+    
+    return [PageResponse.model_validate(p) for p in pages]
 
 
 @router.get("/{page_id}", response_model=PageResponse)
@@ -141,7 +160,7 @@ async def delete_page(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """删除页面"""
+    """软删除页面（移入回收站）"""
     page = db.query(Page).filter(Page.id == page_id).first()
     
     if not page:
@@ -152,10 +171,74 @@ async def delete_page(
     
     check_workspace_access(page.workspace_id, current_user.id, db)
     
+    page.deleted_at = datetime.utcnow()
+    db.commit()
+    
+    return {"success": True, "message": "页面已移入回收站"}
+
+
+@router.post("/{page_id}/restore", response_model=PageResponse)
+async def restore_page(
+    page_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """从回收站恢复页面（同时恢复所有后代页面）"""
+    page = db.query(Page).filter(Page.id == page_id).first()
+    
+    if not page:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="页面不存在"
+        )
+    
+    check_workspace_access(page.workspace_id, current_user.id, db)
+    
+    page.deleted_at = None
+    db.commit()
+    db.refresh(page)
+    
+    def restore_descendants(parent_id: str):
+        children = db.query(Page).filter(Page.parent_id == parent_id).all()
+        for child in children:
+            if child.deleted_at is not None:
+                child.deleted_at = None
+                db.commit()
+            restore_descendants(child.id)
+    
+    restore_descendants(page.id)
+    
+    return PageResponse.model_validate(page)
+
+
+@router.delete("/{page_id}/permanent")
+async def permanent_delete_page(
+    page_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """永久删除页面"""
+    page = db.query(Page).filter(Page.id == page_id).first()
+    
+    if not page:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="页面不存在"
+        )
+    
+    check_workspace_access(page.workspace_id, current_user.id, db)
+    
+    def delete_descendants(parent_id: str):
+        children = db.query(Page).filter(Page.parent_id == parent_id).all()
+        for child in children:
+            delete_descendants(child.id)
+            db.delete(child)
+    
+    delete_descendants(page.id)
     db.delete(page)
     db.commit()
     
-    return {"success": True, "message": "页面已删除"}
+    return {"success": True, "message": "页面已永久删除"}
 
 
 @router.get("/{page_id}/children", response_model=List[PageResponse])
@@ -177,7 +260,8 @@ async def get_page_children(
     
     children = db.query(Page).filter(
         Page.parent_id == page_id,
-        Page.is_archived == False
+        Page.is_archived == False,
+        Page.deleted_at == None
     ).order_by(Page.position).all()
     
     return [PageResponse.model_validate(p) for p in children]
