@@ -486,14 +486,11 @@ function TrashPopover({
         enterTo="opacity-100 scale-100"
         className="fixed inset-0 z-50 flex items-start justify-center pt-[15vh]"
       >
-        {/* 遮罩 */}
-        <div
-          className="absolute inset-0 bg-black/20"
-          onClick={() => setOpen(false)}
-        />
+        {/* 透明遮罩，只拦截点击，不变暗 */}
+        <div className="absolute inset-0" onClick={() => setOpen(false)} />
         {/* 弹窗 */}
         <div
-          className="relative w-[560px] max-w-[90vw] bg-[#1e1e1e] border border-border/50 rounded-xl shadow-2xl flex flex-col overflow-hidden"
+          className="relative w-[560px] max-w-[90vw] bg-[#1e1e1e]/95 border border-border/50 rounded-xl shadow-2xl flex flex-col overflow-hidden"
           onClick={(e) => e.stopPropagation()}
         >
           {/* 头部搜索 */}
@@ -584,7 +581,7 @@ function TrashPopover({
           </div>
 
           {/* 底部提示 */}
-          <div className="px-4 py-3 border-t border-border/30 flex items-center justify-between bg-[#1a1a1a]">
+          <div className="px-4 py-3 border-t border-border/30 flex items-center justify-between bg-[#1a1a1a]/60">
             <span className="text-xs text-muted-foreground">
               页面在垃圾箱中保留 30 天后将被自动删除
             </span>
