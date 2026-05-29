@@ -121,7 +121,7 @@ export default function App() {
   const [loadingDone, setLoadingDone] = useState(false);
 
   // 视图状态
-  const [activeView, setActiveView] = useState<'page' | 'home' | 'inbox'>('page');
+  const [activeView, setActiveView] = useState<'page' | 'home' | 'inbox'>('home');
   const [showSearch, setShowSearch] = useState(false);
   const [showWorkspacePanel, setShowWorkspacePanel] = useState(false);
 
@@ -219,10 +219,10 @@ export default function App() {
       const activePages = loadedPages.filter(p => !p.deletedAt);
       setActivePageId(currentId => {
         if (activePages.length === 0) return null;
-        if (!currentId || activePages.every(p => p.id !== currentId)) {
-          return activePages[0].id;
+        if (currentId && activePages.some(p => p.id === currentId)) {
+          return currentId;
         }
-        return currentId;
+        return null;
       });
     } catch (err) {
       console.error('加载页面失败:', err);
@@ -248,11 +248,33 @@ export default function App() {
   // ==========================================
   // 未登录：从 localStorage 加载
   // ==========================================
-  // 认证状态变化时：已登录用户直接进入工作区
+  // ==========================================
+  // 登录/退出登录状态切换
+  // ==========================================
+  const prevUserRef = useRef(user);
   useEffect(() => {
-    if (user) {
+    const wasLoggedIn = !!prevUserRef.current;
+    const isLoggedIn = !!user;
+
+    if (!wasLoggedIn && isLoggedIn) {
+      // 用户刚刚登录：进入工作区并显示主页
       setShowWorkspace(true);
+      setActiveView('home');
     }
+
+    if (wasLoggedIn && !isLoggedIn) {
+      // 用户刚刚退出登录：清理状态，回到 landing
+      setShowWorkspace(false);
+      setPages([]);
+      setActivePageId(null);
+      setActiveView('home');
+      setBackStack([]);
+      setForwardStack([]);
+      setWorkspace(null);
+      blockIdMap.current = {};
+    }
+
+    prevUserRef.current = user;
   }, [user]);
 
   useEffect(() => {
@@ -262,7 +284,6 @@ export default function App() {
     const local = loadLocalPages();
     if (local.length > 0) {
       setPages(local);
-      setActivePageId(local[0].id);
     }
     // 不再自动创建空页面或触发登录弹窗
     // 用户通过 Landing Page 选择"开始使用"或"登录"
@@ -403,6 +424,7 @@ export default function App() {
         if (activePageId) setBackStack(prev => [...prev, activePageId]);
         setForwardStack([]);
         setActivePageId(bp.id);
+        setActiveView('page');
         return;
       } catch (err) {
         console.error('创建页面失败:', err);
@@ -432,6 +454,7 @@ export default function App() {
     if (activePageId) setBackStack(prev => [...prev, activePageId]);
     setForwardStack([]);
     setActivePageId(id);
+    setActiveView('page');
   };
 
   const activatePage = (id: string) => {
@@ -681,6 +704,7 @@ export default function App() {
   // ==========================================
   const handleLoginSuccess = () => {
     setShowLogin(false);
+    setActiveView('home');
     const local = loadLocalPages();
     const meaningful = local.filter(p => {
       const hasTitle = p.title && p.title.trim().length > 0;
@@ -718,6 +742,8 @@ export default function App() {
     localStorage.removeItem(LOCAL_PAGES_KEY);
     setShowMigrationDialog(false);
     setGuestPageCount(0);
+    setPages([]);
+    setActivePageId(null);
     if (workspace) loadPages(workspace.id);
   };
 
@@ -727,7 +753,6 @@ export default function App() {
     setGuestPageCount(0);
     setPages([]);
     setActivePageId(null);
-    addLocalPage();
   };
 
   const activePage = pages.find(p => p.id === activePageId);
@@ -786,11 +811,8 @@ export default function App() {
               onEnterWorkspace={() => {
                 setShowWorkspace(true);
                 const local = loadLocalPages();
-                if (local.length === 0) {
-                  addLocalPage();
-                } else {
+                if (local.length > 0) {
                   setPages(local);
-                  setActivePageId(local[0].id);
                 }
               }}
               onLogin={() => setShowLogin(true)}

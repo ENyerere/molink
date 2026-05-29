@@ -372,7 +372,6 @@ export default function Sidebar({
         <NavItem icon={Home} label="主页" isActive={activeView === 'home'} onClick={() => onSetView?.('home')} />
         <NavItem icon={Briefcase} label="工作空间" onClick={onShowWorkspace} />
         <NavItem icon={Inbox} label="收件箱" isActive={activeView === 'inbox'} onClick={() => onSetView?.('inbox')} />
-        <NavItem icon={Database} label="数据库" />
       </div>
 
       <div className="border-t border-border my-1 mx-3" />
