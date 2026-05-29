@@ -42,8 +42,8 @@ class Settings(BaseSettings):
     MAX_FILE_SIZE: int = 10 * 1024 * 1024  # 10MB
     ALLOWED_EXTENSIONS: set = {"jpg", "jpeg", "png", "gif", "webp", "pdf", "doc", "docx"}
     
-    # CORS配置
-    CORS_ORIGINS: list = ["http://localhost:3000", "http://localhost:5173", "http://127.0.0.1:5173"]
+    # CORS配置（支持逗号分隔的字符串，方便通过环境变量注入）
+    CORS_ORIGINS: str = "http://localhost:3000,http://localhost:5173,http://127.0.0.1:5173"
     
     # OAuth 配置
     GOOGLE_CLIENT_ID: str = ""
@@ -52,6 +52,11 @@ class Settings(BaseSettings):
     GITHUB_CLIENT_SECRET: str = ""
     FRONTEND_URL: str = "http://localhost:5173"
     
+    @property
+    def CORS_ORIGINS_LIST(self) -> list:
+        """将逗号分隔的 CORS_ORIGINS 解析为列表"""
+        return [origin.strip() for origin in self.CORS_ORIGINS.split(",") if origin.strip()]
+
     model_config = SettingsConfigDict(
         env_file=os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), ".env"),
         case_sensitive=True,
