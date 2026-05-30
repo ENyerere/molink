@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { FileText, RefreshCw, X, LayoutGrid, List } from 'lucide-react';
 import type { PageData } from '../App';
+import { getFileUrl } from '../api/client';
 
 // ========== 静态推荐数据 ==========
 const RECOMMENDED = [
@@ -214,7 +215,7 @@ export default function HomeView({ pages, onNavigate }: HomeViewProps) {
                   <div className="w-full aspect-[4/3] rounded-lg overflow-hidden mb-2.5 bg-[#1e1e1e] transition-transform duration-200 group-hover:scale-[1.01]">
                     {page.cover ? (
                       <img
-                        src={page.cover}
+                        src={getFileUrl(page.cover)}
                         alt={page.title}
                         className="w-full h-full object-cover"
                       />

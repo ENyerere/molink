@@ -1,7 +1,7 @@
 """
 文件管理API
 """
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File as FastAPIFile
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File as FastAPIFile, Request
 from sqlalchemy.orm import Session
 from typing import List
 import os
@@ -31,8 +31,16 @@ def generate_unique_filename(original_filename: str) -> str:
     return f"{unique_name}.{ext}" if ext else unique_name
 
 
+def _get_base_url(request: Request) -> str:
+    """获取公网基础URL（兼容反向代理）"""
+    scheme = request.headers.get('x-forwarded-proto', request.url.scheme)
+    host = request.headers.get('host', request.url.hostname)
+    return f"{scheme}://{host}"
+
+
 @router.post("/upload", response_model=FileUploadResponse)
 async def upload_file(
+    request: Request,
     file: UploadFile = FastAPIFile(...),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -66,11 +74,12 @@ async def upload_file(
     async with aiofiles.open(file_path, 'wb') as f:
         await f.write(content)
     
-    # 创建数据库记录
+    # 创建数据库记录（返回完整URL，兼容前后端分离部署）
+    base_url = _get_base_url(request)
     file_record = File(
         name=unique_filename,
         original_name=file.filename,
-        url=f"/uploads/{unique_filename}",
+        url=f"{base_url}/uploads/{unique_filename}",
         file_type=ext,
         mime_type=file.content_type,
         size=len(content),

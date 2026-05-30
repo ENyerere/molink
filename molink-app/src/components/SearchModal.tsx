@@ -3,6 +3,7 @@ import { Search, FileText } from 'lucide-react';
 import { PageIcon } from './IconPicker';
 import AnimatedPresence from './AnimatedPresence';
 import type { PageData } from '../App';
+import { getFileUrl } from '../api/client';
 import { Text as SlateText, Element as SlateElement } from 'slate';
 
 interface SearchModalProps {
@@ -221,7 +222,7 @@ export default function SearchModal({ isOpen, onClose, pages, onNavigate }: Sear
               {previewPage.cover && (
                 <div className="w-full h-32 rounded-lg overflow-hidden flex-shrink-0">
                   <img
-                    src={previewPage.cover}
+                    src={getFileUrl(previewPage.cover)}
                     alt="封面"
                     className="w-full h-full object-cover"
                   />

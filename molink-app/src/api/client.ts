@@ -1,6 +1,20 @@
 import axios from 'axios';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
+export const BASE_URL = API_BASE_URL.replace('/api/v1', '');
+
+/**
+ * 将后端返回的文件URL转为可访问的完整URL
+ * - 已是完整URL则直接返回
+ * - 相对路径则拼接后端基础域名
+ */
+export function getFileUrl(url: string | undefined): string {
+  if (!url) return '';
+  if (url.startsWith('http')) return url;
+  // 相对路径，拼接后端域名
+  const prefix = url.startsWith('/') ? '' : '/';
+  return `${BASE_URL}${prefix}${url}`;
+}
 
 // 创建 axios 实例
 const apiClient = axios.create({

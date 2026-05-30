@@ -16,6 +16,7 @@ import {
   ReactEditor,
 } from 'slate-react';
 import type { PageData } from './App';
+import { getFileUrl } from './api/client';
 import { withMarkdownShortcuts } from './withMarkdownShortcuts';
 import BlockElement, { type BlockElementType } from './BlockElement';
 import Leaf from './Leaf';
@@ -650,7 +651,7 @@ export default function Editor({
           onMouseDown={(e) => { e.stopPropagation(); handleCoverDrag(e); }}
         >
           <img
-            src={page.cover}
+            src={getFileUrl(page.cover)}
             alt="封面"
             className="w-full h-full object-cover pointer-events-none"
             style={{ objectPosition: `50% ${coverPosY}%` }}

@@ -13,6 +13,7 @@ import {
   Node,
 } from 'slate';
 import type { PageData } from './App';
+import { getFileUrl } from './api/client';
 import { PageIcon } from './components/IconPicker';
 import { FileText } from 'lucide-react';
 import AnimatedPresence from './components/AnimatedPresence';
@@ -618,7 +619,7 @@ function PageLinkPreview({ page }: { page: PageData }) {
       {page.cover && (
         <div
           className="w-full h-24 rounded-md mb-2 bg-cover bg-center"
-          style={{ backgroundImage: `url(${page.cover})` }}
+          style={{ backgroundImage: `url(${getFileUrl(page.cover)})` }}
         />
       )}
       <div className="flex items-center gap-2">

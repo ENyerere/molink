@@ -63,8 +63,11 @@ def _build_column_sql(column):
     mysql_type = _get_mysql_type(column)
     parts = [f"`{column.name}`", mysql_type]
 
-    # 自增主键
-    if getattr(column, 'autoincrement', False):
+    # 自增主键 - MySQL 只允许整数类型使用 AUTO_INCREMENT
+    t = column.type
+    if hasattr(t, 'impl'):
+        t = t.impl
+    if getattr(column, 'autoincrement', False) and isinstance(t, (Integer, BigInteger)):
         parts.append("AUTO_INCREMENT")
 
     # NULL / NOT NULL
