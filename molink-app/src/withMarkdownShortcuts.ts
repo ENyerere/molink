@@ -61,12 +61,19 @@ export const withMarkdownShortcuts = (editor: Editor) => {
       const range = { anchor, focus: start };
       const beforeText = Editor.string(editor, range) + text;
 
-      // 行内替换
-      for (const [key, value] of Object.entries(inlineReplacements)) {
-        if (beforeText.endsWith(key)) {
-          Transforms.delete(editor, { unit: 'character', reverse: true, distance: key.length });
-          originalInsertText(value);
-          return;
+      // 代码块 / 公式块内不做行内替换，避免毁坏代码（如 !=、->）
+      const blockType = block ? (block[0] as unknown as { type?: string }).type : undefined;
+      if (blockType !== 'code-block' && blockType !== 'math-block') {
+        // 行内替换
+        for (const [key, value] of Object.entries(inlineReplacements)) {
+          if (beforeText.endsWith(key)) {
+            // insertText 拦截时正在输入的 text 尚未进入文档，删除距离需扣除其长度
+            const distance = key.length - text.length;
+            if (distance < 0) break;
+            Transforms.delete(editor, { unit: 'character', reverse: true, distance });
+            originalInsertText(value);
+            return;
+          }
         }
       }
     }

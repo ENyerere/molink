@@ -15,6 +15,7 @@ import {
   withReact,
   ReactEditor,
 } from 'slate-react';
+import { withHistory } from 'slate-history';
 import type { PageData } from './App';
 import { getFileUrl } from './api/client';
 import { withMarkdownShortcuts } from './withMarkdownShortcuts';
@@ -126,7 +127,7 @@ export default function Editor({
   restorePage?: (id: string) => void;
   permanentDeletePage?: (id: string) => void;
 }) {
-  const editor = useMemo(() => withMarkdownShortcuts(withReact(createEditor())), []);
+  const editor = useMemo(() => withMarkdownShortcuts(withHistory(withReact(createEditor()))), []);
   const isSyncingRef = useRef(false);
 
   const [coverPx, setCoverPx] = useState<number>(
