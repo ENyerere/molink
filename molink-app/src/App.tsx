@@ -67,6 +67,21 @@ function slateToBlockContent(content: Descendant[]): Record<string, any> {
   return { slate: content };
 }
 
+// 内容保存状态：按页面 id 各自维护防抖计时器、单调递增版本号与在途标记
+interface ContentSaveState {
+  timer?: ReturnType<typeof setTimeout>;
+  version: number;
+  inFlight: boolean;
+  pendingContent?: Descendant[];
+}
+
+function getContentSaveState(states: Record<string, ContentSaveState>, pageId: string): ContentSaveState {
+  if (!states[pageId]) {
+    states[pageId] = { version: 0, inFlight: false };
+  }
+  return states[pageId];
+}
+
 // ==========================================
 // 未登录时用 localStorage 作为降级
 // ==========================================
@@ -129,6 +144,78 @@ export default function App() {
   const [activities, setActivities] = useState<Activity[]>([]);
 
   const blockIdMap = useRef<Record<string, string>>({}); // pageId -> blockId
+  const contentSaveStates = useRef<Record<string, ContentSaveState>>({});
+  // 会话世代号：登录/登出或重新调用 loadPages 时 +1，使在途加载失效
+  const sessionRef = useRef(0);
+
+  // 发送指定页面的最新待保存内容（同一页面串行发送，避免并发 PUT 乱序覆盖）
+  const flushContentSave = useCallback(async (pageId: string) => {
+    const st = getContentSaveState(contentSaveStates.current, pageId);
+    if (st.timer) {
+      clearTimeout(st.timer);
+      st.timer = undefined;
+    }
+    if (st.inFlight || st.pendingContent === undefined) return;
+    const version = st.version;
+    const content = st.pendingContent;
+    st.pendingContent = undefined;
+    st.inFlight = true;
+    try {
+      const blockId = blockIdMap.current[pageId];
+      if (blockId) {
+        await blocksApi.update(blockId, {
+          content: slateToBlockContent(content),
+        });
+      } else {
+        // 如果没有 blockId，创建一个新的
+        const block = await blocksApi.create({
+          page_id: pageId,
+          block_type: 'text',
+          content: slateToBlockContent(content),
+          position: 0,
+        });
+        blockIdMap.current[pageId] = block.id;
+      }
+    } catch (err) {
+      console.error('保存页面内容失败:', err);
+    } finally {
+      st.inFlight = false;
+      // 保存期间产生了更新版本：本次响应已过期，立即补发最新内容
+      if (st.version > version) {
+        void flushContentSave(pageId);
+      }
+    }
+  }, []);
+
+  // 内容保存防抖：400ms 内连续输入只发送最后一次
+  const scheduleContentSave = useCallback((pageId: string, content: Descendant[]) => {
+    const st = getContentSaveState(contentSaveStates.current, pageId);
+    st.version += 1;
+    st.pendingContent = content;
+    if (st.timer) clearTimeout(st.timer);
+    st.timer = setTimeout(() => {
+      void flushContentSave(pageId);
+    }, 400);
+  }, [flushContentSave]);
+
+  // 切换页面或组件卸载前，立即 flush 所有待保存内容
+  const flushAllContentSaves = useCallback(() => {
+    for (const pageId of Object.keys(contentSaveStates.current)) {
+      void flushContentSave(pageId);
+    }
+  }, [flushContentSave]);
+
+  const prevActivePageIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (prevActivePageIdRef.current !== activePageId) {
+      prevActivePageIdRef.current = activePageId;
+      flushAllContentSaves();
+    }
+  }, [activePageId, flushAllContentSaves]);
+
+  useEffect(() => {
+    return () => flushAllContentSaves();
+  }, [flushAllContentSaves]);
 
   // ==========================================
   // 已登录：从后端加载数据
@@ -149,6 +236,9 @@ export default function App() {
   }, [user]);
 
   const loadPages = useCallback(async (wsId: string) => {
+    // 每次调用开启新会话：世代号 +1，旧加载循环在 await 后校验时自动失效
+    const session = ++sessionRef.current;
+    const isStale = () => sessionRef.current !== session;
     try {
       setApiLoading(true);
       const loadedPages: PageData[] = [];
@@ -159,8 +249,10 @@ export default function App() {
         const backendPages = parentId
           ? await pagesApi.getChildren(parentId)
           : await pagesApi.list(wsId);
+        if (isStale()) return;
         for (const bp of backendPages) {
           const blocks = await blocksApi.list(bp.id);
+          if (isStale()) return;
           const content = blocksToSlate(blocks);
           if (blocks.length > 0) {
             idMap[bp.id] = blocks[0].id;
@@ -184,13 +276,16 @@ export default function App() {
       };
 
       await loadRecursive();
+      if (isStale()) return;
 
       // 加载回收站中的页面
       try {
         const trashPages = await pagesApi.trash(wsId);
+        if (isStale()) return;
         for (const bp of trashPages) {
           if (loadedPages.some(p => p.id === bp.id)) continue;
           const blocks = await blocksApi.list(bp.id);
+          if (isStale()) return;
           const content = blocksToSlate(blocks);
           if (blocks.length > 0) {
             idMap[bp.id] = blocks[0].id;
@@ -214,6 +309,8 @@ export default function App() {
         console.error('加载回收站页面失败:', err);
       }
 
+      // 会话已变更（登出/重新加载）：放弃全部写入，避免旧数据落到新会话
+      if (isStale()) return;
       blockIdMap.current = idMap;
       setPages(loadedPages);
       const activePages = loadedPages.filter(p => !p.deletedAt);
@@ -227,7 +324,8 @@ export default function App() {
     } catch (err) {
       console.error('加载页面失败:', err);
     } finally {
-      setApiLoading(false);
+      // 只关闭当前会话的加载态，避免误关新会话的 loading
+      if (!isStale()) setApiLoading(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -255,6 +353,11 @@ export default function App() {
   useEffect(() => {
     const wasLoggedIn = !!prevUserRef.current;
     const isLoggedIn = !!user;
+
+    // 登录状态变化：会话世代号 +1，使在途的 loadPages 写入全部失效
+    if (wasLoggedIn !== isLoggedIn) {
+      sessionRef.current += 1;
+    }
 
     if (!wasLoggedIn && isLoggedIn) {
       // 用户刚刚登录：进入工作区并显示主页
@@ -654,28 +757,14 @@ export default function App() {
         saveCoverPosition(id, newData.coverPosition);
       }
 
-      // 更新内容 block
+      // 更新内容 block：按页面防抖 + 串行发送，避免快速编辑时并发 PUT 乱序覆盖
       if (newData.content !== undefined) {
-        const blockId = blockIdMap.current[id];
-        if (blockId) {
-          await blocksApi.update(blockId, {
-            content: slateToBlockContent(newData.content),
-          });
-        } else {
-          // 如果没有 blockId，创建一个新的
-          const block = await blocksApi.create({
-            page_id: id,
-            block_type: 'text',
-            content: slateToBlockContent(newData.content),
-            position: 0,
-          });
-          blockIdMap.current[id] = block.id;
-        }
+        scheduleContentSave(id, newData.content);
       }
     } catch (err) {
       console.error('保存页面失败:', err);
     }
-  }, [user, pages, addActivity, extractPreview, setActivities]);
+  }, [user, pages, addActivity, extractPreview, setActivities, scheduleContentSave]);
 
   // 封面上传
   const uploadCover = async (pageId: string, file: File): Promise<string | null> => {
@@ -793,7 +882,7 @@ export default function App() {
 
   return (
     <motion.div
-      className="relative h-screen w-full overflow-hidden bg-background"
+      className={`relative w-full bg-background ${!isLanding ? 'h-screen overflow-hidden' : ''}`}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.5, ease: "easeOut" }}
@@ -802,7 +891,7 @@ export default function App() {
         {isLanding ? (
           <motion.div
             key="landing"
-            className="absolute inset-0 z-20"
+            className="z-20"
             initial={{ opacity: 1 }}
             exit={{ opacity: 0, y: -30, filter: "blur(8px)" }}
             transition={{ duration: 0.5, ease: "easeInOut" }}
@@ -826,7 +915,7 @@ export default function App() {
         ) : (
           <motion.div
             key="workspace"
-            className="flex h-full w-full"
+            className="fixed inset-0 z-10 flex h-full w-full"
             initial={{ opacity: 0, scale: 0.98 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.4, ease: "easeOut" }}

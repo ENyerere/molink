@@ -39,7 +39,14 @@ export default function Login({ isOpen, onClose, onLogin }: LoginProps) {
       onLogin?.();
       onClose?.();
     } catch (err: any) {
-      const msg = err?.response?.data?.detail || '操作失败，请重试';
+      // FastAPI 校验失败时 detail 是 [{loc, msg, type}, ...] 数组，不能直接渲染，取第一条消息
+      const detail = err?.response?.data?.detail;
+      let msg = '操作失败，请重试';
+      if (typeof detail === 'string') {
+        msg = detail;
+      } else if (Array.isArray(detail) && detail.length > 0) {
+        msg = detail[0]?.msg || '输入内容不符合要求，请检查后重试';
+      }
       setError(msg);
     } finally {
       setIsLoading(false);
