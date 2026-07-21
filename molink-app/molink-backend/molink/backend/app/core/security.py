@@ -31,19 +31,8 @@ def verify_token(token: str) -> Optional[dict]:
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         return payload
-    except JWTError as e:
-        print(f"Token verification failed: {e}")
-        # 打印更多调试信息
-        try:
-            # 尝试不验证签名来解码，看看内容
-            unverified_header = jwt.get_unverified_header(token)
-            unverified_claims = jwt.get_unverified_claims(token)
-            print(f"Debug - Unverified Header: {unverified_header}")
-            print(f"Debug - Unverified Claims: {unverified_claims}")
-            print(f"Debug - Expected Secret: {settings.SECRET_KEY}")
-        except Exception as debug_err:
-            print(f"Debug - Failed to decode unverified token: {debug_err}")
-            
+    except JWTError:
+        # 验证失败属于正常情况（过期/伪造），不要打印 token 内容或密钥
         return None
 
 

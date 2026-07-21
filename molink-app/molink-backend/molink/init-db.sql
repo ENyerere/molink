@@ -8,7 +8,10 @@ USE molink_db;
 CREATE TABLE IF NOT EXISTS users (
     id CHAR(36) PRIMARY KEY,
     email VARCHAR(255) UNIQUE NOT NULL,
-    password_hash VARCHAR(255) NOT NULL,
+    -- 允许 NULL：OAuth 用户没有密码
+    password_hash VARCHAR(255) NULL,
+    provider VARCHAR(20) NULL,
+    provider_id VARCHAR(100) NULL,
     full_name VARCHAR(100),
     avatar_url VARCHAR(500),
     settings TEXT,
@@ -148,14 +151,6 @@ CREATE TABLE IF NOT EXISTS collaboration_sessions (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 创建默认管理员用户 (密码: admin123)
--- bcrypt hash for 'admin123'
-INSERT INTO users (id, email, password_hash, full_name, is_admin, is_active)
-VALUES (
-    UUID(),
-    'admin@molink.local',
-    '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/X4.n6WjN.I/NjRfSq',
-    '系统管理员',
-    TRUE,
-    TRUE
-) ON DUPLICATE KEY UPDATE email=email;
+-- 注意：默认管理员不再由本脚本创建（避免在仓库中保存公开凭据）。
+-- 后端启动时会自动播种：设置环境变量 ADMIN_PASSWORD（可选 ADMIN_EMAIL，
+-- 默认 admin@molink.local）后启动后端，账号不存在时才会创建。

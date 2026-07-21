@@ -60,6 +60,8 @@ services:
       - REDIS_PORT=6379
       - SECRET_KEY=your-super-secret-key-change-in-production-please
       - DEBUG=false
+      # 本地开发播种默认管理员 admin@molink.local / admin123（生产环境务必修改或移除）
+      - ADMIN_PASSWORD=admin123
     volumes:
       - uploads_data:/app/uploads
     depends_on:

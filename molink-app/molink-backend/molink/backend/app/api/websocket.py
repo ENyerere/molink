@@ -135,6 +135,25 @@ async def get_user_from_token(token: str) -> dict:
     return None
 
 
+def check_page_access(page_id: str, user_id: str) -> bool:
+    """校验用户是否有权访问页面（与 REST 一致：页面所属工作空间的 owner）"""
+    # 延迟导入以避免循环依赖
+    from app.models.page import Page
+    from app.models.workspace import Workspace
+
+    db = SessionLocal()
+    try:
+        page = (
+            db.query(Page)
+            .join(Workspace, Page.workspace_id == Workspace.id)
+            .filter(Page.id == page_id, Workspace.owner_id == user_id)
+            .first()
+        )
+        return page is not None
+    finally:
+        db.close()
+
+
 @router.websocket("/editor/{page_id}")
 async def websocket_editor(
     websocket: WebSocket,
@@ -146,6 +165,11 @@ async def websocket_editor(
     user_info = await get_user_from_token(token)
     if not user_info:
         await websocket.close(code=4001, reason="认证失败")
+        return
+    
+    # 校验页面访问权限，防止越权加入他人协作房间
+    if not check_page_access(page_id, user_info["id"]):
+        await websocket.close(code=4003, reason="无权限访问此页面")
         return
     
     await manager.connect_to_page(websocket, page_id, user_info)

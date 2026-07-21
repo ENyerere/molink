@@ -36,9 +36,14 @@ class Settings(BaseSettings):
         return f"redis://{self.REDIS_HOST}:{self.REDIS_PORT}/{self.REDIS_DB}"
     
     # JWT配置
-    SECRET_KEY: str = "1234567890"
+    # 必填，无默认值：必须通过环境变量或 .env 提供，生产环境应使用足够长的随机串
+    SECRET_KEY: str
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7天
     ALGORITHM: str = "HS256"
+
+    # 初始管理员配置（仅首次启动播种：账号不存在时创建；不设置 ADMIN_PASSWORD 则不创建）
+    ADMIN_EMAIL: str = "admin@molink.local"
+    ADMIN_PASSWORD: Optional[str] = None
     
     # 文件上传配置
     UPLOAD_DIR: str = "/app/uploads"

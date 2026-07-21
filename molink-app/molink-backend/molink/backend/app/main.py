@@ -18,6 +18,7 @@ from app.core.config import settings
 from app.core.database import engine, Base
 from app.core.redis import close_redis
 from app.core.migration import auto_migrate
+from app.core.seed import seed_admin
 from app.api.v1 import api_router
 from app.api.websocket import router as ws_router
 
@@ -30,6 +31,9 @@ async def lifespan(app: FastAPI):
     
     # 自动迁移：检测并添加缺失的列
     auto_migrate()
+    
+    # 播种默认管理员（需设置 ADMIN_PASSWORD，账号已存在则跳过）
+    seed_admin()
     
     # 确保上传目录存在
     os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
@@ -68,14 +72,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# 调试中间件：打印所有请求头
-@app.middleware("http")
-async def log_requests(request, call_next):
-    print(f"Request: {request.method} {request.url}")
-    print(f"Headers: {request.headers}")
-    response = await call_next(request)
-    return response
 
 # 注册API路由
 app.include_router(api_router, prefix=settings.API_V1_PREFIX)
