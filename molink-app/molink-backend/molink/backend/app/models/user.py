@@ -27,6 +27,9 @@ class User(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # 关系
-    workspaces = relationship("Workspace", back_populates="owner")
+    # workspaces/files 的外键在数据库层均为 ON DELETE CASCADE，
+    # passive_deletes=True 让 ORM 删除用户时只删主表行，子表交给数据库级联，
+    # 避免 ORM 尝试将 NOT NULL 外键置 NULL 导致 IntegrityError
+    workspaces = relationship("Workspace", back_populates="owner", passive_deletes=True)
     pages = relationship("Page", back_populates="creator")
-    files = relationship("File", back_populates="user")
+    files = relationship("File", back_populates="user", passive_deletes=True)

@@ -145,6 +145,49 @@ async def update_page(
     check_workspace_access(page.workspace_id, current_user.id, db)
     
     update_data = page_data.model_dump(exclude_unset=True)
+
+    # 修改父页面时校验合法性，防止页面树成环
+    if "parent_id" in update_data:
+        new_parent_id = update_data["parent_id"]
+        if new_parent_id is not None and new_parent_id != page.parent_id:
+            if new_parent_id == page.id:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="不能将页面移动到自己下面"
+                )
+            new_parent = db.query(Page).filter(Page.id == new_parent_id).first()
+            if not new_parent:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="父页面不存在"
+                )
+            if new_parent.workspace_id != page.workspace_id:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="不能移动页面到其他工作空间的页面下"
+                )
+            if new_parent.deleted_at is not None:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="不能移动页面到回收站中的页面下"
+                )
+            # 沿新父页面的祖先链向上检查：若链上遇到当前页面，说明新父页面是
+            # 当前页面的后代，移动后会成环；visited 集合防止已有环数据导致死循环
+            visited = set()
+            cursor = new_parent
+            while cursor is not None:
+                if cursor.id in visited:
+                    break
+                visited.add(cursor.id)
+                if cursor.id == page.id:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="不能将页面移动到自己的子页面下"
+                    )
+                if cursor.parent_id is None:
+                    break
+                cursor = db.query(Page).filter(Page.id == cursor.parent_id).first()
+
     for field, value in update_data.items():
         setattr(page, field, value)
     

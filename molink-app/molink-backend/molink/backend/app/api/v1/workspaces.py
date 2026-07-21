@@ -4,6 +4,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List
+import json
 
 from app.core.database import get_db
 from app.models.user import User
@@ -85,6 +86,9 @@ async def update_workspace(
     
     update_data = workspace_data.model_dump(exclude_unset=True)
     for field, value in update_data.items():
+        # dict 类型的字段（如 settings）需序列化为 JSON 字符串再写入 Text 列
+        if isinstance(value, dict):
+            value = json.dumps(value, ensure_ascii=False)
         setattr(workspace, field, value)
     
     db.commit()

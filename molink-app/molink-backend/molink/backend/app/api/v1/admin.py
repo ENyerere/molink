@@ -7,6 +7,7 @@ from sqlalchemy import func, text
 from typing import List, Optional
 from datetime import datetime, timedelta
 import os
+import json
 
 from app.core.database import get_db
 from app.core.security import get_current_user, get_password_hash
@@ -150,11 +151,12 @@ async def update_user_by_admin(
         )
     
     # 更新字段
-    update_data = user_data.dict(exclude_unset=True)
+    update_data = user_data.model_dump(exclude_unset=True)
     for field, value in update_data.items():
-        if field == "password" and value:
-            setattr(user, "password_hash", get_password_hash(value))
-        elif hasattr(user, field):
+        # dict 类型的字段（如 settings）需序列化为 JSON 字符串再写入 Text 列
+        if isinstance(value, dict):
+            value = json.dumps(value, ensure_ascii=False)
+        if hasattr(user, field):
             setattr(user, field, value)
     
     user.updated_at = datetime.utcnow()
