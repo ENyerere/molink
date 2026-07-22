@@ -35,7 +35,7 @@ molink/                            # 仓库根（仅 README.md 与本文件）
 - React 19 + TypeScript（strict 模式）+ Vite 7，包管理器使用 **yarn**（存在 `yarn.lock`）
 - 编辑器核心：**Slate**（`slate` / `slate-react` / `slate-dom`），主编辑器为 `src/Editor.tsx`
 - 样式：Tailwind CSS v3 + PostCSS + shadcn 风格组件约定（`components.json`，new-york / neutral / lucide 图标）
-- 其他依赖：axios（API 层）、Mantine、BlockNote、TipTap（后两者已安装但主编辑器用 Slate）、motion（动画）、lucide-react、cobe（地球组件）
+- 其他依赖：axios（API 层）、motion（动画）、lucide-react、cobe（地球组件）。BlockNote/TipTap/Mantine/firebase/next-themes/react-icons 等死依赖已移除，不要顺手装回
 - 注意：`package.json` 声明 `"type": "module"`，但 `tailwind.config.js` 使用 CommonJS `module.exports`，这是现状，不要"修复"它
 
 ### 后端（`molink-app/molink-backend/molink/backend/`）
@@ -53,8 +53,8 @@ molink/                            # 仓库根（仅 README.md 与本文件）
 ```bash
 yarn install        # 安装依赖
 yarn dev            # 开发服务器，http://localhost:5173
-yarn build          # 生产构建（纯 vite build，不跑 tsc 类型检查）
-yarn lint           # ESLint 检查
+yarn build          # 生产构建（tsc -b && vite build，先过类型检查）
+yarn lint           # ESLint 检查（当前 0 errors / 6 warnings，保持 0 errors）
 yarn preview        # 预览构建产物
 ```
 
@@ -133,8 +133,8 @@ uvicorn app.main:app --reload --port 8000
 
 ## 部署
 
-- **前端**：`molink-app/Dockerfile` 多阶段构建（node:20-alpine 构建 → nginx:alpine 托管），构建参数 `VITE_API_BASE_URL`；Nginx 配置见 `nginx-sealos.conf`（SPA 路由回退 + 静态资源 1 年缓存）
-- **后端**：`docker-compose.yml` 编排 MySQL 8 + Redis 7 + FastAPI（端口 8000），数据卷：`mysql_data`、`redis_data`、`uploads_data`
+- **前端**：`molink-app/Dockerfile` 多阶段构建（node:20-alpine 构建 → nginx:alpine 托管），构建参数 `VITE_API_BASE_URL`；Nginx 配置见 `nginx-sealos.conf`（SPA 路由回退 + 静态资源缓存 + `/api`、`/uploads`、`/ws` 反代到后端，后端服务名按 Sealos 实际调整）
+- **后端**：`docker-compose.yml` 编排 MySQL 8 + Redis 7 + FastAPI（端口 8000），数据卷：`mysql_data`、`redis_data`、`uploads_data`；`requirements.txt` 已全部钉死 `==` 版本，改依赖后必须 `docker compose build backend`
 - 生产部署目标是 **Sealos 云平台**，完整流程见 `docs/sealos-deploy-guide.md`；运维与故障排查见 `docs/backend-启动指南.md`、`docs/backend-更新流程.md`
 - `import-db.py`（Sealos 初始化数据库用）的连接信息一律从环境变量读取：`DB_HOST`、`DB_PASSWORD` 必填，`DB_PORT`（默认 3306）、`DB_USER`（默认 root）可选，切勿把密码写进代码
 - 前后端构建目录均有 `.dockerignore`（排除 `node_modules`/`dist`/`venv`/`.env*` 等）；`molink-app/.env*` 不入库（`.gitignore` 覆盖，`.env.example` 例外）
@@ -144,5 +144,6 @@ uvicorn app.main:app --reload --port 8000
 - **`SECRET_KEY` 无应用层默认值，必须由环境变量或 `.env` 提供**（`core/config.py`，缺失时启动直接报错）；`docker-compose.yml` 中的密码/密钥均为 `${VAR:-开发默认值}` 插值，默认值仅供本地开发——生产必须在 `.env` 中覆盖
 - `.env`、`.env.*.local` 已 gitignore；后端通过 pydantic-settings 读取环境变量，敏感配置（OAuth 密钥、SECRET_KEY、数据库密码）一律走环境变量，不要写进代码
 - JWT 存于 localStorage（`access_token`），axios 响应拦截器在 401 时清除 token 并派发 `molink:auth_expired` 事件
+- logout 会把 token 写入 Redis 黑名单吊销（`core/redis.py`），禁用用户（`is_active=false`）所有通道一律 401；登录/注册接口有内存滑动窗口限流（`core/ratelimit.py`，429）
+- 注册密码下限 8 位；文件上传限制 10MB，扩展名白名单见 `core/config.py` 的 `ALLOWED_EXTENSIONS`，图片经 PIL 真实内容校验；文件 URL 只存相对路径 `/uploads/<文件名>`（`/uploads` 目前仍为无鉴权静态目录，知 URL 即可下载，为 `<img>` 直引的既定取舍）
 - 生产环境应收紧 `CORS_ORIGINS` 为实际前端域名
-- 文件上传限制 10MB，扩展名白名单见 `core/config.py` 的 `ALLOWED_EXTENSIONS`
