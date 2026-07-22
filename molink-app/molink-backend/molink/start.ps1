@@ -1,4 +1,4 @@
-# Molink PowerShell 启动脚本
+﻿# Molink PowerShell 启动脚本
 # 请在 PowerShell 中运行: .\start.ps1
 
 Write-Host "========================================" -ForegroundColor Cyan
@@ -73,8 +73,9 @@ try {
     Write-Host "✅ Molink 已成功启动!" -ForegroundColor Green
     Write-Host ""
     Write-Host "访问地址:" -ForegroundColor Yellow
-    Write-Host "  - 前端界面: http://localhost" -ForegroundColor White
     Write-Host "  - API文档:  http://localhost:8000/api/docs" -ForegroundColor White
+    Write-Host "  - 健康检查: http://localhost:8000/health" -ForegroundColor White
+    Write-Host "  （本目录仅后端服务 MySQL/Redis/FastAPI；前端需在 molink-app/ 下单独 yarn dev，访问 http://localhost:5173）" -ForegroundColor White
     Write-Host ""
     Write-Host "默认管理员账户:" -ForegroundColor Yellow  
     Write-Host "  - 邮箱: admin@molink.local" -ForegroundColor White
@@ -90,11 +91,18 @@ try {
     Write-Host ""
     Write-Host "尝试解决方案:" -ForegroundColor Yellow
     Write-Host "1. 确保 Docker Desktop 已启动" -ForegroundColor White
-    Write-Host "2. 检查端口 80, 8000, 3306, 6379 是否被占用" -ForegroundColor White
+    Write-Host "2. 检查端口 8000, 3306, 16379 是否被占用" -ForegroundColor White
     Write-Host "3. 以管理员身份运行 PowerShell" -ForegroundColor White
     Write-Host "4. 使用 cmd 命令提示符替代 PowerShell" -ForegroundColor White
 }
 
 Write-Host ""
-Write-Host "按任意键退出..." -ForegroundColor Gray
-$null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+if (-not [Console]::IsInputRedirected) {
+    # 仅在交互式控制台（如双击运行）时暂停；被脚本/管道调用时直接退出
+    try {
+        Write-Host "按任意键退出..." -ForegroundColor Gray
+        $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+    } catch {
+        # 无法读取按键的环境直接跳过
+    }
+}

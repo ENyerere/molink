@@ -1,4 +1,4 @@
-# Molink 环境检查脚本 (PowerShell)
+﻿# Molink 环境检查脚本 (PowerShell)
 # 请在 PowerShell 中运行: .\check-env.ps1
 
 Write-Host "========================================" -ForegroundColor Cyan
@@ -38,11 +38,10 @@ Write-Host "[3/6] 检查项目目录结构..." -ForegroundColor Yellow
 $files = @{
     "docker-compose.yml" = "Docker编排配置"
     "init-db.sql" = "数据库初始化脚本"
+    ".env.example" = "环境变量示例"
     "backend\Dockerfile" = "后端 Dockerfile"
-    "frontend\Dockerfile" = "前端 Dockerfile"
-    "start.bat" = "Windows 启动脚本"
+    "backend\requirements.txt" = "后端 Python 依赖清单"
     "start.ps1" = "PowerShell 启动脚本"
-    "check-env.bat" = "Windows 环境检查脚本"
     "check-env.ps1" = "PowerShell 环境检查脚本"
 }
 
@@ -53,6 +52,8 @@ foreach ($file in $files.Keys) {
         Write-Host "❌ 未找到 $($files[$file])" -ForegroundColor Red
     }
 }
+
+Write-Host "（本目录仅后端；前端代码在 molink-app/ 目录，需单独 yarn dev 启动）" -ForegroundColor Gray
 
 Write-Host ""
 Write-Host "[4/6] 检查 Docker 状态..." -ForegroundColor Yellow
@@ -72,10 +73,9 @@ Write-Host ""
 Write-Host "[5/6] 检查端口占用情况..." -ForegroundColor Yellow
 
 $ports = @{
-    80 = "前端服务端口"
-    8000 = "API服务端口" 
+    8000 = "API服务端口"
     3306 = "MySQL数据库端口"
-    6379 = "Redis缓存端口"
+    16379 = "Redis缓存端口（宿主机映射端口，容器内为 6379）"
 }
 
 foreach ($port in $ports.Keys) {
@@ -111,9 +111,8 @@ Write-Host ""
 # 提供启动建议
 if (Test-Path "start.ps1") {
     Write-Host "🚀 推荐启动方式:" -ForegroundColor Green
-    Write-Host "  PowerShell: .\start.ps1" -ForegroundColor White
-    Write-Host "  CMD: start.bat" -ForegroundColor White
-    Write-Host "  双击: start.bat 或 start.ps1" -ForegroundColor White
+    Write-Host "  后端: .\start.ps1（或 docker compose up mysql redis backend --build）" -ForegroundColor White
+    Write-Host "  前端: 在 molink-app/ 目录下 yarn install 后 yarn dev（http://localhost:5173）" -ForegroundColor White
 } else {
     Write-Host "⚠️  未找到启动脚本，请确保项目文件完整" -ForegroundColor Yellow
 }
@@ -126,5 +125,12 @@ Write-Host "  3. 端口是否被其他程序占用" -ForegroundColor White
 Write-Host "  4. 防火墙是否阻止 Docker" -ForegroundColor White
 
 Write-Host ""
-Write-Host "按任意键退出..." -ForegroundColor Gray
-$null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+if (-not [Console]::IsInputRedirected) {
+    # 仅在交互式控制台（如双击运行）时暂停；被脚本/管道调用时直接退出
+    try {
+        Write-Host "按任意键退出..." -ForegroundColor Gray
+        $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+    } catch {
+        # 无法读取按键的环境直接跳过
+    }
+}
