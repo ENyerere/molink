@@ -9,12 +9,12 @@ import HomeView from './components/HomeView';
 import WorkspacePanel from './components/WorkspacePanel';
 import InboxView from './components/InboxView';
 import { v4 as uuidv4 } from 'uuid';
-import type { Descendant, Element } from 'slate';
+import { Element, type Descendant } from 'slate';
 import { ChevronLeft, ChevronRight, Share2, Star, MoreHorizontal, Lock } from 'lucide-react';
 import { useAuth } from './context/AuthContext';
 import { workspacesApi, pagesApi, blocksApi, filesApi } from './api';
 import { AnimatePresence, motion } from 'motion/react';
-import type { Workspace, BackendBlock } from './api';
+import type { Workspace, BackendBlock, BackendPage } from './api';
 import { PageIcon } from './components/IconPicker';
 import AnimatedPresence from './components/AnimatedPresence';
 
@@ -63,7 +63,7 @@ function blocksToSlate(blocks: BackendBlock[]): Descendant[] {
   return [{ type: 'paragraph', children: [{ text: '' }] } as Element];
 }
 
-function slateToBlockContent(content: Descendant[]): Record<string, any> {
+function slateToBlockContent(content: Descendant[]): Record<string, unknown> {
   return { slate: content };
 }
 
@@ -92,19 +92,34 @@ function loadLocalPages(): PageData[] {
   try {
     const saved = localStorage.getItem(LOCAL_PAGES_KEY);
     if (saved) return JSON.parse(saved);
-  } catch {}
+  } catch {
+    // 本地数据损坏时按无数据处理
+  }
   return [];
 }
 
 function saveLocalPages(pages: PageData[]) {
-  localStorage.setItem(LOCAL_PAGES_KEY, JSON.stringify(pages));
+  try {
+    localStorage.setItem(LOCAL_PAGES_KEY, JSON.stringify(pages));
+  } catch (err) {
+    // 存储配额超限（多为 base64 封面过大）：去掉本地封面后重试一次，保住正文数据
+    console.error('保存本地页面失败，尝试去除封面后重试:', err);
+    try {
+      const stripped = pages.map(p => (p.cover?.startsWith('data:') ? { ...p, cover: undefined } : p));
+      localStorage.setItem(LOCAL_PAGES_KEY, JSON.stringify(stripped));
+    } catch (err2) {
+      console.error('保存本地页面失败：存储空间不足，请减少封面图片或页面数量:', err2);
+    }
+  }
 }
 
 function loadCoverPositions(): Record<string, number> {
   try {
     const saved = localStorage.getItem(COVER_POSITIONS_KEY);
     if (saved) return JSON.parse(saved);
-  } catch {}
+  } catch {
+    // 本地数据损坏时按无数据处理
+  }
   return {};
 }
 
@@ -112,10 +127,6 @@ function saveCoverPosition(pageId: string, position: number) {
   const positions = loadCoverPositions();
   positions[pageId] = position;
   localStorage.setItem(COVER_POSITIONS_KEY, JSON.stringify(positions));
-}
-
-function getCoverPosition(pageId: string): number | undefined {
-  return loadCoverPositions()[pageId];
 }
 
 export default function App() {
@@ -245,34 +256,39 @@ export default function App() {
       const idMap: Record<string, string> = {};
       const coverPositions = loadCoverPositions();
 
+      // 拉取单个页面的 blocks 并组装 PageData（idMap 是本会话局部变量，过期会话的写入不会落到 ref）
+      const loadOne = async (bp: BackendPage): Promise<PageData> => {
+        const blocks = await blocksApi.list(bp.id);
+        const content = blocksToSlate(blocks);
+        if (blocks.length > 0) {
+          idMap[bp.id] = blocks[0].id;
+        }
+        return {
+          id: bp.id,
+          title: bp.title,
+          content,
+          cover: bp.cover_image || undefined,
+          coverPosition: coverPositions[bp.id],
+          icon: bp.icon || undefined,
+          parentId: bp.parent_id || undefined,
+          deletedAt: bp.deleted_at || undefined,
+          createdAt: bp.created_at,
+          updatedAt: bp.updated_at,
+          createdBy: bp.created_by || undefined,
+          updatedBy: bp.created_by || undefined,
+        };
+      };
+
       const loadRecursive = async (parentId?: string) => {
         const backendPages = parentId
           ? await pagesApi.getChildren(parentId)
           : await pagesApi.list(wsId);
         if (isStale()) return;
-        for (const bp of backendPages) {
-          const blocks = await blocksApi.list(bp.id);
-          if (isStale()) return;
-          const content = blocksToSlate(blocks);
-          if (blocks.length > 0) {
-            idMap[bp.id] = blocks[0].id;
-          }
-          loadedPages.push({
-            id: bp.id,
-            title: bp.title,
-            content,
-            cover: bp.cover_image || undefined,
-            coverPosition: coverPositions[bp.id],
-            icon: bp.icon || undefined,
-            parentId: bp.parent_id || undefined,
-            deletedAt: bp.deleted_at || undefined,
-            createdAt: bp.created_at,
-            updatedAt: bp.updated_at,
-            createdBy: bp.created_by || undefined,
-            updatedBy: bp.created_by || undefined,
-          });
-          await loadRecursive(bp.id);
-        }
+        // 同级页面并发拉取 blocks，再并发递归各自子树，消除逐页串行 N+1
+        const pageDataList = await Promise.all(backendPages.map(loadOne));
+        if (isStale()) return;
+        loadedPages.push(...pageDataList);
+        await Promise.all(backendPages.map(bp => loadRecursive(bp.id)));
       };
 
       await loadRecursive();
@@ -282,29 +298,10 @@ export default function App() {
       try {
         const trashPages = await pagesApi.trash(wsId);
         if (isStale()) return;
-        for (const bp of trashPages) {
-          if (loadedPages.some(p => p.id === bp.id)) continue;
-          const blocks = await blocksApi.list(bp.id);
-          if (isStale()) return;
-          const content = blocksToSlate(blocks);
-          if (blocks.length > 0) {
-            idMap[bp.id] = blocks[0].id;
-          }
-          loadedPages.push({
-            id: bp.id,
-            title: bp.title,
-            content,
-            cover: bp.cover_image || undefined,
-            coverPosition: coverPositions[bp.id],
-            icon: bp.icon || undefined,
-            parentId: bp.parent_id || undefined,
-            deletedAt: bp.deleted_at || undefined,
-            createdAt: bp.created_at,
-            updatedAt: bp.updated_at,
-            createdBy: bp.created_by || undefined,
-            updatedBy: bp.created_by || undefined,
-          });
-        }
+        const newTrashPages = trashPages.filter(bp => !loadedPages.some(p => p.id === bp.id));
+        const trashDataList = await Promise.all(newTrashPages.map(loadOne));
+        if (isStale()) return;
+        loadedPages.push(...trashDataList);
       } catch (err) {
         console.error('加载回收站页面失败:', err);
       }
@@ -327,7 +324,6 @@ export default function App() {
       // 只关闭当前会话的加载态，避免误关新会话的 loading
       if (!isStale()) setApiLoading(false);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // 登录后自动加载工作空间和页面
@@ -363,6 +359,19 @@ export default function App() {
       // 用户刚刚登录：进入工作区并显示主页
       setShowWorkspace(true);
       setActiveView('home');
+      // 迁移检查放在这里：登录弹窗与 OAuth 整页跳转两条路径都会触发。
+      // 注意会话恢复（刷新页面）也会经过此分支，效果等同"登录后提醒一次"
+      const local = loadLocalPages();
+      const meaningful = local.filter(p => {
+        if (p.deletedAt) return false; // 回收站中的本地页面不参与迁移
+        const hasTitle = p.title && p.title.trim().length > 0;
+        const hasContent = p.content.length > 1 || (p.content[0] as Element)?.children?.[0]?.text !== '';
+        return hasTitle || hasContent;
+      });
+      if (meaningful.length > 0) {
+        setGuestPageCount(meaningful.length);
+        setShowMigrationDialog(true);
+      }
     }
 
     if (wasLoggedIn && !isLoggedIn) {
@@ -390,35 +399,45 @@ export default function App() {
     }
     // 不再自动创建空页面或触发登录弹窗
     // 用户通过 Landing Page 选择"开始使用"或"登录"
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, user]);
 
   // 未登录时持久化到 localStorage
+  // 删到 0 页也要写回（空数组覆盖），否则刷新后已删页面会复活；
+  // 认证状态恢复期间（authLoading）不写，避免用初始空数组覆盖访客数据
   useEffect(() => {
-    if (!user && pages.length > 0) {
+    if (!user && !authLoading) {
       const timeout = setTimeout(() => saveLocalPages(pages), 300);
       return () => clearTimeout(timeout);
     }
-  }, [pages, user]);
+  }, [pages, user, authLoading]);
+
+  // 活动日志按用户隔离存储，访客使用固定 key；旧的全局单 key 直接弃用
+  const activitiesKey = user ? `molink-activities-${user.id}` : 'molink-activities-guest';
+  const skipActivitiesPersistRef = useRef(true);
+
+  // 登录/登出切换：加载当前账号对应的活动日志
+  useEffect(() => {
+    // 标记跳过切换后的第一次持久化，避免把上一账号内存中的活动写入新 key
+    skipActivitiesPersistRef.current = true;
+    try {
+      const saved = localStorage.getItem(activitiesKey);
+      setActivities(saved ? JSON.parse(saved) : []);
+    } catch (e) {
+      console.error('加载活动日志失败:', e);
+      setActivities([]);
+    }
+    // 旧版本全局单 key 的数据不做迁移，直接清除
+    localStorage.removeItem('molink-activities');
+  }, [activitiesKey]);
 
   // 活动日志持久化到 localStorage
   useEffect(() => {
-    if (activities.length > 0) {
-      localStorage.setItem('molink-activities', JSON.stringify(activities));
+    if (skipActivitiesPersistRef.current) {
+      skipActivitiesPersistRef.current = false;
+      return;
     }
-  }, [activities]);
-
-  useEffect(() => {
-    const saved = localStorage.getItem('molink-activities');
-    if (saved) {
-      try {
-        setActivities(JSON.parse(saved));
-      } catch (e) {
-        console.error('加载活动日志失败:', e);
-      }
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    localStorage.setItem(activitiesKey, JSON.stringify(activities));
+  }, [activities, activitiesKey]);
 
   // ==========================================
   // 活动日志
@@ -477,9 +496,9 @@ export default function App() {
   // 从 Slate 内容提取预览文本（按块换行）
   const extractPreview = useCallback((content: Descendant[]): string => {
     const lines: string[] = [];
-    for (const node of content as any[]) {
-      if (node.children) {
-        const line = node.children.map((c: any) => c.text || '').join('');
+    for (const node of content) {
+      if (Element.isElement(node)) {
+        const line = node.children.map(c => c.text || '').join('');
         if (line.trim()) lines.push(line.trim());
       } else if (node.text) {
         if (node.text.trim()) lines.push(node.text.trim());
@@ -530,7 +549,9 @@ export default function App() {
         setActiveView('page');
         return;
       } catch (err) {
+        // 登录态下创建失败不降级到本地，避免产生刷新后即消失的幽灵本地页
         console.error('创建页面失败:', err);
+        return;
       }
     }
 
@@ -599,15 +620,10 @@ export default function App() {
     });
     setBackStack(prev => prev.filter(pid => pid !== id));
     setForwardStack(prev => prev.filter(pid => pid !== id));
-    // 已登录时同步软删除后端
+    // 已登录时同步软删除后端（后端在单个事务中级联软删除整棵子树，无需逐页删后代）
     if (user) {
       pagesApi.delete(id).catch(err => console.error('删除页面失败:', err));
-      const descendantIds = getDescendantIds(id, pages);
-      for (const descId of descendantIds) {
-        pagesApi.delete(descId).catch(err => console.error('删除子页面失败:', err));
-      }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, pages, getDescendantIds, activePageId, addActivity]);
 
   const restorePage = useCallback(async (id: string) => {
@@ -641,7 +657,6 @@ export default function App() {
     if (user) {
       pagesApi.permanentDelete(id).catch(err => console.error('永久删除页面失败:', err));
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, getDescendantIds, activePageId]);
 
   const goBack = () => {
@@ -708,8 +723,8 @@ export default function App() {
       let type: Activity['type'] = activityType || 'edit';
       let preview = activityPreview;
 
-      // 图标变更自动推断
-      if (newData.icon !== undefined && activityType === undefined) {
+      // 图标变更自动推断（用 in 判断：显式传 undefined 表示清除图标，也算变更）
+      if ('icon' in newData && activityType === undefined) {
         type = 'icon-change';
         preview = undefined;
       }
@@ -742,13 +757,14 @@ export default function App() {
       const page = pages.find(p => p.id === id);
       if (!page) return;
 
-      // 更新页面基本信息
-      if (newData.title !== undefined || newData.cover !== undefined || newData.coverPosition !== undefined || newData.icon !== undefined) {
+      // 更新页面基本信息。icon / cover 用 in 判断：调用方显式传 undefined 表示清除，
+      // 转为 null 发给后端（exclude_unset 语义下显式 null 会被写入，即置空）
+      if (newData.title !== undefined || 'cover' in newData || newData.coverPosition !== undefined || 'icon' in newData) {
         await pagesApi.update(id, {
           title: newData.title,
-          cover_image: newData.cover,
+          cover_image: 'cover' in newData ? (newData.cover ?? null) : undefined,
           cover_position: newData.coverPosition,
-          icon: newData.icon,
+          icon: 'icon' in newData ? (newData.icon ?? null) : undefined,
         });
       }
 
@@ -794,25 +810,21 @@ export default function App() {
   const handleLoginSuccess = () => {
     setShowLogin(false);
     setActiveView('home');
-    const local = loadLocalPages();
-    const meaningful = local.filter(p => {
-      const hasTitle = p.title && p.title.trim().length > 0;
-      const hasContent = p.content.length > 1 || (p.content[0] as Element)?.children?.[0]?.text !== '';
-      return hasTitle || hasContent;
-    });
-    if (meaningful.length > 0) {
-      setGuestPageCount(meaningful.length);
-      setShowMigrationDialog(true);
-    }
+    // 本地页面迁移检查已移至登录状态切换 effect，弹窗与 OAuth 登录都会触发
   };
 
   const migrateLocalPages = async () => {
     if (!workspace) return;
-    const local = loadLocalPages();
-    for (const p of local) {
+    // 回收站中的本地页面不迁移，随成功批次一并从本地清除
+    const local = loadLocalPages().filter(p => !p.deletedAt);
+    const idMap: Record<string, string> = {}; // 本地 id -> 后端 id
+    const failed: PageData[] = [];
+
+    const migrateOne = async (p: PageData) => {
       try {
         const bp = await pagesApi.create({
           workspace_id: workspace.id,
+          parent_id: p.parentId ? idMap[p.parentId] : undefined,
           title: p.title,
           page_type: 'page',
           cover_image: p.cover,
@@ -824,16 +836,43 @@ export default function App() {
           content: slateToBlockContent(p.content),
           position: 0,
         });
+        idMap[p.id] = bp.id;
       } catch (err) {
+        // 失败的页面保留在 localStorage，避免丢页，下次登录可重试
         console.error('迁移页面失败:', err);
+        failed.push(p);
+      }
+    };
+
+    // 按层级拓扑序迁移：父页面先于子页面，保证 parent_id 能映射到后端 id
+    const pending = [...local];
+    let progressed = true;
+    while (pending.length > 0 && progressed) {
+      progressed = false;
+      for (let i = pending.length - 1; i >= 0; i--) {
+        // 父页面仍在待迁移队列中则等下一轮；父页面不在本地集合（悬空）按根页面处理
+        if (pending[i].parentId && pending.some(q => q.id === pending[i].parentId)) continue;
+        await migrateOne(pending[i]);
+        pending.splice(i, 1);
+        progressed = true;
       }
     }
-    localStorage.removeItem(LOCAL_PAGES_KEY);
+    // 极端情况（本地数据成环）剩余的页面按根页面迁移
+    for (const p of pending) {
+      await migrateOne(p);
+    }
+
+    if (failed.length > 0) {
+      console.error(`${failed.length} 个本地页面迁移失败，已保留在本地存储，下次登录可重试`);
+      saveLocalPages(failed);
+    } else {
+      localStorage.removeItem(LOCAL_PAGES_KEY);
+    }
     setShowMigrationDialog(false);
     setGuestPageCount(0);
     setPages([]);
     setActivePageId(null);
-    if (workspace) loadPages(workspace.id);
+    loadPages(workspace.id);
   };
 
   const discardLocalPages = () => {
@@ -842,6 +881,8 @@ export default function App() {
     setGuestPageCount(0);
     setPages([]);
     setActivePageId(null);
+    // 与迁移分支一致：丢弃后重新加载云端页面，避免停留在空白状态
+    if (workspace) loadPages(workspace.id);
   };
 
   const activePage = pages.find(p => p.id === activePageId);

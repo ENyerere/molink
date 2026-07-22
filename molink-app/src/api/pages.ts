@@ -29,8 +29,9 @@ export interface CreatePageData {
 export interface UpdatePageData {
   title?: string;
   parent_id?: string;
-  icon?: string;
-  cover_image?: string;
+  // icon / cover_image 传 null 表示置空（后端 update 用 exclude_unset，显式 null 会写入）
+  icon?: string | null;
+  cover_image?: string | null;
   cover_position?: number;
   is_favorite?: boolean;
   is_archived?: boolean;
@@ -40,7 +41,7 @@ export interface UpdatePageData {
 
 export const pagesApi = {
   list: async (workspaceId: string, parentId?: string, isArchived: boolean = false): Promise<BackendPage[]> => {
-    const params: Record<string, any> = {
+    const params: Record<string, unknown> = {
       workspace_id: workspaceId,
       is_archived: isArchived,
     };

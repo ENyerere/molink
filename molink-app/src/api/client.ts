@@ -5,12 +5,13 @@ export const BASE_URL = API_BASE_URL.replace('/api/v1', '');
 
 /**
  * 将后端返回的文件URL转为可访问的完整URL
- * - 已是完整URL则直接返回
- * - 相对路径则拼接后端基础域名
+ * - 完整URL（http）与 data:/blob:（未登录时的 base64 封面等）直接返回
+ * - 相对路径（/uploads/...）拼后端基础域名；开发环境 BASE_URL 为空，
+ *   保持同源相对路径，由 vite 代理转发
  */
 export function getFileUrl(url: string | undefined): string {
   if (!url) return '';
-  if (url.startsWith('http')) return url;
+  if (url.startsWith('http') || url.startsWith('data:') || url.startsWith('blob:')) return url;
   // 相对路径，拼接后端域名
   const prefix = url.startsWith('/') ? '' : '/';
   return `${BASE_URL}${prefix}${url}`;
@@ -55,17 +56,17 @@ apiClient.interceptors.response.use(
 export default apiClient;
 
 // 通用的API调用函数
-export async function apiGet<T>(url: string, params?: Record<string, any>): Promise<T> {
+export async function apiGet<T>(url: string, params?: Record<string, unknown>): Promise<T> {
   const response = await apiClient.get<T>(url, { params });
   return response.data;
 }
 
-export async function apiPost<T>(url: string, data?: any): Promise<T> {
+export async function apiPost<T>(url: string, data?: unknown): Promise<T> {
   const response = await apiClient.post<T>(url, data);
   return response.data;
 }
 
-export async function apiPut<T>(url: string, data?: any): Promise<T> {
+export async function apiPut<T>(url: string, data?: unknown): Promise<T> {
   const response = await apiClient.put<T>(url, data);
   return response.data;
 }
@@ -75,8 +76,8 @@ export async function apiDelete<T>(url: string): Promise<T> {
   return response.data;
 }
 
-// 文件上传
-export async function uploadFile(file: File): Promise<any> {
+// 文件上传（与 filesApi.upload 相同的响应结构）
+export async function uploadFile(file: File): Promise<unknown> {
   const formData = new FormData();
   formData.append('file', file);
 

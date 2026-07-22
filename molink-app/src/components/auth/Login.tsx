@@ -28,6 +28,11 @@ export default function Login({ isOpen, onClose, onLogin }: LoginProps) {
       setError('请填写姓名');
       return;
     }
+    // 与后端 UserCreate 的 min_length=8 保持一致
+    if (activeTab === 'register' && password.length < 8) {
+      setError('密码长度至少为 8 位');
+      return;
+    }
     try {
       setIsLoading(true);
       setError('');
@@ -38,9 +43,9 @@ export default function Login({ isOpen, onClose, onLogin }: LoginProps) {
       }
       onLogin?.();
       onClose?.();
-    } catch (err: any) {
+    } catch (err) {
       // FastAPI 校验失败时 detail 是 [{loc, msg, type}, ...] 数组，不能直接渲染，取第一条消息
-      const detail = err?.response?.data?.detail;
+      const detail = (err as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail;
       let msg = '操作失败，请重试';
       if (typeof detail === 'string') {
         msg = detail;
@@ -68,13 +73,9 @@ export default function Login({ isOpen, onClose, onLogin }: LoginProps) {
       {/* 点击背景关闭 */}
       <div className="absolute inset-0" onClick={onClose} />
 
+      {/* MagicCard 不接收 style（组件未实现该 props），淡入缩放由外层 AnimatedPresence 负责 */}
       <MagicCard
         className="w-full max-w-[400px] rounded-2xl shadow-2xl"
-        style={{
-          opacity: isOpen ? 1 : 0,
-          transform: isOpen ? 'scale(1)' : 'scale(0.95)',
-          transition: 'opacity 200ms ease-out, transform 200ms ease-out',
-        }}
       >
         <div className="relative z-40 p-8">
           {/* 关闭按钮 */}
@@ -203,7 +204,7 @@ export default function Login({ isOpen, onClose, onLogin }: LoginProps) {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder={activeTab === 'login' ? '输入密码' : '设置密码（至少6位）'}
+                placeholder={activeTab === 'login' ? '输入密码' : '设置密码（至少8位）'}
                 className="w-full h-11 px-4 bg-input border border-border rounded-lg focus:ring-2 focus:ring-ring focus:border-primary outline-none placeholder:text-muted-foreground text-foreground text-sm transition-colors"
               />
             </div>
