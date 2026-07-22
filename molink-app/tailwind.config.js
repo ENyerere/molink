@@ -10,7 +10,9 @@ module.exports = {
   		borderRadius: {
   			lg: 'var(--radius)',
   			md: 'calc(var(--radius) - 2px)',
-  			sm: 'calc(var(--radius) - 4px)'
+  			sm: 'calc(var(--radius) - 4px)',
+  			xl: 'var(--radius-lg)',
+  			'2xl': 'var(--radius-xl)'
   		},
   		colors: {
   			background: 'hsl(var(--background))',
@@ -52,7 +54,26 @@ module.exports = {
   				'3': 'hsl(var(--chart-3))',
   				'4': 'hsl(var(--chart-4))',
   				'5': 'hsl(var(--chart-5))'
+  			},
+  			surface: {
+  				'1': 'hsl(var(--surface-1))',
+  				'2': 'hsl(var(--surface-2))'
+  			},
+  			selection: 'hsl(var(--selection))',
+  			link: 'hsl(var(--link))',
+  			'destructive-soft': 'hsl(var(--destructive-soft))',
+  			ld: {
+  				bg: 'hsl(var(--ld-bg))',
+  				fg: 'hsl(var(--ld-fg))',
+  				muted: 'hsl(var(--ld-muted))',
+  				card: 'hsl(var(--ld-card))',
+  				border: 'hsl(var(--ld-border))'
   			}
+  		},
+  		boxShadow: {
+  			'1': 'var(--shadow-1)',
+  			'2': 'var(--shadow-2)',
+  			'3': 'var(--shadow-3)'
   		}
   	}
   },

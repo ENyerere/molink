@@ -1,7 +1,6 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-@import "tailwindcss";
 
 @layer base {
   :root {
@@ -30,12 +29,28 @@
     --chart-3: 197 37% 24%;
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
-    --radius: 0.5rem
+    --radius: 0.5rem;
+    /* ===== 重设计令牌（方案 A · 纸感文档） ===== */
+    --radius-sm: 6px;
+    --radius-lg: 12px;
+    --radius-xl: 16px;
+    /* 表面层次：桌面 → 侧栏 → 纸张 */
+    --surface-1: 40 10% 95%;
+    --surface-2: 40 8% 92%;
+    /* 编辑器交互态与职责分离色 */
+    --block-hover: 240 6% 10%;
+    --selection: 217 91% 60%;
+    --link: 217 91% 55%;
+    --destructive-soft: 0 84% 96%;
+    /* 三级阴影（弹层/模态/拖拽浮层） */
+    --shadow-1: 0 2px 8px hsl(240 6% 10% / 0.06), 0 0 0 1px hsl(40 6% 88% / 0.6);
+    --shadow-2: 0 8px 30px hsl(240 6% 10% / 0.1), 0 0 0 1px hsl(40 6% 88% / 0.6);
+    --shadow-3: 0 12px 40px hsl(240 6% 10% / 0.16)
   }
 
   .dark {
     /* ========== 暗色主题 ========== */
-    --background: 240 6% 4%;
+    --background: 224 10% 6%;
     --foreground: 0 0% 98%;
     --card: 240 4% 10%;
     --card-foreground: 0 0% 98%;
@@ -58,7 +73,20 @@
     --chart-2: 160 60% 45%;
     --chart-3: 30 80% 55%;
     --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%
+    --chart-5: 340 75% 55%;
+    --radius-sm: 6px;
+    --radius-lg: 12px;
+    --radius-xl: 16px;
+    --surface-1: 240 5% 7%;
+    --surface-2: 240 5% 12%;
+    --block-hover: 0 0% 98%;
+    --selection: 217 91% 60%;
+    --link: 217 91% 68%;
+    --destructive-soft: 0 60% 16%;
+    /* 暗色阴影加深 1.5 倍并保留描边，否则层次丢失 */
+    --shadow-1: 0 2px 8px hsl(0 0% 0% / 0.35), 0 0 0 1px hsl(240 4% 20% / 0.8);
+    --shadow-2: 0 8px 30px hsl(0 0% 0% / 0.45), 0 0 0 1px hsl(240 4% 20% / 0.8);
+    --shadow-3: 0 12px 40px hsl(0 0% 0% / 0.55)
   }
 }
 
@@ -86,4 +114,13 @@
 ::view-transition-old(root), ::view-transition-new(root) {
     animation: none;
     mix-blend-mode: normal;
+}
+
+/* ===== 落地页专属暗色令牌（现代科技风，常驻暗色不随应用主题变化） ===== */
+.landing {
+  --ld-bg: 225 39% 5%;
+  --ld-fg: 0 0% 98%;
+  --ld-muted: 224 12% 64%;
+  --ld-card: 225 25% 9%;
+  --ld-border: 225 18% 15%;
 }
