@@ -5,8 +5,12 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from typing import Optional
+from datetime import datetime, timezone
 
+from app.core.config import settings
 from app.core.database import get_db
+from app.core.ratelimit import rate_limit
+from app.core.redis import add_token_to_blacklist, is_token_blacklisted
 from app.core.security import create_access_token, verify_password, get_password_hash, verify_token
 from app.models.user import User
 from app.schemas.user import UserCreate, UserLogin, UserResponse, Token
@@ -26,31 +30,42 @@ async def get_current_user(
         detail="无法验证凭据",
         headers={"WWW-Authenticate": "Bearer"},
     )
-    
+
+    # 先查黑名单：已 logout 吊销的 token 直接拒绝
+    if await is_token_blacklisted(token):
+        raise credentials_exception
+
     payload = verify_token(token)
     if payload is None:
         raise credentials_exception
-    
+
     user_id: str = payload.get("sub")
     if user_id is None:
         raise credentials_exception
-    
+
     user = db.query(User).filter(User.id == user_id).first()
     if user is None:
         raise credentials_exception
-    
+
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="账号已被禁用",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
     return user
 
 
-@router.post("/register", response_model=Token)
+@router.post("/register", response_model=Token, dependencies=[Depends(rate_limit("register", limit=3))])
 async def register(user_data: UserCreate, db: Session = Depends(get_db)):
     """用户注册"""
-    # 检查邮箱是否已存在
+    # 检查邮箱是否已存在（中性文案，避免邮箱枚举）
     existing_user = db.query(User).filter(User.email == user_data.email).first()
     if existing_user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="该邮箱已被注册"
+            detail="该邮箱无法用于注册"
         )
     
     # 创建新用户
@@ -73,7 +88,7 @@ async def register(user_data: UserCreate, db: Session = Depends(get_db)):
     )
 
 
-@router.post("/login", response_model=Token)
+@router.post("/login", response_model=Token, dependencies=[Depends(rate_limit("login", limit=5))])
 async def login(user_data: UserLogin, db: Session = Depends(get_db)):
     """用户登录"""
     user = db.query(User).filter(User.email == user_data.email).first()
@@ -111,7 +126,7 @@ async def login(user_data: UserLogin, db: Session = Depends(get_db)):
     )
 
 
-@router.post("/login/form", response_model=Token)
+@router.post("/login/form", response_model=Token, dependencies=[Depends(rate_limit("login", limit=5))])
 async def login_form(
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db)
@@ -146,9 +161,18 @@ async def login_form(
 
 
 @router.post("/logout")
-async def logout(current_user: User = Depends(get_current_user)):
-    """用户登出"""
-    # JWT是无状态的，客户端需要删除本地存储的token
+async def logout(
+    token: str = Depends(oauth2_scheme),
+    current_user: User = Depends(get_current_user)
+):
+    """用户登出：将当前 token 写入黑名单，TTL 为 token 剩余有效期"""
+    payload = verify_token(token)
+    exp = payload.get("exp") if payload else None
+    if exp:
+        ttl = int(exp - datetime.now(timezone.utc).timestamp())
+    else:
+        ttl = settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
+    await add_token_to_blacklist(token, ttl)
     return {"success": True, "message": "登出成功"}
 
 

@@ -1,13 +1,15 @@
 """
 文件管理API
 """
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File as FastAPIFile, Request
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File as FastAPIFile
 from sqlalchemy.orm import Session
 from typing import List
+import io
 import os
 import uuid
 import aiofiles
 from datetime import datetime
+from PIL import Image
 
 from app.core.database import get_db
 from app.core.config import settings
@@ -17,6 +19,9 @@ from app.schemas.file import FileResponse, FileUploadResponse
 from .auth import get_current_user
 
 router = APIRouter()
+
+# 需要做内容校验的图片扩展名
+IMAGE_EXTENSIONS = {"jpg", "jpeg", "png", "gif", "webp"}
 
 
 def get_file_extension(filename: str) -> str:
@@ -31,55 +36,65 @@ def generate_unique_filename(original_filename: str) -> str:
     return f"{unique_name}.{ext}" if ext else unique_name
 
 
-def _get_base_url(request: Request) -> str:
-    """获取公网基础URL（兼容反向代理）"""
-    scheme = request.headers.get('x-forwarded-proto', request.url.scheme)
-    host = request.headers.get('host', request.url.hostname)
-    return f"{scheme}://{host}"
+def is_valid_image(content: bytes) -> bool:
+    """用 PIL 验证内容是否为真实图片（防止伪造扩展名上传）"""
+    try:
+        img = Image.open(io.BytesIO(content))
+        img.verify()
+        return True
+    except Exception:
+        return False
 
 
 @router.post("/upload", response_model=FileUploadResponse)
 async def upload_file(
-    request: Request,
     file: UploadFile = FastAPIFile(...),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """上传文件"""
-    # 检查文件扩展名
+    # 检查文件扩展名（无扩展名直接拒绝，不允许绕过白名单）
     ext = get_file_extension(file.filename)
-    if ext and ext not in settings.ALLOWED_EXTENSIONS:
-        return FileUploadResponse(
-            success=False,
-            error=f"不支持的文件类型: {ext}"
+    if not ext or ext not in settings.ALLOWED_EXTENSIONS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"不支持的文件类型: {ext or '无扩展名'}"
         )
-    
+
     # 读取文件内容检查大小
     content = await file.read()
     if len(content) > settings.MAX_FILE_SIZE:
-        return FileUploadResponse(
-            success=False,
-            error=f"文件大小超过限制 ({settings.MAX_FILE_SIZE / 1024 / 1024}MB)"
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"文件大小超过限制 ({settings.MAX_FILE_SIZE / 1024 / 1024}MB)"
         )
-    
+
+    # 图片类型校验真实内容，防止伪造扩展名
+    if ext in IMAGE_EXTENSIONS and not is_valid_image(content):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="文件内容不是有效的图片"
+        )
+
     # 生成唯一文件名
     unique_filename = generate_unique_filename(file.filename)
-    
+
     # 确保上传目录存在
     upload_dir = settings.UPLOAD_DIR
     os.makedirs(upload_dir, exist_ok=True)
-    
+
     # 保存文件
     file_path = os.path.join(upload_dir, unique_filename)
     async with aiofiles.open(file_path, 'wb') as f:
         await f.write(content)
-    
-    # 创建数据库记录（返回完整URL，兼容前后端分离部署）
-    base_url = _get_base_url(request)
+
+    # 创建数据库记录（只存相对路径，避免 Host 头注入污染数据；
+    # 前端按同源相对路径使用，vite 代理与生产 nginx 均有 /uploads 路由。
+    # 存量绝对 URL 记录不做迁移，读取时按库存值原样返回即可兼容）
     file_record = File(
         name=unique_filename,
         original_name=file.filename,
-        url=f"{base_url}/uploads/{unique_filename}",
+        url=f"/uploads/{unique_filename}",
         file_type=ext,
         mime_type=file.content_type,
         size=len(content),

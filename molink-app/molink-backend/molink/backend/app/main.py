@@ -80,6 +80,9 @@ app.include_router(api_router, prefix=settings.API_V1_PREFIX)
 app.include_router(ws_router, prefix="/ws", tags=["WebSocket"])
 
 # 静态文件服务（上传的文件）
+# 先在模块级确保目录存在再挂载：挂载判断在模块加载时执行，
+# 若等 lifespan 里才建目录，首次启动目录不存在会导致 /uploads 永远挂不上
+os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
 if os.path.exists(settings.UPLOAD_DIR):
     app.mount("/uploads", StaticFiles(directory=settings.UPLOAD_DIR), name="uploads")
 

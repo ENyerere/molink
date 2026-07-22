@@ -38,7 +38,13 @@ async def get_user(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """获取指定用户信息"""
+    """获取指定用户信息（仅本人或管理员）"""
+    if current_user.id != user_id and not current_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="无权限查看此用户"
+        )
+
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(

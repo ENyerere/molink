@@ -60,6 +60,13 @@ async def get_current_user(
         headers={"WWW-Authenticate": "Bearer"},
     )
 
+    # 延迟导入以避免循环依赖
+    from app.core.redis import is_token_blacklisted
+
+    # 先查黑名单：已 logout 吊销的 token 直接拒绝
+    if await is_token_blacklisted(token):
+        raise credentials_exception
+
     payload = verify_token(token)
     if payload is None:
         raise credentials_exception
@@ -74,5 +81,12 @@ async def get_current_user(
     user = db.query(User).filter(User.id == user_id).first()
     if user is None:
         raise credentials_exception
+
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="账号已被禁用",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
     return user

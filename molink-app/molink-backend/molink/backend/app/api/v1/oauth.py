@@ -154,6 +154,9 @@ async def oauth_callback(
             name = user_info.get('name')
             avatar = user_info.get('picture')
             provider_id = user_info.get('sub')
+            # 响应中携带 verified_email 字段时，只接受已验证邮箱，防止伪造邮箱绑定他人账号
+            if 'verified_email' in user_info and not user_info.get('verified_email'):
+                raise HTTPException(status_code=400, detail='Google 账号邮箱未验证，无法用于登录')
 
         elif provider == 'github':
             user_resp = await client.get(
@@ -178,7 +181,10 @@ async def oauth_callback(
             )
             emails = emails_resp.json()
             if emails and isinstance(emails, list):
-                primary = next((e for e in emails if e.get('primary')), emails[0])
+                # 只接受已验证（verified=true）的 primary 邮箱，防止用未验证邮箱冒绑他人账号
+                primary = next((e for e in emails if e.get('primary') and e.get('verified')), None)
+                if primary is None:
+                    raise HTTPException(status_code=400, detail='GitHub 账号没有已验证的邮箱，无法用于登录')
                 email = primary.get('email')
 
     if not email or not provider_id:
@@ -221,6 +227,10 @@ async def oauth_callback(
     # ------------------------------------------------------------------
     # Step D: 签发 JWT 并回前端
     # ------------------------------------------------------------------
+    # 禁用账号即使通过 OAuth 校验也不签发 token
+    if not user.is_active:
+        raise HTTPException(status_code=401, detail='账号已被禁用')
+
     jwt_token = create_access_token(data={'sub': user.id})
     redirect_url = f'{settings.FRONTEND_URL}/#/oauth/callback?token={jwt_token}'
     return RedirectResponse(url=redirect_url)

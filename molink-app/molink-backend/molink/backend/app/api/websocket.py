@@ -122,7 +122,8 @@ async def get_user_from_token(token: str) -> dict:
     db = SessionLocal()
     try:
         user = db.query(User).filter(User.id == user_id).first()
-        if user:
+        # 禁用用户不允许建立 WebSocket 连接
+        if user and user.is_active:
             return {
                 "id": user.id,
                 "email": user.email,
