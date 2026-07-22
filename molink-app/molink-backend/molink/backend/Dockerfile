@@ -1,5 +1,10 @@
+# syntax=docker/dockerfile:1
 # Molink Backend Dockerfile
 FROM python:3.13-slim
+
+# 构建参数：pip 镜像源，默认官方 PyPI；国内网络可传清华源加速，如
+# PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple（compose 已透传，可写进 .env）
+ARG PIP_INDEX_URL=""
 
 # 设置工作目录
 WORKDIR /app
@@ -8,17 +13,14 @@ WORKDIR /app
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
-# 安装系统依赖（只留 curl 供 healthcheck 使用；
-# requirements 全部为纯 Python 或官方 wheel，无需 gcc/libmariadb-dev/pkg-config 编译工具链）
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
-
 # 复制依赖文件
 COPY requirements.txt .
 
 # 安装Python依赖
-RUN pip install --no-cache-dir -r requirements.txt
+# BuildKit 缓存挂载：requirements 变更时只需下载新增包；缓存存于构建缓存
+# 而非镜像层，镜像体积不受影响（因此不再需要 --no-cache-dir）
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install ${PIP_INDEX_URL:+--index-url "$PIP_INDEX_URL"} -r requirements.txt
 
 # 复制应用代码
 COPY . .

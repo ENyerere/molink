@@ -85,7 +85,7 @@ uvicorn app.main:app --reload --port 8000
 ### 后端更新要点（详见 `docs/backend-更新流程.md`）
 
 - 开发模式下 `docker-compose.override.yml`（不提交，已 gitignore）将本地 `backend/app/` 以 volume 映射进容器并开启 `--reload`，**改 Python 代码无需 rebuild**
-- 修改 `requirements.txt` 后**必须** `docker-compose build backend`
+- 修改 `requirements.txt` 后**必须** `docker-compose build backend`（pip 有 BuildKit 缓存挂载，只下载新增包；国内网络可在 `.env` 设 `PIP_INDEX_URL` 走镜像源进一步加速）
 - 表结构变更：启动时只执行 `Base.metadata.create_all()`（建缺失的表）+ `app/core/migration.py` 的 `auto_migrate()`（加缺失的列）；复杂变更需手动 `ALTER TABLE`，并同步更新 `init-db.sql`
 
 ## 代码组织
