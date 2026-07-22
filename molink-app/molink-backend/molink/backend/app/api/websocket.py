@@ -5,12 +5,11 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, Query
 from sqlalchemy.orm import Session
 from typing import Dict, List, Set
 import json
-from datetime import datetime
 
 from app.core.database import get_db, SessionLocal
 from app.core.security import verify_token
+from app.core.utils import utc_now
 from app.models.user import User
-from app.models.collaboration import CollaborationSession
 
 router = APIRouter()
 
@@ -43,7 +42,7 @@ class ConnectionManager:
         await self.broadcast_to_page(page_id, {
             "type": "user_joined",
             "user": user_info,
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": utc_now().isoformat()
         }, exclude=websocket)
     
     async def disconnect_from_page(self, websocket: WebSocket):
@@ -64,7 +63,7 @@ class ConnectionManager:
             await self.broadcast_to_page(page_id, {
                 "type": "user_left",
                 "user": user_info,
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": utc_now().isoformat()
             })
     
     async def broadcast_to_page(self, page_id: str, message: dict, exclude: WebSocket = None):
@@ -195,7 +194,7 @@ async def websocket_editor(
                     "type": "cursor_update",
                     "user": user_info,
                     "cursor": data.get("cursor"),
-                    "timestamp": datetime.utcnow().isoformat()
+                    "timestamp": utc_now().isoformat()
                 }, exclude=websocket)
             
             elif msg_type == "content_change":
@@ -205,7 +204,7 @@ async def websocket_editor(
                     "user": user_info,
                     "block_id": data.get("block_id"),
                     "content": data.get("content"),
-                    "timestamp": datetime.utcnow().isoformat()
+                    "timestamp": utc_now().isoformat()
                 }, exclude=websocket)
             
             elif msg_type == "block_create":
@@ -214,7 +213,7 @@ async def websocket_editor(
                     "type": "block_created",
                     "user": user_info,
                     "block": data.get("block"),
-                    "timestamp": datetime.utcnow().isoformat()
+                    "timestamp": utc_now().isoformat()
                 }, exclude=websocket)
             
             elif msg_type == "block_delete":
@@ -223,7 +222,7 @@ async def websocket_editor(
                     "type": "block_deleted",
                     "user": user_info,
                     "block_id": data.get("block_id"),
-                    "timestamp": datetime.utcnow().isoformat()
+                    "timestamp": utc_now().isoformat()
                 }, exclude=websocket)
             
             elif msg_type == "block_reorder":
@@ -232,7 +231,7 @@ async def websocket_editor(
                     "type": "blocks_reordered",
                     "user": user_info,
                     "block_ids": data.get("block_ids"),
-                    "timestamp": datetime.utcnow().isoformat()
+                    "timestamp": utc_now().isoformat()
                 }, exclude=websocket)
             
             elif msg_type == "ping":

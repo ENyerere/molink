@@ -4,11 +4,11 @@
 from sqlalchemy import Column, String, DateTime, Text, ForeignKey, Integer, Boolean, Enum
 from sqlalchemy.dialects.mysql import CHAR
 from sqlalchemy.orm import relationship
-from datetime import datetime
 import uuid
 import enum
 
 from app.core.database import Base
+from app.core.utils import utc_now
 
 
 class PageType(str, enum.Enum):
@@ -34,8 +34,8 @@ class Page(Base):
     deleted_at = Column(DateTime, nullable=True)
     position = Column(Integer, default=0)
     created_by = Column(CHAR(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
     
     # 关系
     workspace = relationship("Workspace", back_populates="pages")

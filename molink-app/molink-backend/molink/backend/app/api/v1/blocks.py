@@ -3,6 +3,7 @@
 """
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from typing import List, Optional
 import json
 
@@ -18,8 +19,11 @@ router = APIRouter()
 
 
 def check_page_access(page_id: str, user_id: str, db: Session) -> Page:
-    """检查用户对页面的访问权限"""
-    page = db.query(Page).filter(Page.id == page_id).first()
+    """检查用户对页面的访问权限（回收站中的页面视为不存在）"""
+    page = db.query(Page).filter(
+        Page.id == page_id,
+        Page.deleted_at == None
+    ).first()
     
     if not page:
         raise HTTPException(
@@ -81,12 +85,12 @@ async def create_block(
     """创建块"""
     check_page_access(block_data.page_id, current_user.id, db)
     
-    # 计算位置
+    # 计算位置：用 max(position)+1 而非 count()，避免删除行后 position 撞车
     if block_data.position is None:
-        max_position = db.query(Block).filter(
+        max_position = db.query(func.max(Block.position)).filter(
             Block.page_id == block_data.page_id
-        ).count()
-        position = max_position
+        ).scalar()
+        position = (max_position + 1) if max_position is not None else 0
     else:
         position = block_data.position
     
@@ -214,16 +218,19 @@ async def reorder_blocks(
 ):
     """重新排序块"""
     check_page_access(page_id, current_user.id, db)
-    
+
+    # 一次查询取回全部目标块，内存中改 position，避免逐条 SELECT 的 N+1
+    blocks = db.query(Block).filter(
+        Block.id.in_(reorder_data.block_ids),
+        Block.page_id == page_id
+    ).all()
+    block_map = {block.id: block for block in blocks}
+
     for index, block_id in enumerate(reorder_data.block_ids):
-        block = db.query(Block).filter(
-            Block.id == block_id,
-            Block.page_id == page_id
-        ).first()
-        
+        block = block_map.get(block_id)
         if block:
             block.position = index
-    
+
     db.commit()
     
     return {"success": True, "message": "块已重新排序"}

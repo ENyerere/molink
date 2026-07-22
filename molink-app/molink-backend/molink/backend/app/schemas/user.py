@@ -1,18 +1,21 @@
 """
 用户相关Schema
 """
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, EmailStr
 from typing import Optional
 from datetime import datetime
 
 
 class UserCreate(BaseModel):
-    email: str
+    email: EmailStr
     password: str = Field(..., min_length=8)
     full_name: Optional[str] = None
 
 
 class UserLogin(BaseModel):
+    # 保持 str 不用 EmailStr：email-validator 一律拒绝 .local 等保留域名，
+    # 会把本地开发播种的默认管理员 admin@molink.local 锁在门外；
+    # 登录本身是查库比对，格式错误的邮箱自然查无此人，无安全风险
     email: str
     password: str
 

@@ -4,10 +4,10 @@
 from sqlalchemy import Column, String, DateTime, BigInteger, ForeignKey
 from sqlalchemy.dialects.mysql import CHAR
 from sqlalchemy.orm import relationship
-from datetime import datetime
 import uuid
 
 from app.core.database import Base
+from app.core.utils import utc_now
 
 
 class File(Base):
@@ -21,7 +21,7 @@ class File(Base):
     mime_type = Column(String(100), nullable=True)
     size = Column(BigInteger, nullable=True)
     user_id = Column(CHAR(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)
     
     # 关系
     user = relationship("User", back_populates="files")

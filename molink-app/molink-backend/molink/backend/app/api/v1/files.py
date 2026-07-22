@@ -1,7 +1,7 @@
 """
 文件管理API
 """
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File as FastAPIFile
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File as FastAPIFile, Query
 from sqlalchemy.orm import Session
 from typing import List
 import io
@@ -113,7 +113,7 @@ async def upload_file(
 @router.get("/", response_model=List[FileResponse])
 async def list_files(
     skip: int = 0,
-    limit: int = 50,
+    limit: int = Query(50, le=200),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):

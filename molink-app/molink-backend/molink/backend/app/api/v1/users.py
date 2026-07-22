@@ -1,7 +1,7 @@
 """
 用户管理API
 """
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from typing import List
 import json
@@ -17,7 +17,7 @@ router = APIRouter()
 @router.get("/", response_model=List[UserResponse])
 async def list_users(
     skip: int = 0,
-    limit: int = 100,
+    limit: int = Query(100, le=200),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):

@@ -30,7 +30,11 @@ def _get_mysql_type(column):
     if hasattr(t, 'impl'):
         t = t.impl
 
-    if isinstance(t, (String, VARCHAR)):
+    # MySQL CHAR 是 String 的子类，必须先判 CHAR，否则会被下面的 VARCHAR 分支截获
+    if isinstance(t, CHAR):
+        length = t.length or 36
+        return f"CHAR({length})"
+    elif isinstance(t, (String, VARCHAR)):
         length = t.length or 255
         return f"VARCHAR({length})"
     elif isinstance(t, Text):
@@ -43,9 +47,6 @@ def _get_mysql_type(column):
         return "INT"
     elif isinstance(t, BigInteger):
         return "BIGINT"
-    elif isinstance(t, CHAR):
-        length = t.length or 36
-        return f"CHAR({length})"
     elif isinstance(t, Float):
         return "FLOAT"
     elif isinstance(t, Numeric):

@@ -7,7 +7,6 @@ from .page import Page
 from .block import Block
 from .database import Database, DatabaseField, DatabaseRecord
 from .file import File
-from .collaboration import CollaborationSession
 
 __all__ = [
     "User",
@@ -17,6 +16,5 @@ __all__ = [
     "Database",
     "DatabaseField",
     "DatabaseRecord",
-    "File",
-    "CollaborationSession"
+    "File"
 ]

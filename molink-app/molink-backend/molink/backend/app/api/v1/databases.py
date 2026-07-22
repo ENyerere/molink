@@ -3,6 +3,7 @@
 """
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from typing import List, Optional
 import json
 
@@ -228,12 +229,12 @@ async def create_field(
     
     check_workspace_access(database.workspace_id, current_user.id, db)
     
-    # 计算位置
+    # 计算位置：用 max(position)+1 而非 count()，避免删除行后 position 撞车
     if field_data.position is None:
-        max_position = db.query(DatabaseField).filter(
+        max_position = db.query(func.max(DatabaseField.position)).filter(
             DatabaseField.database_id == database_id
-        ).count()
-        position = max_position
+        ).scalar()
+        position = (max_position + 1) if max_position is not None else 0
     else:
         position = field_data.position
     
@@ -387,12 +388,12 @@ async def create_record(
     
     check_workspace_access(database.workspace_id, current_user.id, db)
     
-    # 计算位置
+    # 计算位置：用 max(position)+1 而非 count()，避免删除行后 position 撞车
     if record_data.position is None:
-        max_position = db.query(DatabaseRecord).filter(
+        max_position = db.query(func.max(DatabaseRecord.position)).filter(
             DatabaseRecord.database_id == database_id
-        ).count()
-        position = max_position
+        ).scalar()
+        position = (max_position + 1) if max_position is not None else 0
     else:
         position = record_data.position
     

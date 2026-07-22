@@ -4,10 +4,10 @@
 from sqlalchemy import Column, String, DateTime, Text, Boolean
 from sqlalchemy.dialects.mysql import CHAR
 from sqlalchemy.orm import relationship
-from datetime import datetime
 import uuid
 
 from app.core.database import Base
+from app.core.utils import utc_now
 
 
 class User(Base):
@@ -23,8 +23,8 @@ class User(Base):
     settings = Column(Text, nullable=True)  # JSON存储用户设置
     is_active = Column(Boolean, default=True)
     is_admin = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
     
     # 关系
     # workspaces/files 的外键在数据库层均为 ON DELETE CASCADE，

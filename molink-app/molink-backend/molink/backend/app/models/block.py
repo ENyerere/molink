@@ -4,11 +4,11 @@
 from sqlalchemy import Column, String, DateTime, Text, ForeignKey, Integer, Enum
 from sqlalchemy.dialects.mysql import CHAR
 from sqlalchemy.orm import relationship
-from datetime import datetime
 import uuid
 import enum
 
 from app.core.database import Base
+from app.core.utils import utc_now
 
 
 class BlockType(str, enum.Enum):
@@ -40,8 +40,8 @@ class Block(Base):
     content = Column(Text, nullable=True)  # JSON存储内容
     position = Column(Integer, default=0)
     meta = Column('metadata', Text, nullable=True)  # JSON存储额外元数据
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
     
     # 关系
     page = relationship("Page", back_populates="blocks")

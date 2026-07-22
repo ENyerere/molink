@@ -1,7 +1,7 @@
 """
 管理员 API 端点
 """
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import func, text
 from typing import List, Optional
@@ -11,6 +11,7 @@ import json
 
 from app.core.database import get_db
 from app.core.security import get_current_user, get_password_hash
+from app.core.utils import utc_now
 from app.models.user import User
 from app.models.workspace import Workspace
 from app.models.page import Page
@@ -49,7 +50,7 @@ async def get_system_stats(
     storage_used = format_file_size(total_size)
     
     # 获取活跃用户数（最近24小时内更新的）
-    yesterday = datetime.utcnow() - timedelta(hours=24)
+    yesterday = utc_now() - timedelta(hours=24)
     active_users = db.query(func.count(User.id)).filter(
         User.updated_at >= yesterday
     ).scalar() or 0
@@ -67,7 +68,7 @@ async def get_system_stats(
 @router.get("/users", response_model=List[UserResponse])
 async def get_all_users(
     skip: int = 0,
-    limit: int = 100,
+    limit: int = Query(100, le=200),
     search: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_admin)
@@ -159,7 +160,7 @@ async def update_user_by_admin(
         if hasattr(user, field):
             setattr(user, field, value)
     
-    user.updated_at = datetime.utcnow()
+    user.updated_at = utc_now()
     db.commit()
     db.refresh(user)
     
@@ -214,7 +215,7 @@ async def toggle_user_status(
         )
     
     user.is_active = not user.is_active
-    user.updated_at = datetime.utcnow()
+    user.updated_at = utc_now()
     db.commit()
     db.refresh(user)
     
@@ -245,7 +246,7 @@ async def toggle_admin_role(
         )
     
     user.is_admin = not user.is_admin
-    user.updated_at = datetime.utcnow()
+    user.updated_at = utc_now()
     db.commit()
     db.refresh(user)
     
@@ -270,14 +271,14 @@ async def get_system_health(
             "name": "MySQL 数据库",
             "status": "healthy",
             "uptime": "运行中",
-            "lastCheck": datetime.utcnow().isoformat()
+            "lastCheck": utc_now().isoformat()
         })
     except Exception as e:
         services.append({
             "name": "MySQL 数据库",
             "status": "error",
             "uptime": "错误",
-            "lastCheck": datetime.utcnow().isoformat(),
+            "lastCheck": utc_now().isoformat(),
             "error": str(e)
         })
     
@@ -286,7 +287,7 @@ async def get_system_health(
         "name": "FastAPI 后端",
         "status": "healthy",
         "uptime": "运行中",
-        "lastCheck": datetime.utcnow().isoformat()
+        "lastCheck": utc_now().isoformat()
     })
     
     # 检查文件存储目录
@@ -296,19 +297,19 @@ async def get_system_health(
             "name": "文件存储",
             "status": "healthy",
             "uptime": "可用",
-            "lastCheck": datetime.utcnow().isoformat()
+            "lastCheck": utc_now().isoformat()
         })
     else:
         services.append({
             "name": "文件存储",
             "status": "warning",
             "uptime": "目录不可写",
-            "lastCheck": datetime.utcnow().isoformat()
+            "lastCheck": utc_now().isoformat()
         })
     
     return {
         "services": services,
-        "timestamp": datetime.utcnow().isoformat()
+        "timestamp": utc_now().isoformat()
     }
 
 
@@ -354,7 +355,7 @@ async def get_online_users(
 ):
     """获取在线用户列表"""
     # 获取最近5分钟活跃的用户
-    five_minutes_ago = datetime.utcnow() - timedelta(minutes=5)
+    five_minutes_ago = utc_now() - timedelta(minutes=5)
     active_users = db.query(User).filter(
         User.updated_at >= five_minutes_ago,
         User.is_active == True
@@ -379,13 +380,13 @@ async def create_backup(
 ):
     """创建数据备份（返回备份任务状态）"""
     # 在实际生产环境中，这里应该触发一个异步备份任务
-    backup_id = f"backup_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"
+    backup_id = f"backup_{utc_now().strftime('%Y%m%d_%H%M%S')}"
     
     return {
         "message": "备份任务已创建",
         "backup_id": backup_id,
         "status": "pending",
-        "created_at": datetime.utcnow().isoformat()
+        "created_at": utc_now().isoformat()
     }
 
 

@@ -4,10 +4,10 @@
 from sqlalchemy import Column, String, DateTime, Text, ForeignKey
 from sqlalchemy.dialects.mysql import CHAR
 from sqlalchemy.orm import relationship
-from datetime import datetime
 import uuid
 
 from app.core.database import Base
+from app.core.utils import utc_now
 
 
 class Workspace(Base):
@@ -18,8 +18,8 @@ class Workspace(Base):
     owner_id = Column(CHAR(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     icon = Column(String(100), nullable=True)
     settings = Column(Text, nullable=True)  # JSON存储工作空间设置
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
     
     # 关系
     owner = relationship("User", back_populates="workspaces")

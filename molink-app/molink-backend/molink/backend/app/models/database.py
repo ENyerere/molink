@@ -4,11 +4,11 @@
 from sqlalchemy import Column, String, DateTime, Text, ForeignKey, Integer, Boolean, Enum
 from sqlalchemy.dialects.mysql import CHAR
 from sqlalchemy.orm import relationship
-from datetime import datetime
 import uuid
 import enum
 
 from app.core.database import Base
+from app.core.utils import utc_now
 
 
 class ViewType(str, enum.Enum):
@@ -43,8 +43,8 @@ class Database(Base):
         default=ViewType.TABLE,
     )
     created_by = Column(CHAR(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
     
     # 关系
     workspace = relationship("Workspace", back_populates="databases")
@@ -65,8 +65,8 @@ class DatabaseField(Base):
     field_config = Column(Text, nullable=True)  # JSON存储字段配置
     position = Column(Integer, default=0)
     is_visible = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
     
     # 关系
     database = relationship("Database", back_populates="fields")
@@ -80,8 +80,8 @@ class DatabaseRecord(Base):
     properties = Column(Text, nullable=True)  # JSON存储记录数据
     position = Column(Integer, default=0)
     created_by = Column(CHAR(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
     
     # 关系
     database = relationship("Database", back_populates="records")

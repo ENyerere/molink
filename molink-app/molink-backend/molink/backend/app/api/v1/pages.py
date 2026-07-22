@@ -3,11 +3,12 @@
 """
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from typing import List, Optional
-from datetime import datetime
 import json
 
 from app.core.database import get_db
+from app.core.utils import utc_now
 from app.models.user import User
 from app.models.workspace import Workspace
 from app.models.page import Page
@@ -67,19 +68,20 @@ async def create_page(
     """创建页面"""
     check_workspace_access(page_data.workspace_id, current_user.id, db)
     
-    # 计算位置
-    max_position = db.query(Page).filter(
+    # 计算位置：用 max(position)+1 而非 count()，避免删除行后 position 撞车
+    max_position = db.query(func.max(Page.position)).filter(
         Page.workspace_id == page_data.workspace_id,
         Page.parent_id == page_data.parent_id
-    ).count()
-    
+    ).scalar()
+    position = (max_position + 1) if max_position is not None else 0
+
     page = Page(
         workspace_id=page_data.workspace_id,
         parent_id=page_data.parent_id,
         title=page_data.title,
         page_type=page_data.page_type,
         icon=page_data.icon,
-        position=max_position,
+        position=position,
         created_by=current_user.id
     )
     db.add(page)
@@ -112,8 +114,11 @@ async def get_page(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """获取页面详情"""
-    page = db.query(Page).filter(Page.id == page_id).first()
+    """获取页面详情（回收站中的页面视为不存在）"""
+    page = db.query(Page).filter(
+        Page.id == page_id,
+        Page.deleted_at == None
+    ).first()
     
     if not page:
         raise HTTPException(
@@ -216,7 +221,7 @@ async def delete_page(
     
     # 同批删除的页面共享同一个 deleted_at 时间戳，作为"删除批次"标识，
     # 恢复时据此区分"随本页同批删除"与"更早单独删除"的后代
-    deleted_at = datetime.utcnow()
+    deleted_at = utc_now()
     page.deleted_at = deleted_at
     
     def mark_descendants(parent_id: str):

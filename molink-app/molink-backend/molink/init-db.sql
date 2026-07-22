@@ -137,20 +137,6 @@ CREATE TABLE IF NOT EXISTS files (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 协作会话表
-CREATE TABLE IF NOT EXISTS collaboration_sessions (
-    id CHAR(36) PRIMARY KEY,
-    page_id CHAR(36) NOT NULL,
-    user_id CHAR(36) NOT NULL,
-    cursor_position TEXT,
-    status ENUM('active', 'idle', 'disconnected') DEFAULT 'active',
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    INDEX idx_sessions_page (page_id),
-    INDEX idx_sessions_user (user_id),
-    FOREIGN KEY (page_id) REFERENCES pages(id) ON DELETE CASCADE,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
 -- 注意：默认管理员不再由本脚本创建（避免在仓库中保存公开凭据）。
 -- 后端启动时会自动播种：设置环境变量 ADMIN_PASSWORD（可选 ADMIN_EMAIL，
 -- 默认 admin@molink.local）后启动后端，账号不存在时才会创建。
