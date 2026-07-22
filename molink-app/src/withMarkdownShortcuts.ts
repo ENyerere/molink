@@ -1,5 +1,5 @@
 // withMarkdownShortcuts.ts
-import { Editor, Transforms, Range, Point, Path, Element as SlateElement, Text, Node } from 'slate';
+import { Editor, Transforms, Range, Point, Path, Element as SlateElement, Node, type NodeEntry } from 'slate';
 
 const blockShortcuts: Record<string, string> = {
   '#': 'heading-one',
@@ -92,7 +92,9 @@ export const withMarkdownShortcuts = (editor: Editor) => {
       const range = { anchor: selection.anchor, focus: start };
       const beforeText = Editor.string(editor, range);
 
-      if (blockShortcuts[beforeText]) {
+      // 代码块 / 公式块内不做块级转换，保持输入原样（如 "# "）
+      const blockType = block ? (block[0] as unknown as { type?: string }).type : undefined;
+      if (blockType !== 'code-block' && blockType !== 'math-block' && blockShortcuts[beforeText]) {
         Transforms.select(editor, range);
         Transforms.delete(editor);
         Transforms.setNodes(
@@ -122,20 +124,15 @@ export const withMarkdownShortcuts = (editor: Editor) => {
       return;
     }
 
-    const [element, path] = block;
+    const [element, path] = block as NodeEntry<SlateElement>;
 
-    // 获取当前块内光标位置
-    const blockStart = Editor.start(editor, path);
-    const blockEnd = Editor.end(editor, path);
-    const isAtStart = Point.equals(selection.anchor, blockStart);
-    const isAtEnd = Point.equals(selection.anchor, blockEnd);
     const isEmpty =
       Node.string(element).trim().length === 0;
 
     // 空块 + 在末尾 => 在当前块后插入新 paragraph，保持当前块类型
     if (isEmpty && toggleOffBlocks.has(element.type as string)) {
       const nextPath = Path.next(path);
-      Transforms.insertNodes(editor, { type: 'paragraph', children: [{ text: '' }] } as Partial<SlateElement>, { at: nextPath });
+      Transforms.insertNodes(editor, { type: 'paragraph', children: [{ text: '' }] } as SlateElement, { at: nextPath });
       Transforms.select(editor, { path: [...nextPath, 0], offset: 0 });
       return;
     }
@@ -194,7 +191,7 @@ export const withMarkdownShortcuts = (editor: Editor) => {
         match: (n) => SlateElement.isElement(n) && Editor.isBlock(editor, n),
       });
       if (block) {
-        const [element, path] = block;
+        const [element, path] = block as NodeEntry<SlateElement>;
         const blockStart = Editor.start(editor, path);
         if (Point.equals(selection.anchor, blockStart)) {
           // 在块首按 backspace
@@ -214,7 +211,9 @@ export const withMarkdownShortcuts = (editor: Editor) => {
             try {
               const prevEnd = Editor.end(editor, prevPath);
               Transforms.select(editor, { anchor: prevEnd, focus: prevEnd });
-            } catch {}
+            } catch {
+              // 前一个块可能已被并发删除，忽略定位失败
+            }
             return;
           }
         }

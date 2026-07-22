@@ -1,14 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import {
-  Editor as SlateEditor,
-  Transforms,
-  Element as SlateElement,
-} from 'slate';
-import { ReactEditor } from 'slate-react';
-import type { BlockElementType } from '../BlockElement';
 
 interface SlashCommandMenuProps {
-  editor: SlateEditor & ReactEditor;
   query: string;
   onSelect: (type: string) => void;
   onClose: () => void;
@@ -139,7 +131,6 @@ function fuzzyMatch(text: string, query: string): boolean {
 }
 
 export default function SlashCommandMenu({
-  editor,
   query,
   onSelect,
   onClose,
@@ -170,6 +161,8 @@ export default function SlashCommandMenu({
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // 中文输入法组词期间不拦截按键（候选词选择、上屏）
+      if (e.isComposing) return;
       if (e.key === 'ArrowDown') {
         e.preventDefault();
         setSelectedIndex((i) => Math.min(i + 1, filtered.length - 1));

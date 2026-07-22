@@ -11,6 +11,7 @@ import {
   Transforms,
   Path,
   Node,
+  type Descendant,
 } from 'slate';
 import type { PageData } from './App';
 import { getFileUrl } from './api/client';
@@ -27,9 +28,12 @@ export interface DatabaseColumn {
   options?: string[];
 }
 
+// 单元格取值：文本/选择/日期列为 string，数字列为 number，复选框列为 boolean
+export type DatabaseCellValue = string | number | boolean;
+
 export interface DatabaseRow {
   id: string;
-  [columnId: string]: any;
+  [columnId: string]: DatabaseCellValue | undefined;
 }
 
 export type BlockElementType = {
@@ -49,7 +53,7 @@ export type BlockElementType = {
     | 'emphasis-block'
     | 'page-link'
     | 'database';
-  children: { text: string }[];
+  children: CustomText[];
   selected?: boolean;
   checked?: boolean; // for todo
   pageId?: string;   // for page-link
@@ -76,6 +80,217 @@ const DragHandleIcon = () => (
     <circle cx="11.5" cy="11.5" r="1.6" />
   </svg>
 );
+
+/* ==================== page-link / database 子组件 ==================== */
+// page-link 与 database 分支拆成独立子组件，避免在 BlockElement 内条件调用 hooks
+interface BlockBranchProps extends RenderElementProps {
+  blockClass: string;
+  selected?: boolean;
+  dragHandleVisibleClass: string;
+  indicator: { top: number; left: number; width: number } | null;
+  onBlockClick: (e: React.MouseEvent) => void;
+  onDragHandleMouseDown: (e: React.MouseEvent) => void;
+}
+
+/* ---- 从 Slate 内容提取文本预览 ---- */
+function getContentPreview(content: Descendant[]): string {
+  let text = '';
+  const extract = (nodes: Descendant[]) => {
+    for (const node of nodes) {
+      if (text.length > 120) break;
+      if ('text' in node) {
+        text += node.text;
+      } else {
+        extract(node.children);
+      }
+    }
+  };
+  extract(content);
+  return text.slice(0, 120) + (text.length > 120 ? '...' : '');
+}
+
+/* ---- page-link 悬停预览卡 ---- */
+function PageLinkPreview({ page }: { page: PageData }) {
+  const previewText = getContentPreview(page.content);
+  return (
+    <div className="w-64 bg-card rounded-lg shadow-xl border border-border p-3 pointer-events-none">
+      {page.cover && (
+        <div
+          className="w-full h-24 rounded-md mb-2 bg-cover bg-center"
+          style={{ backgroundImage: `url(${getFileUrl(page.cover)})` }}
+        />
+      )}
+      <div className="flex items-center gap-2">
+        {page.icon ? <PageIcon icon={page.icon} size={16} /> : <FileText className="w-4 h-4 text-muted-foreground" />}
+        <span className="font-medium text-sm text-card-foreground truncate">
+          {page.title || '无标题'}
+        </span>
+      </div>
+      {previewText && (
+        <p className="mt-2 text-xs text-muted-foreground line-clamp-3 leading-relaxed">
+          {previewText}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/* ---- page-link 块 ---- */
+function PageLinkElement({
+  attributes,
+  children,
+  element,
+  blockClass,
+  selected,
+  dragHandleVisibleClass,
+  indicator,
+  onBlockClick,
+  onDragHandleMouseDown,
+  pages,
+  onActivatePage,
+}: BlockBranchProps & { pages?: PageData[]; onActivatePage?: (id: string) => void }) {
+  const pageId = (element as BlockElementType).pageId;
+  const targetPage = pages?.find(p => p.id === pageId);
+  const [showPreview, setShowPreview] = useState(false);
+
+  return (
+    <div
+      {...attributes}
+      className={`${blockClass} group`}
+      data-block-selected={selected ? 'true' : undefined}
+      data-slate-block="true"
+      contentEditable={false}
+      onMouseEnter={() => setShowPreview(true)}
+      onMouseLeave={() => setShowPreview(false)}
+      onClick={(e) => {
+        e.stopPropagation();
+        onBlockClick(e);
+        onActivatePage?.(pageId!);
+      }}
+    >
+      {/* 拖拽手柄 */}
+      <span
+        contentEditable={false}
+        className={`absolute -left-7 top-1/2 -translate-y-1/2 opacity-0 ${dragHandleVisibleClass} transition-opacity cursor-grab select-none text-muted-foreground hover:text-foreground p-1`}
+        onMouseDown={onDragHandleMouseDown}
+        title="拖动移动此块"
+      >
+        <DragHandleIcon />
+      </span>
+
+      <div className="flex items-center gap-2 py-0.5">
+        {targetPage?.icon ? (
+          <PageIcon icon={targetPage.icon} size={18} />
+        ) : (
+          <FileText className="w-4 h-4 text-muted-foreground" />
+        )}
+        <span className={`text-sm hover:underline ${targetPage?.deletedAt ? 'text-muted-foreground line-through' : 'text-foreground'}`}>
+          {targetPage?.title || '未命名页面'}
+        </span>
+        {targetPage?.deletedAt && (
+          <span className="ml-1 px-1.5 py-0.5 text-[10px] rounded bg-muted text-muted-foreground border border-border">
+            已移入垃圾箱
+          </span>
+        )}
+      </div>
+
+      {/* 预览框 */}
+      <AnimatedPresence
+        show={showPreview && !!targetPage}
+        duration={200}
+        enterFrom="opacity-0 -translate-y-1"
+        enterTo="opacity-100 translate-y-0"
+        className="absolute top-full left-0 mt-1 z-50 pointer-events-none"
+      >
+        {targetPage && <PageLinkPreview page={targetPage} />}
+      </AnimatedPresence>
+
+      {/* Slate 占位节点 — 不占据布局空间 */}
+      <span className="absolute w-0 h-0 overflow-hidden">
+        {children}
+      </span>
+
+      {indicator && (
+        <div
+          contentEditable={false}
+          className="fixed z-50 h-[2px] bg-primary"
+          style={{
+            top: `${indicator.top}px`,
+            left: `${indicator.left}px`,
+            width: `${indicator.width}px`,
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+/* ---- database 块 ---- */
+function DatabaseElement({
+  attributes,
+  children,
+  element,
+  blockClass,
+  selected,
+  dragHandleVisibleClass,
+  indicator,
+  onBlockClick,
+  onDragHandleMouseDown,
+}: BlockBranchProps) {
+  const editor = useSlateStatic();
+  const dbElement = element as BlockElementType;
+
+  return (
+    <div
+      {...attributes}
+      className={`${blockClass} group`}
+      data-block-selected={selected ? 'true' : undefined}
+      data-slate-block="true"
+      contentEditable={false}
+      onClick={onBlockClick}
+    >
+      {/* 拖拽手柄 */}
+      <span
+        contentEditable={false}
+        className={`absolute -left-7 top-1/2 -translate-y-1/2 opacity-0 ${dragHandleVisibleClass} transition-opacity cursor-grab select-none text-muted-foreground hover:text-foreground p-1`}
+        onMouseDown={onDragHandleMouseDown}
+        title="拖动移动此块"
+      >
+        <DragHandleIcon />
+      </span>
+
+      <DatabaseBlock
+        columns={dbElement.columns || []}
+        rows={dbElement.rows || []}
+        onChange={(cols, rows) => {
+          const path = ReactEditor.findPath(editor, element);
+          Transforms.setNodes(
+            editor,
+            { columns: cols, rows: rows } as Partial<BlockElementType>,
+            { at: path }
+          );
+        }}
+      />
+
+      {/* Slate 占位节点 */}
+      <span className="absolute w-0 h-0 overflow-hidden">
+        {children}
+      </span>
+
+      {indicator && (
+        <div
+          contentEditable={false}
+          className="fixed z-50 h-[2px] bg-primary"
+          style={{
+            top: `${indicator.top}px`,
+            left: `${indicator.left}px`,
+            width: `${indicator.width}px`,
+          }}
+        />
+      )}
+    </div>
+  );
+}
 
 /* ==================== COMPONENT ==================== */
 const BlockElement = (props: RenderElementProps & { pages?: PageData[]; onActivatePage?: (id: string) => void }) => {
@@ -147,7 +362,7 @@ const BlockElement = (props: RenderElementProps & { pages?: PageData[]; onActiva
       !element.children[0].underline &&
       !element.children[0].strikethrough
     );
-  }, [element.children]);
+  }, [element.type, element.children]);
 
   /* ---- 点击块时只清除选中状态，不选中当前块 ---- */
   const handleClick = useCallback((e: React.MouseEvent) => {
@@ -208,7 +423,7 @@ const BlockElement = (props: RenderElementProps & { pages?: PageData[]; onActiva
       const siblings =
         parentPath.length === 0
           ? editor.children
-          : Node.get(editor, parentPath).children;
+          : (Node.get(editor, parentPath) as SlateElement).children;
       let count = 1;
       for (let i = 0; i < index; i++) {
         const sibling = siblings[i];
@@ -225,6 +440,8 @@ const BlockElement = (props: RenderElementProps & { pages?: PageData[]; onActiva
   }, [element.type, path, editor]);
 
   /* ---- 列表前缀 ---- */
+  // todo 勾选态单独取出，供下方 useMemo 依赖追踪（避免依赖数组里写复杂表达式）
+  const elementChecked = element.checked;
   const prefix = useMemo(() => {
     if (element.type === 'bulleted-list') {
       return (
@@ -247,17 +464,16 @@ const BlockElement = (props: RenderElementProps & { pages?: PageData[]; onActiva
       );
     }
     if (element.type === 'todo') {
-      const checked = (element as BlockElementType).checked;
       return (
         <span
           contentEditable={false}
           className="inline-flex items-center justify-center w-5 h-5 flex-shrink-0 select-none mt-[2px] cursor-pointer text-foreground/60 hover:text-foreground"
           onClick={(e) => {
             e.stopPropagation();
-            Transforms.setNodes(editor, { checked: !checked } as Partial<SlateElement>, { at: path });
+            Transforms.setNodes(editor, { checked: !elementChecked } as Partial<SlateElement>, { at: path });
           }}
         >
-          {checked ? '☑' : '☐'}
+          {elementChecked ? '☑' : '☐'}
         </span>
       );
     }
@@ -272,7 +488,7 @@ const BlockElement = (props: RenderElementProps & { pages?: PageData[]; onActiva
       );
     }
     return null;
-  }, [element.type, listNumber, (element as BlockElementType).checked, editor, path]);
+  }, [element.type, listNumber, elementChecked, editor, path]);
 
   /* ---- 拖拽排序 ---- */
   const handleDragMouseDown = useCallback(
@@ -285,9 +501,9 @@ const BlockElement = (props: RenderElementProps & { pages?: PageData[]; onActiva
 
       // 收集所有选中的块路径
       const selectedPaths: Path[] = [];
-      for (const [node, p] of SlateEditor.nodes(editor, {
+      for (const [, p] of SlateEditor.nodes(editor, {
         at: [],
-        match: (n) => SlateElement.isElement(n) && SlateEditor.isBlock(editor, n) && (n as BlockElementType).selected,
+        match: (n) => SlateElement.isElement(n) && SlateEditor.isBlock(editor, n) && (n as BlockElementType).selected === true,
       })) {
         selectedPaths.push(p);
       }
@@ -301,7 +517,7 @@ const BlockElement = (props: RenderElementProps & { pages?: PageData[]; onActiva
 
       let ghost: HTMLElement | null = null;
       let hasStartedDrag = false;
-      let ghostOffset = { x: 0, y: 0 };
+      const ghostOffset = { x: 0, y: 0 };
 
       const onMouseMove = (ev: MouseEvent) => {
         const dx = Math.abs(ev.clientX - startMousePos.x);
@@ -356,7 +572,7 @@ const BlockElement = (props: RenderElementProps & { pages?: PageData[]; onActiva
                 if (Path.equals(p, fromPath)) {
                   sourceRect = dom.getBoundingClientRect();
                 }
-              } catch {}
+              } catch { /* 节点对应的 DOM 可能已卸载或路径已失效，忽略 */ }
             }
           } else {
             // 单选：克隆当前块
@@ -387,7 +603,7 @@ const BlockElement = (props: RenderElementProps & { pages?: PageData[]; onActiva
                   const node = Node.get(editor, p);
                   const dom = ReactEditor.toDOMNode(editor as ReactEditor, node as SlateElement);
                   draggedBlockOffsetY += dom.getBoundingClientRect().height;
-                } catch {}
+                } catch { /* 节点对应的 DOM 可能已卸载或路径已失效，忽略 */ }
               }
             }
 
@@ -431,7 +647,7 @@ const BlockElement = (props: RenderElementProps & { pages?: PageData[]; onActiva
                 before: ev.clientY < midY,
               };
             }
-          } catch {}
+          } catch { /* 节点对应的 DOM 可能已卸载或路径已失效，忽略 */ }
         }
 
         if (bestTarget) {
@@ -469,13 +685,13 @@ const BlockElement = (props: RenderElementProps & { pages?: PageData[]; onActiva
         try {
           const blockEl = ReactEditor.toDOMNode(editor as ReactEditor, element as SlateElement);
           const stopClick = (e: MouseEvent) => {
-            if (blockEl && (blockEl === e.target || blockEl.contains(e.target as Node))) {
+            if (blockEl && (blockEl === e.target || blockEl.contains(e.target as globalThis.Node))) {
               e.stopPropagation();
             }
             document.removeEventListener('click', stopClick, true);
           };
           document.addEventListener('click', stopClick, true);
-        } catch {}
+        } catch { /* 节点对应的 DOM 可能已卸载或路径已失效，忽略 */ }
 
         if (!hasStartedDrag) {
           // 拖拽未真正启动（只是点了一下）：单独选中当前块
@@ -521,7 +737,7 @@ const BlockElement = (props: RenderElementProps & { pages?: PageData[]; onActiva
                 minDist = dist;
                 targetIndex = ev.clientY < midY ? p[0] : p[0] + 1;
               }
-            } catch {}
+            } catch { /* 节点对应的 DOM 可能已卸载或路径已失效，忽略 */ }
           }
           if (targetIndex === -1) return;
 
@@ -575,7 +791,7 @@ const BlockElement = (props: RenderElementProps & { pages?: PageData[]; onActiva
                 before: ev.clientY < midY,
               };
             }
-          } catch {}
+          } catch { /* 节点对应的 DOM 可能已卸载或路径已失效，忽略 */ }
         }
 
         if (bestTarget && !Path.equals(fromPath, bestTarget.path)) {
@@ -594,177 +810,40 @@ const BlockElement = (props: RenderElementProps & { pages?: PageData[]; onActiva
     [editor, path, element]
   );
 
-  /* ---- 从 Slate 内容提取文本预览 ---- */
-function getContentPreview(content: any[]): string {
-  let text = '';
-  const extract = (nodes: any[]) => {
-    for (const node of nodes) {
-      if (text.length > 120) break;
-      if (node.text) {
-        text += node.text;
-      } else if (node.children) {
-        extract(node.children);
-      }
-    }
-  };
-  extract(content);
-  return text.slice(0, 120) + (text.length > 120 ? '...' : '');
-}
-
-/* ---- page-link 块特殊渲染 ---- */
-function PageLinkPreview({ page }: { page: PageData }) {
-  const previewText = getContentPreview(page.content);
-  return (
-    <div className="w-64 bg-card rounded-lg shadow-xl border border-border p-3 pointer-events-none">
-      {page.cover && (
-        <div
-          className="w-full h-24 rounded-md mb-2 bg-cover bg-center"
-          style={{ backgroundImage: `url(${getFileUrl(page.cover)})` }}
-        />
-      )}
-      <div className="flex items-center gap-2">
-        {page.icon ? <PageIcon icon={page.icon} size={16} /> : <FileText className="w-4 h-4 text-muted-foreground" />}
-        <span className="font-medium text-sm text-card-foreground truncate">
-          {page.title || '无标题'}
-        </span>
-      </div>
-      {previewText && (
-        <p className="mt-2 text-xs text-muted-foreground line-clamp-3 leading-relaxed">
-          {previewText}
-        </p>
-      )}
-    </div>
-  );
-}
-
+  /* ---- page-link / database 块：分发到独立子组件 ---- */
   if (element.type === 'page-link') {
-    const pageId = (element as BlockElementType).pageId;
-    const targetPage = pages?.find(p => p.id === pageId);
-    const [showPreview, setShowPreview] = useState(false);
-
     return (
-      <div
-        {...attributes}
-        className={`${blockClass} group`}
-        data-block-selected={selected ? 'true' : undefined}
-        data-slate-block="true"
-        contentEditable={false}
-        onMouseEnter={() => setShowPreview(true)}
-        onMouseLeave={() => setShowPreview(false)}
-        onClick={(e) => {
-          e.stopPropagation();
-          handleClick(e);
-          onActivatePage?.(pageId!);
-        }}
+      <PageLinkElement
+        attributes={attributes}
+        element={element}
+        blockClass={blockClass}
+        selected={selected}
+        dragHandleVisibleClass={dragHandleVisibleClass}
+        indicator={indicator}
+        onBlockClick={handleClick}
+        onDragHandleMouseDown={handleDragMouseDown}
+        pages={pages}
+        onActivatePage={onActivatePage}
       >
-        {/* 拖拽手柄 */}
-        <span
-          contentEditable={false}
-          className={`absolute -left-7 top-1/2 -translate-y-1/2 opacity-0 ${dragHandleVisibleClass} transition-opacity cursor-grab select-none text-muted-foreground hover:text-foreground p-1`}
-          onMouseDown={handleDragMouseDown}
-          title="拖动移动此块"
-        >
-          <DragHandleIcon />
-        </span>
-
-        <div className="flex items-center gap-2 py-0.5">
-          {targetPage?.icon ? (
-            <PageIcon icon={targetPage.icon} size={18} />
-          ) : (
-            <FileText className="w-4 h-4 text-muted-foreground" />
-          )}
-          <span className={`text-sm hover:underline ${targetPage?.deletedAt ? 'text-muted-foreground line-through' : 'text-foreground'}`}>
-            {targetPage?.title || '未命名页面'}
-          </span>
-          {targetPage?.deletedAt && (
-            <span className="ml-1 px-1.5 py-0.5 text-[10px] rounded bg-muted text-muted-foreground border border-border">
-              已移入垃圾箱
-            </span>
-          )}
-        </div>
-
-        {/* 预览框 */}
-        <AnimatedPresence
-          show={showPreview && !!targetPage}
-          duration={200}
-          enterFrom="opacity-0 -translate-y-1"
-          enterTo="opacity-100 translate-y-0"
-          className="absolute top-full left-0 mt-1 z-50 pointer-events-none"
-        >
-          {targetPage && <PageLinkPreview page={targetPage} />}
-        </AnimatedPresence>
-
-        {/* Slate 占位节点 — 不占据布局空间 */}
-        <span className="absolute w-0 h-0 overflow-hidden">
-          {children}
-        </span>
-
-        {indicator && (
-          <div
-            contentEditable={false}
-            className="fixed z-50 h-[2px] bg-primary"
-            style={{
-              top: `${indicator.top}px`,
-              left: `${indicator.left}px`,
-              width: `${indicator.width}px`,
-            }}
-          />
-        )}
-      </div>
+        {children}
+      </PageLinkElement>
     );
   }
 
   if (element.type === 'database') {
-    const dbElement = element as BlockElementType;
     return (
-      <div
-        {...attributes}
-        className={`${blockClass} group`}
-        data-block-selected={selected ? 'true' : undefined}
-        data-slate-block="true"
-        contentEditable={false}
-        onClick={handleClick}
+      <DatabaseElement
+        attributes={attributes}
+        element={element}
+        blockClass={blockClass}
+        selected={selected}
+        dragHandleVisibleClass={dragHandleVisibleClass}
+        indicator={indicator}
+        onBlockClick={handleClick}
+        onDragHandleMouseDown={handleDragMouseDown}
       >
-        {/* 拖拽手柄 */}
-        <span
-          contentEditable={false}
-          className={`absolute -left-7 top-1/2 -translate-y-1/2 opacity-0 ${dragHandleVisibleClass} transition-opacity cursor-grab select-none text-muted-foreground hover:text-foreground p-1`}
-          onMouseDown={handleDragMouseDown}
-          title="拖动移动此块"
-        >
-          <DragHandleIcon />
-        </span>
-
-        <DatabaseBlock
-          columns={dbElement.columns || []}
-          rows={dbElement.rows || []}
-          onChange={(cols, rows) => {
-            const path = ReactEditor.findPath(editor, element);
-            Transforms.setNodes(
-              editor,
-              { columns: cols, rows: rows } as Partial<BlockElementType>,
-              { at: path }
-            );
-          }}
-        />
-
-        {/* Slate 占位节点 */}
-        <span className="absolute w-0 h-0 overflow-hidden">
-          {children}
-        </span>
-
-        {indicator && (
-          <div
-            contentEditable={false}
-            className="fixed z-50 h-[2px] bg-primary"
-            style={{
-              top: `${indicator.top}px`,
-              left: `${indicator.left}px`,
-              width: `${indicator.width}px`,
-            }}
-          />
-        )}
-      </div>
+        {children}
+      </DatabaseElement>
     );
   }
 

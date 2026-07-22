@@ -4,7 +4,7 @@ import { PageIcon } from './IconPicker';
 import AnimatedPresence from './AnimatedPresence';
 import type { PageData } from '../App';
 import { getFileUrl } from '../api/client';
-import { Text as SlateText, Element as SlateElement } from 'slate';
+import { Text as SlateText, Element as SlateElement, type Descendant } from 'slate';
 
 interface SearchModalProps {
   isOpen: boolean;
@@ -19,19 +19,19 @@ interface SearchResult {
   preview: string;
 }
 
-function extractText(content: any[]): string {
+function extractText(content: Descendant[]): string {
   let text = '';
   for (const node of content) {
     if (SlateText.isText(node)) {
       text += node.text;
-    } else if (SlateElement.isElement(node) && (node as any).children) {
-      text += extractText((node as any).children);
+    } else if (SlateElement.isElement(node)) {
+      text += extractText(node.children);
     }
   }
   return text;
 }
 
-function getContentPreview(content: any[], maxLength: number = 300): string {
+function getContentPreview(content: Descendant[], maxLength: number = 300): string {
   const text = extractText(content).replace(/\s+/g, ' ').trim();
   return text.length > maxLength ? text.slice(0, maxLength) + '...' : text;
 }
@@ -56,7 +56,6 @@ export default function SearchModal({ isOpen, onClose, pages, onNavigate }: Sear
 
       if (title.includes(q)) {
         score += 10;
-        const tIdx = title.indexOf(q);
         preview = extractText(page.content).slice(0, 80);
       }
       if (content.includes(q)) {
@@ -94,6 +93,8 @@ export default function SearchModal({ isOpen, onClose, pages, onNavigate }: Sear
   }, [isOpen]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    // 中文输入法组词期间不拦截按键（候选词选择、上屏）
+    if (e.nativeEvent.isComposing) return;
     if (e.key === 'ArrowDown') {
       e.preventDefault();
       setSelectedIndex(i => Math.min(i + 1, results.length - 1));
