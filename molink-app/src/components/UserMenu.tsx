@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState, useLayoutEffect } from 'react';
-import { Settings, UserPlus, Check, LogOut, Smartphone } from 'lucide-react';
+import { Settings, Check, LogOut } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 interface UserMenuProps {
@@ -87,12 +87,6 @@ export default function UserMenu({
           <Settings className="w-4 h-4" />
           设置
         </button>
-        {isLoggedIn && (
-          <button className="flex-1 flex items-center justify-center gap-2 py-1.5 px-3 rounded-md hover:bg-accent text-sm text-secondary-foreground border border-border transition-colors">
-            <UserPlus className="w-4 h-4" />
-            邀请成员
-          </button>
-        )}
       </div>
 
       <div className="border-t border-border my-1" />
@@ -121,12 +115,6 @@ export default function UserMenu({
 
           {/* 账号操作 */}
           <div className="py-1">
-            <button className="w-full text-left px-3 py-2 text-sm text-secondary-foreground hover:bg-accent transition-colors">
-              创建工作账号
-            </button>
-            <button className="w-full text-left px-3 py-2 text-sm text-secondary-foreground hover:bg-accent transition-colors">
-              添加另一个账号
-            </button>
             <button
               onClick={() => {
                 onClose();
@@ -140,16 +128,6 @@ export default function UserMenu({
           </div>
         </>
       )}
-
-      <div className="border-t border-border my-1" />
-
-      {/* 底部 */}
-      <div className="px-3 py-2">
-        <button className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
-          <Smartphone className="w-4 h-4" />
-          获取移动应用程序
-        </button>
-      </div>
     </div>
   );
 }

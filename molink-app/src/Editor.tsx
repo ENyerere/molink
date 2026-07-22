@@ -47,7 +47,12 @@ const BLOCK_PREFIXES: Record<string, string> = {
 function serializeBlocks(blocks: SlateElement[]): string {
   return blocks
     .map((block) => {
-      const text = block.children.map((c) => c.text).join('').replace(/\n/g, ' ');
+      // 保留块内换行（代码块以 \n 存多行），不再压成空格
+      const text = block.children.map((c) => c.text).join('');
+      if (block.type === 'code-block') {
+        // 代码块加 ``` 围栏，parse 端据此还原
+        return '```\n' + text + '\n```';
+      }
       if (block.type === 'todo') {
         const prefix = block.checked ? '- [x] ' : '- [ ] ';
         return prefix + text;
@@ -83,7 +88,26 @@ function parseClipboardText(text: string): BlockElementType[] {
   const lines = text.split('\n');
   const blocks: BlockElementType[] = [];
 
+  // ``` 围栏内的行原样累积，闭合时还原为一个代码块
+  let inCodeFence = false;
+  let codeLines: string[] = [];
+
   for (const line of lines) {
+    if (inCodeFence) {
+      if (line.trim() === '```') {
+        blocks.push({ type: 'code-block', children: [{ text: codeLines.join('\n') }] });
+        inCodeFence = false;
+        codeLines = [];
+      } else {
+        codeLines.push(line);
+      }
+      continue;
+    }
+    if (line.trim() === '```') {
+      inCodeFence = true;
+      codeLines = [];
+      continue;
+    }
     const trimmed = line.trimStart();
     // 顺序很重要：先匹配更长的前缀
     if (trimmed.startsWith('- [x] ')) {
@@ -109,6 +133,11 @@ function parseClipboardText(text: string): BlockElementType[] {
     } else {
       blocks.push({ type: 'paragraph', children: [{ text: line }] });
     }
+  }
+
+  // 围栏未闭合的兜底：仍按代码块还原，避免丢内容
+  if (inCodeFence) {
+    blocks.push({ type: 'code-block', children: [{ text: codeLines.join('\n') }] });
   }
 
   return blocks;
@@ -779,7 +808,7 @@ export default function Editor({
         <input
           value={page.title}
           onChange={(e) => updatePage(page.id, { title: e.target.value })}
-          className="text-4xl font-bold mb-[50px] w-full outline-none select-none placeholder:select-none bg-transparent text-foreground placeholder:text-muted-foreground"
+          className="text-4xl font-bold mb-[50px] w-full outline-none placeholder:select-none bg-transparent text-foreground placeholder:text-muted-foreground"
           placeholder="无标题"
         />
 
@@ -850,6 +879,18 @@ export default function Editor({
             onPaste={(event) => {
               const text = event.clipboardData.getData('text/plain');
               if (!text) return;
+
+              // 光标在代码块内：原样插入（保留换行），不走 Markdown 解析
+              const pasteBlock = editor.selection
+                ? SlateEditor.above(editor, {
+                    match: (n) => SlateElement.isElement(n) && SlateEditor.isBlock(editor, n),
+                  })
+                : null;
+              if (pasteBlock && (pasteBlock[0] as BlockElementType).type === 'code-block') {
+                event.preventDefault();
+                editor.insertText(text.replace(/\r\n?/g, '\n'));
+                return;
+              }
 
               const blocks = parseClipboardText(text);
               if (blocks.length === 0) return;

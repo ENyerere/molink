@@ -443,7 +443,8 @@ const BlockElement = (props: RenderElementProps & { pages?: PageData[]; onActiva
   // todo 勾选态单独取出，供下方 useMemo 依赖追踪（避免依赖数组里写复杂表达式）
   const elementChecked = element.checked;
   const prefix = useMemo(() => {
-    if (element.type === 'bulleted-list') {
+    if (element.type === 'bulleted-list' || element.type === 'toggle-list') {
+      // toggle-list 暂无真折叠能力（编辑器为扁平块结构），按普通列表项渲染，不显示假箭头
       return (
         <span
           contentEditable={false}
@@ -474,16 +475,6 @@ const BlockElement = (props: RenderElementProps & { pages?: PageData[]; onActiva
           }}
         >
           {elementChecked ? '☑' : '☐'}
-        </span>
-      );
-    }
-    if (element.type === 'toggle-list') {
-      return (
-        <span
-          contentEditable={false}
-          className="inline-flex items-center justify-center w-5 h-5 flex-shrink-0 select-none mt-[2px] cursor-pointer text-muted-foreground hover:text-foreground"
-        >
-          ▶
         </span>
       );
     }

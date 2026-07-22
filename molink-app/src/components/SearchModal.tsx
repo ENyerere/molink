@@ -135,7 +135,7 @@ export default function SearchModal({ isOpen, onClose, pages, onNavigate }: Sear
       {/* 透明遮罩，只拦截点击，不变暗 */}
       <div className="absolute inset-0" onClick={onClose} />
       <div
-        className="relative bg-[#1e1e1e]/95 rounded-xl shadow-2xl w-full max-w-[900px] overflow-hidden flex"
+        className="relative bg-popover/95 rounded-xl shadow-2xl w-full max-w-[900px] overflow-hidden flex"
         style={{ maxHeight: '65vh', minHeight: '320px' }}
         onKeyDown={handleKeyDown}
       >
@@ -217,7 +217,7 @@ export default function SearchModal({ isOpen, onClose, pages, onNavigate }: Sear
 
         {/* 右侧：预览面板 */}
         <div className="w-[1px] bg-border flex-shrink-0" />
-        <div className="flex-1 flex flex-col min-w-0 bg-[#1a1a1a]/50 p-5 overflow-y-auto">
+        <div className="flex-1 flex flex-col min-w-0 bg-background/50 p-5 overflow-y-auto">
           {previewPage ? (
             <div className="flex flex-col gap-3">
               {previewPage.cover && (

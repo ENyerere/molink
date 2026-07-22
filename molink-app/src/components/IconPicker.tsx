@@ -13,7 +13,7 @@ import {
   Sun, Moon, Cloud, CloudRain, Zap, Flame, TreePine,
   Lightbulb, Key, Lock, Settings, Mail, Send, Bell, MessageSquare, Coffee, Gift,
   Check, AlertTriangle, Info, Calendar, Clock, Eye,
-  Clock as ClockIcon, Leaf, Lightbulb as BulbIcon,
+  Leaf, Lightbulb as BulbIcon,
   Hand, Carrot, Trophy, Map as MapIcon, Hash as HashIcon,
 } from 'lucide-react';
 
@@ -202,7 +202,7 @@ const EMOJI_DATA: EmojiItem[] = [
   e('🏦','旅行','bank'), e('🏨','旅行','hotel'), e('🏩','旅行','love hotel'), e('🏪','旅行','convenience store'),
   e('🏫','旅行','school'), e('🎓','旅行','graduation cap'), e('🏛️','旅行','classical building'), e('⛪','旅行','church'),
   e('🕌','旅行','mosque'), e('🛕','旅行','hindu temple'), e('🕍','旅行','synagogue'), e('⛩️','旅行','shinto shrine'),
-  e('🕋','旅行','kaaba'), e('⛲','旅行','fountain'), e('🌁','旅行','foggy'), e('🌃','旅行','night stars'),
+  e('🕋','旅行','kaaba'), e('🌁','旅行','foggy'), e('🌃','旅行','night stars'),
   e('🏙️','旅行','cityscape'), e('🌄','旅行','sunrise mountain'), e('🌅','旅行','sunrise'), e('🌆','旅行','city dusk'),
   e('🌇','旅行','sunset'), e('🌉','旅行','bridge night'),
   e('⌚','物品','watch time'), e('📱','物品','phone mobile'), e('📲','物品','call mobile'),
@@ -224,13 +224,13 @@ const EMOJI_DATA: EmojiItem[] = [
   e('💵','物品','dollar money'), e('💴','物品','yen money'), e('💶','物品','euro money'),
   e('💷','物品','pound money'), e('💰','物品','money bag'), e('💳','物品','credit card'),
   e('🧾','物品','receipt'), e('💎','物品','gem stone'), e('⚖️','物品','balance scale'),
-  e('🦯','物品','white cane'), e('🧰','物品','toolbox'), e('🔧','物品','wrench tool'),
+  e('🧰','物品','toolbox'), e('🔧','物品','wrench tool'),
   e('🔨','物品','hammer tool'), e('⚒️','物品','hammer pick'), e('🛠️','物品','hammer wrench'),
   e('⛏️','物品','pick'), e('🔩','物品','nut bolt'), e('⚙️','物品','gear'),
-  e('🗜️','物品','clamp vice'), e('⚗️','物品','alembic'), e('⚖️','物品','balance'),
+  e('⚗️','物品','alembic'),
   e('🧲','物品','magnet'), e('🧪','物品','test tube'), e('🧫','物品','petri dish'),
   e('🧬','物品','dna'), e('🔬','物品','microscope'), e('🔭','物品','telescope'),
-  e('📡','物品','satellite dish'), e('💉','物品','syringe vaccine'), e('🩸','物品','drop blood'),
+  e('💉','物品','syringe vaccine'), e('🩸','物品','drop blood'),
   e('💊','物品','pill medicine'), e('🩹','物品','adhesive bandage'), e('🩺','物品','stethoscope'),
   e('🚪','物品','door'), e('🛗','物品','elevator'), e('🪞','物品','mirror'),
   e('🪟','物品','window'), e('🛏️','物品','bed'), e('🛋️','物品','couch lamp'),
@@ -238,9 +238,9 @@ const EMOJI_DATA: EmojiItem[] = [
   e('🚿','物品','shower'), e('🛁','物品','bathtub'), e('🪤','物品','mouse trap'),
   e('🪒','物品','razor'), e('🧴','物品','lotion bottle'), e('🧷','物品','safety pin'),
   e('🧹','物品','broom'), e('🧺','物品','basket'), e('🧻','物品','roll paper'),
-  e('🧼','物品','soap'), e('🧽','物品','sponge'), e('🧯','物品','extinguisher'),
+  e('🧼','物品','soap'), e('🧽','物品','sponge'),
   e('🛒','物品','shopping cart'), e('🚬','物品','cigarette smoke'), e('⚰️','物品','coffin'),
-  e('⚱️','物品','funeral urn'), e('🗿','物品','moai'),
+  e('⚱️','物品','funeral urn'),
   e('💌','符号','love letter'), e('💘','符号','heart arrow'), e('💝','符号','heart ribbon'),
   e('💖','符号','sparkling heart'), e('💗','符号','growing heart'), e('💓','符号','beating heart'),
   e('💞','符号','revolving hearts'), e('💕','符号','two hearts'), e('💟','符号','heart decoration'),
@@ -258,13 +258,12 @@ const EMOJI_DATA: EmojiItem[] = [
   e('☁️','符号','cloud'), e('⛈️','符号','cloud lightning rain'), e('🌤️','符号','sun small cloud'),
   e('🌥️','符号','sun big cloud'), e('🌦️','符号','sun rain cloud'), e('🌧️','符号','cloud rain'),
   e('🌨️','符号','cloud snow'), e('❄️','符号','snowflake'), e('🌬️','符号','wind face'),
-  e('💨','符号','dash blow'), e('🌪️','符号','tornado'), e('🌫️','符号','fog'),
+  e('🌪️','符号','tornado'), e('🌫️','符号','fog'),
   e('☔','符号','umbrella rain'), e('☂️','符号','umbrella'), e('⚡','符号','high voltage zap'),
-  e('❄️','符号','snowflake cold'), e('☃️','符号','snowman'), e('⛄','符号','snowman no snow'),
-  e('☄️','符号','comet'), e('🔥','符号','fire hot'), e('💧','符号','droplet water'),
-  e('🌊','符号','wave ocean'), e('🎄','符号','christmas tree'), e('✨','符号','sparkle shine'),
+  e('☃️','符号','snowman'), e('⛄','符号','snowman no snow'),
+  e('☄️','符号','comet'), e('💧','符号','droplet water'),
+  e('🌊','符号','wave ocean'), e('🎄','符号','christmas tree'),
   e('🎋','符号','tanabata tree'), e('🎍','符号','pine decoration'), e('🎑','符号','moon viewing'),
-  e('💫','符号','dizzy'), e('⭐','符号','star shiny'),
 ];
 
 export function parseIcon(icon: string | null | undefined) {
@@ -298,7 +297,7 @@ interface IconPickerProps {
   anchorRef?: React.RefObject<HTMLElement | null>;
 }
 const EMOJI_CAT_NAV = [
-  { name: '人物', icon: ClockIcon }, { name: '手势', icon: Hand }, { name: '自然', icon: Leaf },
+  { name: '人物', icon: Smile }, { name: '手势', icon: Hand }, { name: '自然', icon: Leaf },
   { name: '食物', icon: Carrot }, { name: '活动', icon: Trophy }, { name: '旅行', icon: MapIcon },
   { name: '物品', icon: BulbIcon }, { name: '符号', icon: HashIcon },
 ];

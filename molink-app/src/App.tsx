@@ -30,7 +30,6 @@ export interface PageData {
   createdAt?: string;
   updatedAt?: string;
   createdBy?: string;
-  updatedBy?: string;
 }
 
 export interface User {
@@ -275,7 +274,6 @@ export default function App() {
           createdAt: bp.created_at,
           updatedAt: bp.updated_at,
           createdBy: bp.created_by || undefined,
-          updatedBy: bp.created_by || undefined,
         };
       };
 
@@ -539,7 +537,6 @@ export default function App() {
           createdAt: bp.created_at,
           updatedAt: bp.updated_at,
           createdBy: bp.created_by || undefined,
-          updatedBy: bp.created_by || undefined,
         };
         setPages(prev => [...prev, newPage]);
         addActivity('create', newPage);
@@ -571,7 +568,6 @@ export default function App() {
       createdAt: now,
       updatedAt: now,
       createdBy: userId,
-      updatedBy: userId,
     };
     setPages(prev => [...prev, newPage]);
     addActivity('create', newPage);
@@ -708,11 +704,9 @@ export default function App() {
     activityPreview?: string,
   ) => {
     const now = new Date().toISOString();
-    const userId = user?.id;
     const dataWithTimestamp: Partial<PageData> = {
       ...newData,
       updatedAt: now,
-      updatedBy: userId,
     };
     setPages(prev => prev.map(p => p.id === id ? { ...p, ...dataWithTimestamp } : p));
 

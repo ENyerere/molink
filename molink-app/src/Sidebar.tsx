@@ -2,8 +2,8 @@ import { useState, useMemo, useRef } from 'react';
 import type { PageData, User } from './App';
 import {
   Search, Home, Briefcase, Inbox,
-  ChevronDown, ChevronRight, Plus, Star, FileText, Trash2, MoreHorizontal,
-  RotateCcw, X, User as UserIcon, Users
+  ChevronDown, ChevronRight, Plus, FileText, Trash2,
+  RotateCcw, X
 } from 'lucide-react';
 import { PageIcon } from './components/IconPicker';
 import UserMenu from './components/UserMenu';
@@ -73,28 +73,17 @@ function SidebarSection({
           <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
             {title}
           </span>
+          {/* 展开态指示（非按钮，点击整行即可折叠/展开） */}
           {hovered && (
-            <button
-              onClick={(e) => e.stopPropagation()}
-              className="w-4 h-4 flex items-center justify-center rounded-sm hover:bg-accent/50 flex-shrink-0"
-            >
+            <span className="w-4 h-4 flex items-center justify-center flex-shrink-0">
               {expanded ? (
                 <ChevronDown className="w-3 h-3 text-muted-foreground" />
               ) : (
                 <ChevronRight className="w-3 h-3 text-muted-foreground" />
               )}
-            </button>
+            </span>
           )}
         </div>
-        {hovered && (
-          <button
-            onClick={(e) => e.stopPropagation()}
-            className="p-0.5 rounded hover:bg-accent text-muted-foreground flex-shrink-0"
-            title="更多"
-          >
-            <MoreHorizontal className="w-3 h-3" />
-          </button>
-        )}
       </div>
       {expanded && children}
     </>
@@ -264,8 +253,6 @@ export default function Sidebar({
   const [showSettings, setShowSettings] = useState(false);
   const userMenuTriggerRef = useRef<HTMLButtonElement>(null);
 
-  const activePage = pages.find((p) => p.id === activePageId);
-
   const nonDeletedPages = useMemo(() => pages.filter(p => !p.deletedAt), [pages]);
   const trashPages = useMemo(() => pages.filter(p => p.deletedAt), [pages]);
 
@@ -344,14 +331,6 @@ export default function Sidebar({
           >
             <Plus className="w-4 h-4" />
           </button>
-          {activePage && (
-            <button
-              className="p-1.5 rounded-md hover:bg-accent text-muted-foreground transition-colors"
-              title="收藏"
-            >
-              <Star className="w-4 h-4" />
-            </button>
-          )}
         </div>
       </div>
 
@@ -489,12 +468,12 @@ function TrashPopover({
         <div className="absolute inset-0" onClick={() => setOpen(false)} />
         {/* 弹窗 */}
         <div
-          className="relative w-[560px] max-w-[90vw] bg-[#1e1e1e]/95 border border-border/50 rounded-xl shadow-2xl flex flex-col overflow-hidden"
+          className="relative w-[560px] max-w-[90vw] bg-popover/95 border border-border/50 rounded-xl shadow-2xl flex flex-col overflow-hidden"
           onClick={(e) => e.stopPropagation()}
         >
           {/* 头部搜索 */}
           <div className="px-4 pt-4 pb-3">
-            <div className="flex items-center gap-2 bg-[#2a2a2a] border border-border/40 rounded-lg px-3 py-2">
+            <div className="flex items-center gap-2 bg-muted border border-border/40 rounded-lg px-3 py-2">
               <Search className="w-4 h-4 text-muted-foreground flex-shrink-0" />
               <input
                 autoFocus
@@ -512,25 +491,6 @@ function TrashPopover({
             </div>
           </div>
 
-          {/* 筛选标签 */}
-          <div className="px-4 pb-2 flex items-center gap-2">
-            <button className="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs bg-primary/10 text-primary hover:bg-primary/20 transition-colors">
-              <UserIcon className="w-3 h-3" />
-              上次编辑者
-              <ChevronDown className="w-3 h-3" />
-            </button>
-            <button className="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs bg-secondary text-secondary-foreground hover:bg-accent transition-colors">
-              <FileText className="w-3 h-3" />
-              页面
-              <ChevronDown className="w-3 h-3" />
-            </button>
-            <button className="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs bg-secondary text-secondary-foreground hover:bg-accent transition-colors">
-              <Users className="w-3 h-3" />
-              团队协作区
-              <ChevronDown className="w-3 h-3" />
-            </button>
-          </div>
-
           {/* 列表 */}
           <div className="flex-1 overflow-y-auto px-2 py-1 min-h-[120px] max-h-[360px]">
             {filtered.length === 0 ? (
@@ -543,7 +503,7 @@ function TrashPopover({
                 return (
                   <div
                     key={page.id}
-                    className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-white/5 group transition-colors"
+                    className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-accent group transition-colors"
                   >
                     <button
                       onClick={() => { onActivate(page.id); setOpen(false); }}
@@ -560,7 +520,7 @@ function TrashPopover({
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button
                         onClick={() => onRestore?.(page.id)}
-                        className="p-1.5 rounded-md hover:bg-white/10 text-muted-foreground"
+                        className="p-1.5 rounded-md hover:bg-accent text-muted-foreground"
                         title="恢复"
                       >
                         <RotateCcw className="w-4 h-4" />
@@ -580,7 +540,7 @@ function TrashPopover({
           </div>
 
           {/* 底部提示 */}
-          <div className="px-4 py-3 border-t border-border/30 flex items-center justify-between bg-[#1a1a1a]/60">
+          <div className="px-4 py-3 border-t border-border/30 flex items-center justify-between bg-background/60">
             <span className="text-xs text-muted-foreground">
               页面在垃圾箱中保留 30 天后将被自动删除
             </span>

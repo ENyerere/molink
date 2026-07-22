@@ -1,43 +1,7 @@
 import { useMemo, useState } from 'react';
-import { FileText, RefreshCw, X, LayoutGrid, List } from 'lucide-react';
+import { FileText, LayoutGrid, List } from 'lucide-react';
 import type { PageData } from '../App';
 import { getFileUrl } from '../api/client';
-
-// ========== 静态推荐数据 ==========
-const RECOMMENDED = [
-  {
-    id: 'r1',
-    title: 'University course syllabus',
-    author: 'Professor Figma',
-    likes: '1.2k',
-    views: '51.9k',
-    gradient: 'from-zinc-600 to-zinc-500',
-  },
-  {
-    id: 'r2',
-    title: 'Tree Map Diagram',
-    author: 'Figma for Education',
-    likes: '302',
-    views: '23.8k',
-    gradient: 'from-emerald-600 to-emerald-500',
-  },
-  {
-    id: 'r3',
-    title: 'Compare and Contrast template',
-    author: 'Figma for Education',
-    likes: '64',
-    views: '2.9k',
-    gradient: 'from-teal-600 to-teal-500',
-  },
-  {
-    id: 'r4',
-    title: 'Figma for Edu : Auto Layout in UI3',
-    author: 'Figma for Education',
-    likes: '478',
-    views: '19.2k',
-    gradient: 'from-amber-500 to-orange-500',
-  },
-];
 
 // ========== 工具函数 ==========
 function formatRelativeTime(dateStr?: string): string {
@@ -86,7 +50,6 @@ interface HomeViewProps {
 }
 
 export default function HomeView({ pages, onNavigate }: HomeViewProps) {
-  const [showRecommended, setShowRecommended] = useState(true);
   const [activeTab, setActiveTab] = useState<'recent' | 'shared' | 'project'>('recent');
 
   const recentPages = useMemo(() => {
@@ -97,54 +60,9 @@ export default function HomeView({ pages, onNavigate }: HomeViewProps) {
   }, [pages]);
 
   return (
-    <div className="h-full overflow-auto bg-[#0a0a0a]">
+    <div className="h-full overflow-auto bg-background">
       <div className="max-w-[1400px] mx-auto px-8 py-6">
-        {/* ========== 上方：推荐资源 ========== */}
-        {showRecommended && (
-          <section className="mb-8">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-[15px] font-medium text-white/90">
-                Recommended resources from Community
-              </h2>
-              <div className="flex items-center gap-0.5">
-                <button className="p-1.5 text-white/30 hover:text-white/60 rounded transition-colors">
-                  <RefreshCw className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => setShowRecommended(false)}
-                  className="p-1.5 text-white/30 hover:text-white/60 rounded transition-colors"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-              {RECOMMENDED.map((item) => (
-                <button key={item.id} className="group text-left">
-                  <div
-                    className={`w-full aspect-[16/10] rounded-lg bg-gradient-to-br ${item.gradient} flex items-center justify-center mb-2.5 transition-all duration-200 group-hover:brightness-110`}
-                  >
-                    <span className="text-white/20 text-sm font-medium">preview</span>
-                  </div>
-                  <h3 className="text-sm font-medium text-white/90 mb-0.5 truncate">
-                    {item.title}
-                  </h3>
-                  <p className="text-xs text-white/35 truncate">
-                    by {item.author} · ♡ {item.likes} 👤 {item.views}
-                  </p>
-                </button>
-              ))}
-              <button className="flex items-center justify-center aspect-[16/10] rounded-lg border border-white/10 hover:border-white/20 transition-colors">
-                <span className="text-sm text-blue-400 hover:text-blue-300 transition-colors">
-                  See more resources
-                </span>
-              </button>
-            </div>
-          </section>
-        )}
-
-        {/* ========== 下方：最近浏览 ========== */}
+        {/* ========== 最近浏览 ========== */}
         <section>
           {/* Tab 栏 */}
           <div className="flex items-center justify-between mb-5">
@@ -153,8 +71,8 @@ export default function HomeView({ pages, onNavigate }: HomeViewProps) {
                 onClick={() => setActiveTab('recent')}
                 className={`text-sm font-medium pb-1 transition-colors ${
                   activeTab === 'recent'
-                    ? 'text-white/90 border-b-2 border-white/90'
-                    : 'text-white/40 hover:text-white/60'
+                    ? 'text-foreground border-b-2 border-foreground'
+                    : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
                 最近浏览过
@@ -163,8 +81,8 @@ export default function HomeView({ pages, onNavigate }: HomeViewProps) {
                 onClick={() => setActiveTab('shared')}
                 className={`text-sm font-medium pb-1 transition-colors ${
                   activeTab === 'shared'
-                    ? 'text-white/90 border-b-2 border-white/90'
-                    : 'text-white/40 hover:text-white/60'
+                    ? 'text-foreground border-b-2 border-foreground'
+                    : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
                 共享的文件
@@ -173,8 +91,8 @@ export default function HomeView({ pages, onNavigate }: HomeViewProps) {
                 onClick={() => setActiveTab('project')}
                 className={`text-sm font-medium pb-1 transition-colors ${
                   activeTab === 'project'
-                    ? 'text-white/90 border-b-2 border-white/90'
-                    : 'text-white/40 hover:text-white/60'
+                    ? 'text-foreground border-b-2 border-foreground'
+                    : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
                 共享的项目
@@ -182,20 +100,20 @@ export default function HomeView({ pages, onNavigate }: HomeViewProps) {
             </div>
 
             <div className="flex items-center gap-3">
-              <span className="text-xs text-white/30 hover:text-white/50 cursor-pointer transition-colors">
+              <span className="text-xs text-muted-foreground hover:text-foreground cursor-pointer transition-colors">
                 全部组织 ▾
               </span>
-              <span className="text-xs text-white/30 hover:text-white/50 cursor-pointer transition-colors">
+              <span className="text-xs text-muted-foreground hover:text-foreground cursor-pointer transition-colors">
                 全部文件 ▾
               </span>
-              <span className="text-xs text-white/30 hover:text-white/50 cursor-pointer transition-colors">
+              <span className="text-xs text-muted-foreground hover:text-foreground cursor-pointer transition-colors">
                 最近浏览 ▾
               </span>
               <div className="flex items-center gap-0.5 ml-1">
-                <button className="p-1 text-white/30 hover:text-white/60 transition-colors">
+                <button className="p-1 text-muted-foreground hover:text-foreground transition-colors">
                   <LayoutGrid className="w-4 h-4" />
                 </button>
-                <button className="p-1 text-white/30 hover:text-white/60 transition-colors">
+                <button className="p-1 text-muted-foreground hover:text-foreground transition-colors">
                   <List className="w-4 h-4" />
                 </button>
               </div>
@@ -212,7 +130,7 @@ export default function HomeView({ pages, onNavigate }: HomeViewProps) {
                   className="group text-left"
                 >
                   {/* 缩略图 */}
-                  <div className="w-full aspect-[4/3] rounded-lg overflow-hidden mb-2.5 bg-[#1e1e1e] transition-transform duration-200 group-hover:scale-[1.01]">
+                  <div className="w-full aspect-[4/3] rounded-lg overflow-hidden mb-2.5 bg-muted transition-transform duration-200 group-hover:scale-[1.01]">
                     {page.cover ? (
                       <img
                         src={getFileUrl(page.cover)}
@@ -225,7 +143,7 @@ export default function HomeView({ pages, onNavigate }: HomeViewProps) {
                           page.id
                         )} flex items-center justify-center`}
                       >
-                        <FileText className="w-10 h-10 text-white/15" />
+                        <FileText className="w-10 h-10 text-muted-foreground/40" />
                       </div>
                     )}
                   </div>
@@ -235,10 +153,10 @@ export default function HomeView({ pages, onNavigate }: HomeViewProps) {
                       <FileText className="w-3 h-3 text-purple-400" />
                     </div>
                     <div className="min-w-0">
-                      <h3 className="text-sm font-medium text-white/90 truncate">
+                      <h3 className="text-sm font-medium text-foreground truncate">
                         {page.title || '无标题'}
                       </h3>
-                      <p className="text-xs text-white/35 mt-0.5">
+                      <p className="text-xs text-muted-foreground mt-0.5">
                         编辑于 {formatRelativeTime(page.updatedAt)}
                       </p>
                     </div>
@@ -248,17 +166,17 @@ export default function HomeView({ pages, onNavigate }: HomeViewProps) {
             </div>
           ) : activeTab === 'recent' ? (
             <div className="text-center py-20">
-              <div className="w-16 h-16 rounded-2xl bg-white/5 flex items-center justify-center mx-auto mb-4">
-                <FileText className="w-8 h-8 text-white/20" />
+              <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center mx-auto mb-4">
+                <FileText className="w-8 h-8 text-muted-foreground/50" />
               </div>
-              <h3 className="text-lg font-medium text-white/90 mb-1">还没有页面</h3>
-              <p className="text-sm text-white/35">
+              <h3 className="text-lg font-medium text-foreground mb-1">还没有页面</h3>
+              <p className="text-sm text-muted-foreground">
                 点击侧边栏的 + 按钮创建你的第一个页面
               </p>
             </div>
           ) : (
             <div className="text-center py-20">
-              <p className="text-sm text-white/35">暂无内容</p>
+              <p className="text-sm text-muted-foreground">暂无内容</p>
             </div>
           )}
         </section>
