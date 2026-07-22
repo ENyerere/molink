@@ -35,7 +35,7 @@ molink/                            # 仓库根（仅 README.md 与本文件）
 - React 19 + TypeScript（strict 模式）+ Vite 7，包管理器使用 **yarn**（存在 `yarn.lock`）
 - 编辑器核心：**Slate**（`slate` / `slate-react` / `slate-dom`），主编辑器为 `src/Editor.tsx`
 - 样式：Tailwind CSS v3 + PostCSS + shadcn 风格组件约定（`components.json`，new-york / neutral / lucide 图标）
-- 其他依赖：axios（API 层）、motion（动画）、lucide-react、cobe（地球组件）。BlockNote/TipTap/Mantine/firebase/next-themes/react-icons 等死依赖已移除，不要顺手装回
+- 其他依赖：axios（API 层）、motion（动画）、lucide-react。BlockNote/TipTap/Mantine/firebase/next-themes/react-icons/cobe 等死依赖已移除，不要顺手装回
 - 注意：`package.json` 声明 `"type": "module"`，但 `tailwind.config.js` 使用 CommonJS `module.exports`，这是现状，不要"修复"它
 
 ### 后端（`molink-app/molink-backend/molink/backend/`）
@@ -108,8 +108,8 @@ uvicorn app.main:app --reload --port 8000
 - `main.py` — FastAPI 入口：lifespan 中建表与自动迁移、CORS/Session 中间件、路由注册、静态目录 `/uploads`
 - `api/v1/` — REST 路由：`auth`、`oauth`、`users`、`workspaces`、`pages`、`blocks`、`databases`、`files`、`admin`；统一前缀 `/api/v1`
 - `api/websocket.py` — WebSocket 路由（前缀 `/ws`）
-- `core/` — `config.py`（pydantic-settings，读环境变量 / `.env`）、`database.py`、`redis.py`、`security.py`、`migration.py`
-- `models/` — SQLAlchemy 模型（user、workspace、page、block、database、file、collaboration）
+- `core/` — `config.py`（pydantic-settings，读环境变量 / `.env`）、`database.py`、`redis.py`、`security.py`、`migration.py`、`utils.py`（`utc_now()` 等通用辅助，DB 时间戳一律用 naive UTC）
+- `models/` — SQLAlchemy 模型（user、workspace、page、block、database、file）
 - `schemas/` — Pydantic 校验模型
 - `services/` 与 `utils/` — **预留空目录**
 
@@ -134,7 +134,7 @@ uvicorn app.main:app --reload --port 8000
 ## 部署
 
 - **前端**：`molink-app/Dockerfile` 多阶段构建（node:20-alpine 构建 → nginx:alpine 托管），构建参数 `VITE_API_BASE_URL`；Nginx 配置见 `nginx-sealos.conf`（SPA 路由回退 + 静态资源缓存 + `/api`、`/uploads`、`/ws` 反代到后端，后端服务名按 Sealos 实际调整）
-- **后端**：`docker-compose.yml` 编排 MySQL 8 + Redis 7 + FastAPI（端口 8000），数据卷：`mysql_data`、`redis_data`、`uploads_data`；`requirements.txt` 已全部钉死 `==` 版本，改依赖后必须 `docker compose build backend`
+- **后端**：`docker-compose.yml` 编排 MySQL 8 + Redis 7 + FastAPI（端口 8000），数据卷：`mysql_data`、`redis_data`、`uploads_data`；`requirements.txt` 已全部钉死 `==` 版本，改依赖后必须 `docker compose build backend`。后端镜像以非 root 用户 `app` 运行、单 worker（WebSocket 连接管理器是内存态，扩 worker 前需先接 Redis pub/sub）；旧版 root 容器创建的存量 `uploads_data` 卷需手动 `docker exec --user root molink-backend chown -R app:app /app/uploads` 一次
 - 生产部署目标是 **Sealos 云平台**，完整流程见 `docs/sealos-deploy-guide.md`；运维与故障排查见 `docs/backend-启动指南.md`、`docs/backend-更新流程.md`
 - `import-db.py`（Sealos 初始化数据库用）的连接信息一律从环境变量读取：`DB_HOST`、`DB_PASSWORD` 必填，`DB_PORT`（默认 3306）、`DB_USER`（默认 root）可选，切勿把密码写进代码
 - 前后端构建目录均有 `.dockerignore`（排除 `node_modules`/`dist`/`venv`/`.env*` 等）；`molink-app/.env*` 不入库（`.gitignore` 覆盖，`.env.example` 例外）
