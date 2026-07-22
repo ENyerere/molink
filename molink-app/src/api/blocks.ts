@@ -11,7 +11,7 @@ export interface BackendBlock {
   page_id: string;
   parent_block_id?: string;
   block_type: BlockType;
-  content: Record<string, any>;
+  content: Record<string, unknown>;
   position: number;
   created_at: string;
   updated_at: string;
@@ -21,13 +21,13 @@ export interface CreateBlockData {
   page_id: string;
   parent_block_id?: string;
   block_type?: BlockType;
-  content?: Record<string, any>;
+  content?: Record<string, unknown>;
   position?: number;
 }
 
 export interface UpdateBlockData {
   block_type?: BlockType;
-  content?: Record<string, any>;
+  content?: Record<string, unknown>;
   position?: number;
 }
 

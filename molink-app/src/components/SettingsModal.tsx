@@ -1,8 +1,7 @@
 import { useRef, useEffect, useState } from 'react';
 import {
-  X, User, SlidersHorizontal, Bell, LogOut, Sun, Moon, Monitor,
-  Globe, Keyboard, Eye, Clock, Cookie, Trash2, Laptop, Mail,
-  MessageCircle, AtSign, Zap, ChevronDown,
+  X, User, SlidersHorizontal, Bell, Sun, Moon, Monitor,
+  ChevronDown,
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';

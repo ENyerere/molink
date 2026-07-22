@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from 'react';
 import AnimatedPresence from './AnimatedPresence';
 import {
-  Search, Shuffle, X, Image as ImageIcon,
+  Search, Shuffle, Image as ImageIcon,
   ArrowRight, ArrowLeft, ArrowUp, ArrowDown, ArrowUpRight, ArrowDownRight,
   ChevronRight, ChevronLeft, ChevronUp, ChevronDown,
   RefreshCw, Repeat, Move,
@@ -13,7 +13,7 @@ import {
   Sun, Moon, Cloud, CloudRain, Zap, Flame, TreePine,
   Lightbulb, Key, Lock, Settings, Mail, Send, Bell, MessageSquare, Coffee, Gift,
   Check, AlertTriangle, Info, Calendar, Clock, Eye,
-  Clock as ClockIcon, Leaf, Utensils, Plane, Lightbulb as BulbIcon,
+  Clock as ClockIcon, Leaf, Lightbulb as BulbIcon,
   Hand, Carrot, Trophy, Map as MapIcon, Hash as HashIcon,
 } from 'lucide-react';
 
@@ -21,11 +21,6 @@ import {
 const COLORS = [
   '#ef4444','#f97316','#eab308','#22c55e','#3b82f6','#8b5cf6',
   '#ec4899','#6b7280','#1f2937','#78350f','#991b1b','#1e3a8a',
-];
-const SKIN_TONES = [
-  { label: '默认', color: '#fbbf24' }, { label: '较浅', color: '#f5d0b0' },
-  { label: '中等偏浅', color: '#e2b388' }, { label: '中等', color: '#c68642' },
-  { label: '中等偏深', color: '#8d5524' }, { label: '较深', color: '#3c2e28' },
 ];
 
 /* ==================== ICON DATA ==================== */
@@ -287,16 +282,13 @@ function saveRecent(type: 'icon' | 'emoji', value: string) {
     const existing = JSON.parse(localStorage.getItem(key) || '[]') as string[];
     const filtered = existing.filter(v => v !== value);
     localStorage.setItem(key, JSON.stringify([value, ...filtered].slice(0, 10)));
-  } catch {}
+  } catch {
+    // localStorage 不可用（隐私模式等）时静默忽略
+  }
 }
 function getRecent(type: 'icon' | 'emoji'): string[] {
   const key = type === 'icon' ? 'molink:recent-icons' : 'molink:recent-emojis';
   try { return (JSON.parse(localStorage.getItem(key) || '[]') as string[]).slice(0, 10); } catch { return []; }
-}
-function applySkinTone(emoji: string, toneIndex: number): string {
-  if (toneIndex <= 0) return emoji;
-  const modifiers = ['\u{1F3FB}','\u{1F3FC}','\u{1F3FD}','\u{1F3FE}','\u{1F3FF}'];
-  return emoji + modifiers[toneIndex - 1];
 }
 
 /* ==================== COMPONENT ==================== */

@@ -1,4 +1,4 @@
-import { X, Briefcase, Users, FileText, Database as DatabaseIcon, Shield } from 'lucide-react';
+import { X, Briefcase, Users, FileText, Shield } from 'lucide-react';
 import AnimatedPresence from './AnimatedPresence';
 import type { Workspace } from '../api';
 

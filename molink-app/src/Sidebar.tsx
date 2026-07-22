@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef } from 'react';
 import type { PageData, User } from './App';
 import {
-  Search, Home, Briefcase, Inbox, Database,
+  Search, Home, Briefcase, Inbox,
   ChevronDown, ChevronRight, Plus, Star, FileText, Trash2, MoreHorizontal,
   RotateCcw, X, User as UserIcon, Users
 } from 'lucide-react';

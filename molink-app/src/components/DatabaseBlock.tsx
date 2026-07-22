@@ -1,9 +1,9 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useMemo } from 'react';
 import {
-  Plus, Trash2, GripVertical, MoreHorizontal, Check, X,
+  Plus, Trash2,
   Type, Hash, ListChecks, Calendar, CheckSquare, ChevronDown
 } from 'lucide-react';
-import type { DatabaseColumn, DatabaseRow } from '../BlockElement';
+import type { DatabaseCellValue, DatabaseColumn, DatabaseRow } from '../BlockElement';
 
 interface DatabaseBlockProps {
   columns: DatabaseColumn[];
@@ -40,13 +40,14 @@ export default function DatabaseBlock({ columns, rows, onChange, readOnly }: Dat
   const [colNameValue, setColNameValue] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const safeCols = columns?.length ? columns : [
+  // 用 useMemo 保持引用稳定，避免下方各 useCallback 每次渲染都失效
+  const safeCols = useMemo(() => columns?.length ? columns : [
     { id: 'col_1', name: '名称', type: 'text' as const },
     { id: 'col_2', name: '状态', type: 'select' as const, options: ['待办', '进行中', '已完成'] },
-  ];
-  const safeRows = rows?.length ? rows : [];
+  ], [columns]);
+  const safeRows = useMemo(() => rows?.length ? rows : [], [rows]);
 
-  const updateCell = useCallback((rowId: string, colId: string, value: any) => {
+  const updateCell = useCallback((rowId: string, colId: string, value: DatabaseCellValue) => {
     const newRows = safeRows.map(r => r.id === rowId ? { ...r, [colId]: value } : r);
     onChange(safeCols, newRows);
   }, [safeCols, safeRows, onChange]);
@@ -77,7 +78,8 @@ export default function DatabaseBlock({ columns, rows, onChange, readOnly }: Dat
   const deleteColumn = useCallback((colId: string) => {
     const newCols = safeCols.filter(c => c.id !== colId);
     const newRows = safeRows.map(r => {
-      const { [colId]: _, ...rest } = r;
+      const rest = { ...r };
+      delete rest[colId];
       return rest;
     });
     onChange(newCols, newRows);
@@ -101,7 +103,7 @@ export default function DatabaseBlock({ columns, rows, onChange, readOnly }: Dat
     onChange(newCols, newRows);
   }, [safeCols, safeRows, onChange]);
 
-  const startEditCell = (rowId: string, colId: string, value: any) => {
+  const startEditCell = (rowId: string, colId: string, value: DatabaseCellValue | undefined) => {
     setEditingCell({ rowId, colId });
     setEditValue(value?.toString() || '');
     setTimeout(() => inputRef.current?.focus(), 10);
@@ -111,7 +113,7 @@ export default function DatabaseBlock({ columns, rows, onChange, readOnly }: Dat
     if (!editingCell) return;
     const col = safeCols.find(c => c.id === editingCell.colId);
     if (!col) return;
-    let value: any = editValue;
+    let value: DatabaseCellValue = editValue;
     if (col.type === 'number') value = parseFloat(editValue) || 0;
     updateCell(editingCell.rowId, editingCell.colId, value);
     setEditingCell(null);
@@ -138,7 +140,7 @@ export default function DatabaseBlock({ columns, rows, onChange, readOnly }: Dat
       if (col.type === 'select') {
         return (
           <select
-            value={value || ''}
+            value={(value || '') as string}
             onChange={(e) => {
               updateCell(row.id, col.id, e.target.value);
               setEditingCell(null);
@@ -160,6 +162,8 @@ export default function DatabaseBlock({ columns, rows, onChange, readOnly }: Dat
           onChange={(e) => setEditValue(e.target.value)}
           onBlur={commitEdit}
           onKeyDown={(e) => {
+            // 中文输入法组词期间不拦截按键（候选词选择、上屏）
+            if (e.nativeEvent.isComposing) return;
             if (e.key === 'Enter') commitEdit();
             if (e.key === 'Escape') setEditingCell(null);
           }}
@@ -211,6 +215,8 @@ export default function DatabaseBlock({ columns, rows, onChange, readOnly }: Dat
                         setEditingColName(null);
                       }}
                       onKeyDown={(e) => {
+                        // 中文输入法组词期间不拦截按键（候选词选择、上屏）
+                        if (e.nativeEvent.isComposing) return;
                         if (e.key === 'Enter') {
                           if (colNameValue.trim()) renameColumn(col.id, colNameValue.trim());
                           setEditingColName(null);

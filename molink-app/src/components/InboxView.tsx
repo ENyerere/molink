@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Inbox, FileText, Trash2, Plus, PenLine, Lock, ArrowRight } from 'lucide-react';
+import { Inbox, FileText, Lock, ArrowRight } from 'lucide-react';
 import { PageIcon } from './IconPicker';
 import type { Activity } from '../App';
 
@@ -36,19 +36,6 @@ function getActivityLabel(type: Activity['type']) {
     case 'create': return '创建了';
     case 'icon-change': return '编辑了';
     default: return '';
-  }
-}
-
-function getActivityIcon(type: Activity['type']) {
-  switch (type) {
-    case 'edit':
-    case 'block-add':
-    case 'block-delete':
-      return <PenLine className="w-3.5 h-3.5" />;
-    case 'delete': return <Trash2 className="w-3.5 h-3.5" />;
-    case 'create': return <Plus className="w-3.5 h-3.5" />;
-    case 'icon-change': return <PenLine className="w-3.5 h-3.5" />;
-    default: return null;
   }
 }
 

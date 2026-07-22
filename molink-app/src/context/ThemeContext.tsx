@@ -48,7 +48,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   // 监听系统主题变化（仅在 system 模式下生效）
   useEffect(() => {
     const media = window.matchMedia('(prefers-color-scheme: dark)');
-    const handler = (e: MediaQueryListEvent) => {
+    const handler = () => {
       if (theme === 'system') {
         setResolvedTheme(applyTheme('system'));
       }

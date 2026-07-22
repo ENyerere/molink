@@ -6,9 +6,8 @@ import {
   motion,
   type DOMMotionComponents,
   type MotionProps,
+  type Variants,
 } from "motion/react"
-
-type Variants = Record<string, any>
 
 import { cn } from "../../lib/utils"
 

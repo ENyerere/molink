@@ -7,9 +7,8 @@ import {
   useInView,
   type MotionProps,
   type UseInViewOptions,
+  type Variants,
 } from "motion/react"
-
-type Variants = Record<string, any>
 
 type MarginType = UseInViewOptions["margin"]
 
