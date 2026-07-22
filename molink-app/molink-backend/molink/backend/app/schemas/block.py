@@ -2,20 +2,23 @@
 块相关Schema
 """
 from pydantic import BaseModel
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Literal
 from datetime import datetime
+
+# 取值与 init-db.sql 中 blocks.block_type 的 ENUM 定义保持一致
+BlockTypeLiteral = Literal["text", "h1", "h2", "h3", "h4", "h5", "h6", "ul", "ol", "image", "code", "quote", "table"]
 
 
 class BlockCreate(BaseModel):
     page_id: str
     parent_block_id: Optional[str] = None
-    block_type: str = "text"
+    block_type: BlockTypeLiteral = "text"
     content: Optional[Dict[str, Any]] = None
     position: Optional[int] = None
 
 
 class BlockUpdate(BaseModel):
-    block_type: Optional[str] = None
+    block_type: Optional[BlockTypeLiteral] = None
     content: Optional[Dict[str, Any]] = None
     position: Optional[int] = None
 

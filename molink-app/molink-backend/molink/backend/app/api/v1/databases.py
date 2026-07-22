@@ -9,6 +9,7 @@ import json
 from app.core.database import get_db
 from app.models.user import User
 from app.models.workspace import Workspace
+from app.models.page import Page
 from app.models.database import Database, DatabaseField, DatabaseRecord
 from app.schemas.database import (
     DatabaseCreate, DatabaseUpdate, DatabaseResponse,
@@ -45,8 +46,12 @@ async def list_databases(
     """获取数据库列表"""
     check_workspace_access(workspace_id, current_user.id, db)
     
-    databases = db.query(Database).filter(
-        Database.workspace_id == workspace_id
+    # 挂载在页面上的数据库，所属页面已在回收站时不返回（LEFT JOIN pages）
+    databases = db.query(Database).outerjoin(
+        Page, Database.page_id == Page.id
+    ).filter(
+        Database.workspace_id == workspace_id,
+        (Database.page_id == None) | (Page.deleted_at == None)
     ).order_by(Database.created_at.desc()).all()
     
     return [DatabaseResponse.model_validate(d) for d in databases]
@@ -61,8 +66,23 @@ async def create_database(
     """创建数据库"""
     check_workspace_access(db_data.workspace_id, current_user.id, db)
     
+    # 挂载到页面时，校验页面属于当前工作空间且未被删除
+    if db_data.page_id is not None:
+        page = db.query(Page).filter(Page.id == db_data.page_id).first()
+        if not page or page.workspace_id != db_data.workspace_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="页面不存在或不属于当前工作空间"
+            )
+        if page.deleted_at is not None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="页面已在回收站中，不能挂载数据库"
+            )
+    
     database = Database(
         workspace_id=db_data.workspace_id,
+        page_id=db_data.page_id,
         name=db_data.name,
         description=db_data.description,
         icon=db_data.icon,
@@ -76,13 +96,8 @@ async def create_database(
     return DatabaseResponse.model_validate(database)
 
 
-@router.get("/{database_id}", response_model=DatabaseResponse)
-async def get_database(
-    database_id: str,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """获取数据库详情"""
+def get_visible_database(database_id: str, db: Session) -> Database:
+    """获取数据库；若其挂载的页面已在回收站中，与列表行为一致视为不存在"""
     database = db.query(Database).filter(Database.id == database_id).first()
     
     if not database:
@@ -90,6 +105,26 @@ async def get_database(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="数据库不存在"
         )
+    
+    if database.page_id is not None:
+        page = db.query(Page).filter(Page.id == database.page_id).first()
+        if page is not None and page.deleted_at is not None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="数据库不存在"
+            )
+    
+    return database
+
+
+@router.get("/{database_id}", response_model=DatabaseResponse)
+async def get_database(
+    database_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """获取数据库详情"""
+    database = get_visible_database(database_id, db)
     
     check_workspace_access(database.workspace_id, current_user.id, db)
     
@@ -104,13 +139,7 @@ async def update_database(
     db: Session = Depends(get_db)
 ):
     """更新数据库"""
-    database = db.query(Database).filter(Database.id == database_id).first()
-    
-    if not database:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="数据库不存在"
-        )
+    database = get_visible_database(database_id, db)
     
     check_workspace_access(database.workspace_id, current_user.id, db)
     
@@ -131,13 +160,7 @@ async def delete_database(
     db: Session = Depends(get_db)
 ):
     """删除数据库"""
-    database = db.query(Database).filter(Database.id == database_id).first()
-    
-    if not database:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="数据库不存在"
-        )
+    database = get_visible_database(database_id, db)
     
     check_workspace_access(database.workspace_id, current_user.id, db)
     

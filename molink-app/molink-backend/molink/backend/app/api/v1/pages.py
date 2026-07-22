@@ -203,7 +203,7 @@ async def delete_page(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """软删除页面（移入回收站）"""
+    """软删除页面（移入回收站），同一事务内级联软删除整棵子树"""
     page = db.query(Page).filter(Page.id == page_id).first()
     
     if not page:
@@ -214,7 +214,22 @@ async def delete_page(
     
     check_workspace_access(page.workspace_id, current_user.id, db)
     
-    page.deleted_at = datetime.utcnow()
+    # 同批删除的页面共享同一个 deleted_at 时间戳，作为"删除批次"标识，
+    # 恢复时据此区分"随本页同批删除"与"更早单独删除"的后代
+    deleted_at = datetime.utcnow()
+    page.deleted_at = deleted_at
+    
+    def mark_descendants(parent_id: str):
+        # 只处理未删除的后代，已被单独删除的子树保持原状
+        children = db.query(Page).filter(
+            Page.parent_id == parent_id,
+            Page.deleted_at == None
+        ).all()
+        for child in children:
+            child.deleted_at = deleted_at
+            mark_descendants(child.id)
+    
+    mark_descendants(page.id)
     db.commit()
     
     return {"success": True, "message": "页面已移入回收站"}
@@ -226,7 +241,7 @@ async def restore_page(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """从回收站恢复页面（同时恢复所有后代页面）"""
+    """从回收站恢复页面（仅恢复与本页同批删除的后代页面）"""
     page = db.query(Page).filter(Page.id == page_id).first()
     
     if not page:
@@ -237,19 +252,23 @@ async def restore_page(
     
     check_workspace_access(page.workspace_id, current_user.id, db)
     
+    # 删除时同批页面共享同一时间戳：只恢复 deleted_at 与本页完全相同的后代，
+    # 早于本页单独删除的后代保持删除态；整个恢复一次提交
+    batch_deleted_at = page.deleted_at
     page.deleted_at = None
+    
+    if batch_deleted_at is not None:
+        def restore_descendants(parent_id: str):
+            children = db.query(Page).filter(Page.parent_id == parent_id).all()
+            for child in children:
+                if child.deleted_at is not None and child.deleted_at == batch_deleted_at:
+                    child.deleted_at = None
+                    restore_descendants(child.id)
+        
+        restore_descendants(page.id)
+    
     db.commit()
     db.refresh(page)
-    
-    def restore_descendants(parent_id: str):
-        children = db.query(Page).filter(Page.parent_id == parent_id).all()
-        for child in children:
-            if child.deleted_at is not None:
-                child.deleted_at = None
-                db.commit()
-            restore_descendants(child.id)
-    
-    restore_descendants(page.id)
     
     return PageResponse.model_validate(page)
 

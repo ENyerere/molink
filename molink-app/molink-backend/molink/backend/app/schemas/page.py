@@ -2,7 +2,7 @@
 页面相关Schema
 """
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import Optional, List, Literal
 from datetime import datetime
 
 
@@ -10,7 +10,8 @@ class PageCreate(BaseModel):
     workspace_id: str
     parent_id: Optional[str] = None
     title: str = "无标题"
-    page_type: str = "page"
+    # 取值与 init-db.sql 中 pages.page_type 的 ENUM 定义保持一致
+    page_type: Literal["page", "database"] = "page"
     icon: Optional[str] = None
 
 
