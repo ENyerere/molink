@@ -35,7 +35,8 @@ molink/                            # 仓库根（仅 README.md 与本文件）
 - React 19 + TypeScript（strict 模式）+ Vite 7，包管理器使用 **yarn**（存在 `yarn.lock`）
 - 编辑器核心：**Slate**（`slate` / `slate-react` / `slate-dom`），主编辑器为 `src/Editor.tsx`
 - 样式：Tailwind CSS v3 + PostCSS + shadcn 风格组件约定（`components.json`，new-york / neutral / lucide 图标）
-- 其他依赖：axios（API 层）、motion（动画）、lucide-react。BlockNote/TipTap/Mantine/firebase/next-themes/react-icons/cobe 等死依赖已移除，不要顺手装回
+- 其他依赖：axios（API 层）、motion（动画）、lucide-react、@fontsource-variable/inter（全站字体，`index.css` 引入并挂到 body）。BlockNote/TipTap/Mantine/firebase/next-themes/react-icons/cobe 等死依赖已移除，不要顺手装回
+- 设计体系：现代科技风 monochrome（亮白/暗黑双主题，蓝色仅作功能性 accent），设计文档见 `docs/前端重设计方案.md`（本地文档，未入库）
 - 注意：`package.json` 声明 `"type": "module"`，但 `tailwind.config.js` 使用 CommonJS `module.exports`，这是现状，不要"修复"它
 
 ### 后端（`molink-app/molink-backend/molink/backend/`）
@@ -97,7 +98,7 @@ uvicorn app.main:app --reload --port 8000
 - `Editor.tsx` + `BlockElement.tsx` + `Leaf.tsx` + `withMarkdownShortcuts.ts` — Slate 编辑器核心
 - `Sidebar.tsx` — 页面树侧边栏
 - `api/` — axios API 层（`client.ts` 为 axios 实例与拦截器；`auth/blocks/files/pages/workspaces.ts` 为资源模块）
-- `components/` — UI 组件（`auth/` 登录、`ui/` 与 `magicui/` 动效组件、其余为功能组件）
+- `components/` — UI 组件（`Topbar.tsx` 顶栏（面包屑/保存状态/宽版切换）、`auth/` 登录、`magicui/` 动效组件、其余为功能组件）
 - `context/` — `AuthContext`（JWT 存 localStorage 的 `access_token`）、`ThemeContext`
 - `pages/` — `LandingPage.tsx`
 - `lib/` — `utils.ts`（cn 等工具）、`firebase.ts`（**占位配置，当前未真正使用**）
