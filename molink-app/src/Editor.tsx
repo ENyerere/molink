@@ -28,7 +28,8 @@ import { Smile, Image, MessageSquare, MoveVertical, RotateCcw, Trash2 } from 'lu
 import IconPicker, { PageIcon } from './components/IconPicker';
 import SlashCommandMenu from './components/SlashCommandMenu';
 
-const COVER_VH = 30;
+// 封面固定高度 200px（§5.2）
+const COVER_PX = 200;
 const TOP_MARGIN_PX = 60;
 const NO_COVER_PX = 120;
 
@@ -151,6 +152,7 @@ export default function Editor({
   onActivatePage,
   restorePage,
   permanentDeletePage,
+  wideMode,
 }: {
   page: PageData;
   childPages: PageData[];
@@ -159,6 +161,7 @@ export default function Editor({
   onActivatePage?: (id: string) => void;
   restorePage?: (id: string) => void;
   permanentDeletePage?: (id: string) => void;
+  wideMode?: boolean;
 }) {
   const editor = useMemo(() => withMarkdownShortcuts(withHistory(withReact(createEditor()))), []);
   const isSyncingRef = useRef(false);
@@ -170,11 +173,11 @@ export default function Editor({
   useEffect(() => { onActivatePageRef.current = onActivatePage; }, [onActivatePage]);
 
   const [coverPx, setCoverPx] = useState<number>(
-    page.cover ? Math.round(window.innerHeight * (COVER_VH / 100)) : NO_COVER_PX
+    page.cover ? COVER_PX : NO_COVER_PX
   );
   const [textTopOffset, setTextTopOffset] = useState<number>(
     page.cover
-      ? Math.round(window.innerHeight * (COVER_VH / 100)) + TOP_MARGIN_PX + 60
+      ? COVER_PX + TOP_MARGIN_PX + 60
       : NO_COVER_PX
   );
 
@@ -266,9 +269,7 @@ export default function Editor({
   }, [page.id, page.coverPosition]);
 
   const recomputeOffsets = useCallback(() => {
-    const px = page.cover
-      ? Math.round(window.innerHeight * (COVER_VH / 100))
-      : NO_COVER_PX;
+    const px = page.cover ? COVER_PX : NO_COVER_PX;
     setCoverPx(px);
     // 有封面时：有图标需要 60px margin，无图标只需要 20px margin
     const extraMargin = page.cover ? (page.icon ? TOP_MARGIN_PX : 20) : 0;
@@ -668,7 +669,7 @@ export default function Editor({
     >
       <div
         ref={selectionRectRef}
-        className="absolute bg-primary/15 pointer-events-none z-50 hidden"
+        className="absolute bg-selection/15 pointer-events-none z-50 hidden"
       />
 
       {/* 已删除页面横幅 */}
@@ -713,6 +714,8 @@ export default function Editor({
             loading="lazy"
             draggable={false}
           />
+          {/* 底部渐变遮罩：灰阶透明度过渡，衔接正文背景（禁彩色光效） */}
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-background/70 to-transparent" />
           {/* 调整位置时的中央提示 */}
           {isRepositioning && (
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
@@ -763,17 +766,17 @@ export default function Editor({
 
       <div className="transition-[height] duration-300" style={{ height: `${textTopOffset}px` }} />
 
-      {/* 文本区 */}
-      <div className="max-w-3xl mx-auto px-[30px] group/header">
+      {/* 文本区：内容列默认 720px 居中，宽版 960px（§3.3） */}
+      <div className={`${wideMode ? 'max-w-[960px]' : 'max-w-[720px]'} mx-auto px-[30px] group/header`}>
         {/* 图标区域：有封面时重叠到封面底部，无封面时在空白区 */}
         {page.icon && (
-          <div className="relative z-10 pb-3" style={{ marginTop: page.cover ? -(TOP_MARGIN_PX + 39) : -39 }}>
+          <div className="relative z-10 pb-3" style={{ marginTop: page.cover ? -(TOP_MARGIN_PX + 32) : -32 }}>
             <button
               ref={iconTriggerRef}
               onClick={() => setShowIconPicker(true)}
               className="block transition-all duration-200 rounded-md hover:bg-accent/30 hover:backdrop-blur-sm"
             >
-              <PageIcon icon={page.icon} size={78} />
+              <PageIcon icon={page.icon} size={64} />
             </button>
           </div>
         )}
@@ -979,6 +982,7 @@ export default function Editor({
             query={slashMenuQuery}
             onSelect={handleSlashSelect}
             onClose={() => setSlashMenuOpen(false)}
+            onQueryChange={setSlashMenuQuery}
             position={slashMenuPos}
           />
         )}

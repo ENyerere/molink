@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import type { PageData, User } from './App';
 import {
   Search, Home, Briefcase, Inbox,
@@ -77,9 +77,9 @@ function SidebarSection({
           {hovered && (
             <span className="w-4 h-4 flex items-center justify-center flex-shrink-0">
               {expanded ? (
-                <ChevronDown className="w-3 h-3 text-muted-foreground" />
+                <ChevronDown className="w-3 h-3 text-muted-foreground" strokeWidth={1.75} />
               ) : (
-                <ChevronRight className="w-3 h-3 text-muted-foreground" />
+                <ChevronRight className="w-3 h-3 text-muted-foreground" strokeWidth={1.75} />
               )}
             </span>
           )}
@@ -137,14 +137,18 @@ function PageTreeItem({
 
   return (
     <div>
-      {/* 页面项 */}
+      {/* 页面项：激活态 bg-accent + 左侧 2px 灰阶指示条 */}
       <div
         className={`group flex items-center gap-2 py-1.5 rounded-md text-sm transition-colors cursor-pointer ${
           isActive
-            ? 'bg-secondary text-foreground font-medium'
+            ? 'bg-accent text-foreground font-medium'
             : 'text-secondary-foreground hover:bg-accent'
         }`}
-        style={{ paddingLeft: `${paddingLeft}px`, paddingRight: '12px' }}
+        style={{
+          paddingLeft: `${paddingLeft}px`,
+          paddingRight: '12px',
+          ...(isActive ? { boxShadow: 'inset 2px 0 0 hsl(var(--foreground))' } : {}),
+        }}
         onClick={handleClick}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
@@ -157,15 +161,15 @@ function PageTreeItem({
               className="w-full h-full flex items-center justify-center rounded-sm hover:bg-accent/50"
             >
               {isExpanded ? (
-                <ChevronDown className="w-3 h-3" />
+                <ChevronDown className="w-3.5 h-3.5" strokeWidth={1.75} />
               ) : (
-                <ChevronRight className="w-3 h-3" />
+                <ChevronRight className="w-3.5 h-3.5" strokeWidth={1.75} />
               )}
             </button>
           ) : node.page.icon ? (
             <PageIcon icon={node.page.icon} size={16} />
           ) : (
-            <FileText className="w-4 h-4 text-muted-foreground" />
+            <FileText className="w-4 h-4 text-muted-foreground" strokeWidth={1.75} />
           )}
         </div>
 
@@ -185,7 +189,7 @@ function PageTreeItem({
               className="p-0.5 rounded hover:bg-accent text-muted-foreground"
               title="添加子页面"
             >
-              <Plus className="w-3 h-3" />
+              <Plus className="w-4 h-4" strokeWidth={1.75} />
             </button>
             <button
               onClick={(e) => {
@@ -195,7 +199,7 @@ function PageTreeItem({
               className="p-0.5 rounded hover:bg-accent text-muted-foreground"
               title="删除页面"
             >
-              <Trash2 className="w-3 h-3" />
+              <Trash2 className="w-4 h-4" strokeWidth={1.75} />
             </button>
           </div>
         )}
@@ -289,7 +293,7 @@ export default function Sidebar({
   }, [tree, recentPages]);
 
   return (
-    <div className="w-60 bg-background text-foreground flex flex-col border-r border-border h-full relative select-none">
+    <div className="w-[260px] bg-surface-1 text-foreground flex flex-col border-r border-border h-full relative select-none">
       {/* 工作区头部 */}
       <div className="px-3 py-2 flex items-center gap-1">
         <button
@@ -320,6 +324,7 @@ export default function Sidebar({
             className={`w-3.5 h-3.5 text-muted-foreground transition-transform flex-shrink-0 ${
               showUserMenu ? 'rotate-180' : ''
             }`}
+            strokeWidth={1.75}
           />
         </button>
 
@@ -329,7 +334,7 @@ export default function Sidebar({
             className="p-1.5 rounded-md hover:bg-accent text-muted-foreground transition-colors"
             title="新建页面"
           >
-            <Plus className="w-4 h-4" />
+            <Plus className="w-5 h-5" strokeWidth={1.75} />
           </button>
         </div>
       </div>
@@ -347,7 +352,7 @@ export default function Sidebar({
 
       {/* 功能导航 */}
       <div className="px-1 py-1">
-        <NavItem icon={Search} label="搜索" onClick={onShowSearch} />
+        <NavItem icon={Search} label="搜索" shortcut="⌘K" onClick={onShowSearch} />
         <NavItem icon={Home} label="主页" isActive={activeView === 'home'} onClick={() => onSetView?.('home')} />
         <NavItem icon={Briefcase} label="工作空间" onClick={onShowWorkspace} />
         <NavItem icon={Inbox} label="收件箱" isActive={activeView === 'inbox'} onClick={() => onSetView?.('inbox')} />
@@ -439,6 +444,9 @@ function TrashPopover({
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
+  // 行内二次确认：处于确认态的页面 id + 3 秒自动还原定时器
+  const [confirmId, setConfirmId] = useState<string | null>(null);
+  const confirmTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const filtered = useMemo(() => {
     if (!query.trim()) return pages;
@@ -446,35 +454,82 @@ function TrashPopover({
     return pages.filter(p => (p.title || '').toLowerCase().includes(q));
   }, [pages, query]);
 
+  const clearConfirmTimer = () => {
+    if (confirmTimer.current) {
+      clearTimeout(confirmTimer.current);
+      confirmTimer.current = null;
+    }
+  };
+
+  // 删除行内二次确认：第一次点击进入确认态，3 秒内再点一次才执行；超时或关闭抽屉自动还原
+  const handleDelete = (id: string) => {
+    if (confirmId === id) {
+      clearConfirmTimer();
+      setConfirmId(null);
+      onPermanentDelete?.(id);
+      return;
+    }
+    clearConfirmTimer();
+    setConfirmId(id);
+    confirmTimer.current = setTimeout(() => setConfirmId(null), 3000);
+  };
+
+  const handleClose = () => {
+    clearConfirmTimer();
+    setConfirmId(null);
+    setOpen(false);
+  };
+
+  // 卸载时清理未完成的确认定时器
+  useEffect(() => () => {
+    if (confirmTimer.current) clearTimeout(confirmTimer.current);
+  }, []);
+
   return (
     <>
       <button
         onClick={() => setOpen(true)}
         className="w-full flex items-center gap-3 px-3 py-1.5 rounded-md text-sm transition-colors text-secondary-foreground hover:bg-accent"
       >
-        <Trash2 className="w-4 h-4 text-muted-foreground" />
+        <Trash2 className="w-4 h-4 text-muted-foreground" strokeWidth={1.75} />
         回收站
         <span className="ml-auto text-xs text-muted-foreground">{pages.length}</span>
       </button>
 
+      {/* 360px 抽屉式弹层：从左侧滑入，搜索 + 列表 + 行内恢复/删除 */}
       <AnimatedPresence
         show={open}
-        duration={150}
-        enterFrom="opacity-0 scale-95"
-        enterTo="opacity-100 scale-100"
-        className="fixed inset-0 z-50 flex items-start justify-center pt-[15vh]"
+        duration={220}
+        enterFrom="opacity-0 -translate-x-6"
+        enterTo="opacity-100 translate-x-0"
+        className="fixed inset-0 z-50"
       >
         {/* 透明遮罩，只拦截点击，不变暗 */}
-        <div className="absolute inset-0" onClick={() => setOpen(false)} />
-        {/* 弹窗 */}
+        <div className="absolute inset-0" onClick={handleClose} />
+        {/* 抽屉 */}
         <div
-          className="relative w-[560px] max-w-[90vw] bg-popover/95 border border-border/50 rounded-xl shadow-2xl flex flex-col overflow-hidden"
+          className="absolute inset-y-0 left-0 w-[360px] max-w-[85vw] bg-popover border-r border-border shadow-2 flex flex-col"
           onClick={(e) => e.stopPropagation()}
         >
-          {/* 头部搜索 */}
-          <div className="px-4 pt-4 pb-3">
-            <div className="flex items-center gap-2 bg-muted border border-border/40 rounded-lg px-3 py-2">
-              <Search className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+          {/* 头部 */}
+          <div className="flex items-center justify-between h-14 px-4 border-b border-border shrink-0">
+            <div className="flex items-baseline gap-2">
+              <span className="text-base font-semibold text-foreground">回收站</span>
+              <span className="text-xs text-muted-foreground">{pages.length} 个页面</span>
+            </div>
+            <button
+              onClick={handleClose}
+              title="关闭"
+              className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+            >
+              <X className="w-4 h-4" strokeWidth={1.75} />
+            </button>
+          </div>
+
+          {/* 搜索 */}
+          <div className="px-4 py-3 shrink-0">
+            <div className="flex items-center gap-2 h-9 px-3 bg-muted rounded-md transition-shadow duration-150 focus-within:ring-2 focus-within:ring-ring/60">
+              <Search className="w-4 h-4 text-muted-foreground flex-shrink-0" strokeWidth={1.75} />
               <input
                 autoFocus
                 type="text"
@@ -484,7 +539,7 @@ function TrashPopover({
                 className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none"
               />
               {query && (
-                <button onClick={() => setQuery('')} className="text-muted-foreground hover:text-foreground">
+                <button onClick={() => setQuery('')} className="text-muted-foreground hover:text-foreground transition-colors duration-150">
                   <X className="w-3.5 h-3.5" />
                 </button>
               )}
@@ -492,7 +547,7 @@ function TrashPopover({
           </div>
 
           {/* 列表 */}
-          <div className="flex-1 overflow-y-auto px-2 py-1 min-h-[120px] max-h-[360px]">
+          <div className="flex-1 overflow-y-auto px-2 pb-2 min-h-0">
             {filtered.length === 0 ? (
               <div className="text-center text-sm text-muted-foreground py-10">
                 没有找到匹配的页面
@@ -500,13 +555,16 @@ function TrashPopover({
             ) : (
               filtered.map((page) => {
                 const parent = page.parentId ? allPages.find(p => p.id === page.parentId) : null;
+                const confirming = confirmId === page.id;
                 return (
                   <div
                     key={page.id}
-                    className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-accent group transition-colors"
+                    className={`flex items-center gap-3 px-3 py-2 rounded-lg group transition-colors duration-150 ${
+                      confirming ? 'bg-destructive-soft' : 'hover:bg-accent'
+                    }`}
                   >
                     <button
-                      onClick={() => { onActivate(page.id); setOpen(false); }}
+                      onClick={() => { onActivate(page.id); handleClose(); }}
                       className="flex-1 flex items-center gap-3 text-left min-w-0"
                     >
                       <PageIcon icon={page.icon} className="w-5 h-5 flex-shrink-0 text-muted-foreground" />
@@ -517,22 +575,35 @@ function TrashPopover({
                         )}
                       </div>
                     </button>
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button
-                        onClick={() => onRestore?.(page.id)}
-                        className="p-1.5 rounded-md hover:bg-accent text-muted-foreground"
-                        title="恢复"
-                      >
-                        <RotateCcw className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => onPermanentDelete?.(page.id)}
-                        className="p-1.5 rounded-md hover:bg-destructive/20 text-destructive"
-                        title="永久删除"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
+                    {confirming ? (
+                      /* 确认态：3 秒内再点"删除"执行永久删除，超时自动还原 */
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <span className="text-xs text-destructive">确认删除？</span>
+                        <button
+                          onClick={() => handleDelete(page.id)}
+                          className="h-7 px-2 rounded-md bg-destructive text-destructive-foreground text-xs font-medium hover:opacity-90 transition-opacity duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                        >
+                          删除
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-150">
+                        <button
+                          onClick={() => onRestore?.(page.id)}
+                          className="p-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                          title="恢复"
+                        >
+                          <RotateCcw className="w-4 h-4" strokeWidth={1.75} />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(page.id)}
+                          className="p-1.5 rounded-md hover:bg-destructive-soft text-muted-foreground hover:text-destructive transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                          title="永久删除"
+                        >
+                          <Trash2 className="w-4 h-4" strokeWidth={1.75} />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 );
               })
@@ -540,16 +611,10 @@ function TrashPopover({
           </div>
 
           {/* 底部提示 */}
-          <div className="px-4 py-3 border-t border-border/30 flex items-center justify-between bg-background/60">
+          <div className="px-4 py-3 border-t border-border shrink-0">
             <span className="text-xs text-muted-foreground">
-              页面在垃圾箱中保留 30 天后将被自动删除
+              回收站中的页面会长期保留，可随时恢复或彻底删除
             </span>
-            <button
-              onClick={() => setOpen(false)}
-              className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-            >
-              关闭
-            </button>
           </div>
         </div>
       </AnimatedPresence>
@@ -557,18 +622,21 @@ function TrashPopover({
   );
 }
 
-function NavItem({ icon: Icon, label, isActive, onClick }: { icon: React.ElementType; label: string; isActive?: boolean; onClick?: () => void }) {
+function NavItem({ icon: Icon, label, isActive, shortcut, onClick }: { icon: React.ElementType; label: string; isActive?: boolean; shortcut?: string; onClick?: () => void }) {
   return (
     <button
       onClick={onClick}
       className={`w-full flex items-center gap-3 px-3 py-1.5 rounded-md text-sm transition-colors ${
         isActive
-          ? 'bg-secondary text-foreground font-medium'
+          ? 'bg-accent text-foreground font-medium'
           : 'text-secondary-foreground hover:bg-accent'
       }`}
     >
-      <Icon className={`w-4 h-4 ${isActive ? 'text-foreground' : 'text-muted-foreground'}`} />
+      <Icon className={`w-4 h-4 ${isActive ? 'text-foreground' : 'text-muted-foreground'}`} strokeWidth={1.75} />
       {label}
+      {shortcut && (
+        <span className="ml-auto text-xs text-muted-foreground">{shortcut}</span>
+      )}
     </button>
   );
 }

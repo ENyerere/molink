@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { X } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import AnimatedPresence from '../AnimatedPresence';
 import { MagicCard } from '../magicui/magic-card';
@@ -62,10 +63,16 @@ export default function Login({ isOpen, onClose, onLogin }: LoginProps) {
     if (e.key === 'Enter') handleSubmit();
   };
 
+  // 输入框统一样式：--radius-sm(6px)、focus ring 走功能性 accent
+  const inputClass =
+    'w-full h-11 px-4 bg-input border border-border rounded-md text-sm text-foreground placeholder:text-muted-foreground transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-ring/60 focus:border-primary';
+  // 全部按钮统一 focus-visible 规范
+  const focusRing = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60';
+
   return (
     <AnimatedPresence
       show={isOpen}
-      duration={200}
+      duration={220}
       enterFrom="opacity-0 backdrop-blur-[0px] bg-black/0"
       enterTo="opacity-100 backdrop-blur-sm bg-black/60"
       className="fixed inset-0 z-[100] flex items-center justify-center p-4"
@@ -75,25 +82,24 @@ export default function Login({ isOpen, onClose, onLogin }: LoginProps) {
 
       {/* MagicCard 不接收 style（组件未实现该 props），淡入缩放由外层 AnimatedPresence 负责 */}
       <MagicCard
-        className="w-full max-w-[400px] rounded-2xl shadow-2xl"
+        className="w-full max-w-[400px] rounded-xl shadow-2"
       >
         <div className="relative z-40 p-8">
           {/* 关闭按钮 */}
           <button
             onClick={onClose}
-            className="absolute top-6 right-6 p-1 text-muted-foreground hover:text-foreground transition-colors rounded-lg hover:bg-accent"
+            title="关闭"
+            className={`absolute top-6 right-6 p-1.5 text-muted-foreground hover:text-foreground transition-colors duration-150 rounded-md hover:bg-accent ${focusRing}`}
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
+            <X className="w-5 h-5" strokeWidth={1.75} />
           </button>
 
           {/* 标题 */}
           <div className="mb-8">
-            <h2 className="text-2xl font-semibold text-foreground tracking-tight">
+            <h2 className="text-xl font-semibold text-foreground tracking-tight">
               {activeTab === 'login' ? '登录' : '注册'}
             </h2>
-            <p className="text-sm text-muted-foreground mt-1.5">
+            <p className="text-sm text-muted-foreground mt-2">
               {activeTab === 'login'
                 ? '登录你的 Molink 帐号'
                 : '创建一个新的 Molink 帐号'}
@@ -101,11 +107,11 @@ export default function Login({ isOpen, onClose, onLogin }: LoginProps) {
           </div>
 
           {/* Tab 切换 — Pills */}
-          <div className="flex p-1 bg-muted rounded-xl mb-6">
+          <div className="flex p-1 bg-muted rounded-lg mb-6">
             <button
-              className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
+              className={`flex-1 h-9 text-sm font-medium rounded-md transition-colors duration-150 ${focusRing} ${
                 activeTab === 'login'
-                  ? 'bg-card text-foreground shadow-sm'
+                  ? 'bg-card text-foreground shadow-1'
                   : 'text-muted-foreground hover:text-foreground'
               }`}
               onClick={() => { setActiveTab('login'); setError(''); }}
@@ -113,9 +119,9 @@ export default function Login({ isOpen, onClose, onLogin }: LoginProps) {
               登录
             </button>
             <button
-              className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
+              className={`flex-1 h-9 text-sm font-medium rounded-md transition-colors duration-150 ${focusRing} ${
                 activeTab === 'register'
-                  ? 'bg-card text-foreground shadow-sm'
+                  ? 'bg-card text-foreground shadow-1'
                   : 'text-muted-foreground hover:text-foreground'
               }`}
               onClick={() => { setActiveTab('register'); setError(''); }}
@@ -124,11 +130,11 @@ export default function Login({ isOpen, onClose, onLogin }: LoginProps) {
             </button>
           </div>
 
-          {/* OAuth 登录 */}
-          <div className="space-y-2.5 mb-6">
+          {/* OAuth 登录：按钮走 monochrome（bg-card/border-border/hover bg-accent），仅保留品牌图标 */}
+          <div className="space-y-3 mb-6">
             <button
               onClick={() => { window.location.href = '/api/v1/auth/oauth/google'; }}
-              className="w-full h-10 flex items-center justify-center gap-2.5 border border-border rounded-lg hover:bg-accent transition-colors text-sm font-medium text-secondary-foreground"
+              className={`w-full h-10 flex items-center justify-center gap-2 bg-card border border-border rounded-md hover:bg-accent transition-colors duration-150 text-sm font-medium text-foreground ${focusRing}`}
             >
               <svg className="w-4 h-4" viewBox="0 0 24 24">
                 <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/>
@@ -140,7 +146,7 @@ export default function Login({ isOpen, onClose, onLogin }: LoginProps) {
             </button>
             <button
               onClick={() => { window.location.href = '/api/v1/auth/oauth/github'; }}
-              className="w-full h-10 flex items-center justify-center gap-2.5 border border-border rounded-lg hover:bg-accent transition-colors text-sm font-medium text-secondary-foreground"
+              className={`w-full h-10 flex items-center justify-center gap-2 bg-card border border-border rounded-md hover:bg-accent transition-colors duration-150 text-sm font-medium text-foreground ${focusRing}`}
             >
               <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
@@ -155,7 +161,7 @@ export default function Login({ isOpen, onClose, onLogin }: LoginProps) {
               <div className="w-full border-t border-border/60" />
             </div>
             <div className="relative flex justify-center">
-              <span className="px-3 text-xs text-muted-foreground bg-transparent">
+              <span className="px-3 text-xs text-muted-foreground bg-card">
                 或使用邮箱{activeTab === 'login' ? '登录' : '注册'}
               </span>
             </div>
@@ -165,13 +171,13 @@ export default function Login({ isOpen, onClose, onLogin }: LoginProps) {
           <div className="space-y-4" onKeyDown={handleKeyDown}>
             {/* 姓名（注册时显示） */}
             <div
-              className={`overflow-hidden transition-all duration-300 ease-out ${
+              className={`overflow-hidden transition-all duration-[220ms] ease-out ${
                 activeTab === 'register'
                   ? 'max-h-[76px] opacity-100'
                   : 'max-h-0 opacity-0'
               }`}
             >
-              <label className="block text-sm font-medium text-foreground mb-1.5">
+              <label className="block text-sm font-medium text-foreground mb-2">
                 姓名
               </label>
               <input
@@ -179,12 +185,12 @@ export default function Login({ isOpen, onClose, onLogin }: LoginProps) {
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
                 placeholder="你的名字"
-                className="w-full h-11 px-4 bg-input border border-border rounded-lg focus:ring-2 focus:ring-ring focus:border-primary outline-none placeholder:text-muted-foreground text-foreground text-sm transition-colors"
+                className={inputClass}
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1.5">
+              <label className="block text-sm font-medium text-foreground mb-2">
                 邮箱地址
               </label>
               <input
@@ -192,12 +198,12 @@ export default function Login({ isOpen, onClose, onLogin }: LoginProps) {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="your@email.com"
-                className="w-full h-11 px-4 bg-input border border-border rounded-lg focus:ring-2 focus:ring-ring focus:border-primary outline-none placeholder:text-muted-foreground text-foreground text-sm transition-colors"
+                className={inputClass}
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1.5">
+              <label className="block text-sm font-medium text-foreground mb-2">
                 密码
               </label>
               <input
@@ -205,21 +211,21 @@ export default function Login({ isOpen, onClose, onLogin }: LoginProps) {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder={activeTab === 'login' ? '输入密码' : '设置密码（至少8位）'}
-                className="w-full h-11 px-4 bg-input border border-border rounded-lg focus:ring-2 focus:ring-ring focus:border-primary outline-none placeholder:text-muted-foreground text-foreground text-sm transition-colors"
+                className={inputClass}
               />
             </div>
           </div>
 
           {/* 错误提示 */}
           {error && (
-            <div className="mt-4 text-destructive text-sm">{error}</div>
+            <div className="mt-4 rounded-md bg-destructive-soft px-3 py-2 text-[13px] leading-5 text-destructive">{error}</div>
           )}
 
-          {/* 提交按钮 */}
+          {/* 提交按钮（功能性 accent，保留 bg-primary） */}
           <button
             onClick={handleSubmit}
             disabled={isLoading}
-            className="w-full h-11 mt-6 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            className={`w-full h-11 mt-6 bg-primary text-primary-foreground text-sm font-medium rounded-md hover:opacity-90 active:scale-[0.98] transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed ${focusRing}`}
           >
             {isLoading
               ? '处理中...'
@@ -228,12 +234,12 @@ export default function Login({ isOpen, onClose, onLogin }: LoginProps) {
                 : '创建账号'}
           </button>
 
-          {/* 底部条款 */}
+          {/* 底部条款（链接为功能性 accent） */}
           <p className="text-center text-xs text-muted-foreground mt-5 leading-relaxed">
             继续操作即表示你确认已理解并同意
-            <a href="#" className="text-primary hover:underline underline-offset-2 transition-colors">条款和条件</a>
+            <a href="#" className="text-primary hover:underline underline-offset-2 transition-colors duration-150">条款和条件</a>
             {' '}和
-            <a href="#" className="text-primary hover:underline underline-offset-2 transition-colors">隐私政策</a>
+            <a href="#" className="text-primary hover:underline underline-offset-2 transition-colors duration-150">隐私政策</a>
           </p>
         </div>
       </MagicCard>

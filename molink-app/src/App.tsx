@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import Sidebar from './Sidebar';
 import Editor from './Editor';
 import Login from './components/auth/Login';
@@ -10,13 +10,12 @@ import WorkspacePanel from './components/WorkspacePanel';
 import InboxView from './components/InboxView';
 import { v4 as uuidv4 } from 'uuid';
 import { Element, type Descendant } from 'slate';
-import { ChevronLeft, ChevronRight, Share2, Star, MoreHorizontal, Lock } from 'lucide-react';
 import { useAuth } from './context/AuthContext';
 import { workspacesApi, pagesApi, blocksApi, filesApi } from './api';
 import { AnimatePresence, motion } from 'motion/react';
 import type { Workspace, BackendBlock, BackendPage } from './api';
-import { PageIcon } from './components/IconPicker';
 import AnimatedPresence from './components/AnimatedPresence';
+import Topbar, { type SaveIndicatorState } from './components/Topbar';
 
 export interface PageData {
   id: string;
@@ -72,6 +71,13 @@ interface ContentSaveState {
   version: number;
   inFlight: boolean;
   pendingContent?: Descendant[];
+}
+
+// 顶栏保存状态指示：记录最近一次调度/完成保存的页面与时间，仅供 UI 读取，与保存队列语义解耦
+interface PageSaveIndicator {
+  pageId: string;
+  status: 'saving' | 'saved';
+  savedAt?: number;
 }
 
 function getContentSaveState(states: Record<string, ContentSaveState>, pageId: string): ContentSaveState {
@@ -153,6 +159,29 @@ export default function App() {
   // 活动日志（收件箱）
   const [activities, setActivities] = useState<Activity[]>([]);
 
+  // 宽版内容列开关（持久化到 localStorage）
+  const [wideMode, setWideMode] = useState(() => {
+    try {
+      return localStorage.getItem('molink-wide-mode') === '1';
+    } catch {
+      return false;
+    }
+  });
+  const toggleWideMode = useCallback(() => {
+    setWideMode(prev => {
+      const next = !prev;
+      try {
+        localStorage.setItem('molink-wide-mode', next ? '1' : '0');
+      } catch {
+        // localStorage 不可用时仅保持会话内生效
+      }
+      return next;
+    });
+  }, []);
+
+  // 顶栏保存状态指示（仅 UI 外显，读写均不影响保存队列）
+  const [saveIndicator, setSaveIndicator] = useState<PageSaveIndicator | null>(null);
+
   const blockIdMap = useRef<Record<string, string>>({}); // pageId -> blockId
   const contentSaveStates = useRef<Record<string, ContentSaveState>>({});
   // 会话世代号：登录/登出或重新调用 loadPages 时 +1，使在途加载失效
@@ -193,6 +222,9 @@ export default function App() {
       // 保存期间产生了更新版本：本次响应已过期，立即补发最新内容
       if (st.version > version) {
         void flushContentSave(pageId);
+      } else {
+        // 该页队列已清空：仅更新顶栏 UI 指示，不触碰队列本身
+        setSaveIndicator({ pageId, status: 'saved', savedAt: Date.now() });
       }
     }
   }, []);
@@ -202,6 +234,8 @@ export default function App() {
     const st = getContentSaveState(contentSaveStates.current, pageId);
     st.version += 1;
     st.pendingContent = content;
+    // 仅外显 UI 状态，不改变队列行为
+    setSaveIndicator({ pageId, status: 'saving' });
     if (st.timer) clearTimeout(st.timer);
     st.timer = setTimeout(() => {
       void flushContentSave(pageId);
@@ -894,6 +928,12 @@ export default function App() {
     return path;
   }, [activePage, pages]);
 
+  // 顶栏只展示当前活动页的保存状态；其他页面或视图视为 idle
+  const topbarSaveIndicator: SaveIndicatorState =
+    activeView === 'page' && saveIndicator && saveIndicator.pageId === activePageId
+      ? { status: saveIndicator.status, savedAt: saveIndicator.savedAt }
+      : { status: 'idle' };
+
   // 当前页面的子页面（包含已删除的，用于 page-link 块渲染）
   const childPages = useMemo(() => {
     if (!activePageId) return [];
@@ -979,81 +1019,20 @@ export default function App() {
       />
 
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* 顶部标题栏 */}
-        <div className="h-11 flex items-center justify-between px-4 bg-background flex-shrink-0">
-          <div className="flex items-center gap-1">
-            <button
-              onClick={goBack}
-              disabled={!canGoBack}
-              className={`p-1 rounded-md transition-colors ${!canGoBack ? 'opacity-30 cursor-not-allowed' : 'hover:bg-accent text-muted-foreground'}`}
-              title="后退"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            <button
-              onClick={goForward}
-              disabled={!canGoForward}
-              className={`p-1 rounded-md transition-colors ${!canGoForward ? 'opacity-30 cursor-not-allowed' : 'hover:bg-accent text-muted-foreground'}`}
-              title="前进"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
-            {activeView === 'page' && activePage && (
-              <div className="flex items-center gap-1 ml-2">
-                {breadcrumbPath.map((page, idx) => (
-                  <React.Fragment key={page.id}>
-                    {idx > 0 && (
-                      <span className="text-muted-foreground mx-0.5">/</span>
-                    )}
-                    <button
-                      onClick={() => {
-                        if (idx < breadcrumbPath.length - 1) {
-                          setActivePageId(page.id);
-                        }
-                      }}
-                      className={`flex items-center gap-1 text-sm truncate max-w-[140px] transition-colors ${
-                        idx === breadcrumbPath.length - 1
-                          ? 'font-medium text-foreground cursor-default'
-                          : 'text-muted-foreground hover:text-foreground'
-                      }`}
-                    >
-                      {page.icon && (
-                        <PageIcon icon={page.icon} size={14} />
-                      )}
-                      <span>{page.title || '无标题'}</span>
-                    </button>
-                  </React.Fragment>
-                ))}
-                <span className="flex items-center gap-1 text-xs text-muted-foreground ml-1">
-                  <Lock className="w-3 h-3" />
-                  私人
-                </span>
-              </div>
-            )}
-            {activeView === 'home' && (
-              <div className="flex items-center gap-2 ml-2">
-                <span className="text-sm font-medium text-foreground">主页</span>
-              </div>
-            )}
-            {activeView === 'inbox' && (
-              <div className="flex items-center gap-2 ml-2">
-                <span className="text-sm font-medium text-foreground">收件箱</span>
-              </div>
-            )}
-          </div>
-          <div className="flex items-center gap-1">
-            <button className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-sm text-secondary-foreground hover:bg-accent rounded-md transition-colors">
-              <Share2 className="w-4 h-4" />
-              <span>分享</span>
-            </button>
-            <button className="p-1.5 text-muted-foreground hover:bg-accent rounded-md transition-colors">
-              <Star className="w-4 h-4" />
-            </button>
-            <button className="p-1.5 text-muted-foreground hover:bg-accent rounded-md transition-colors">
-              <MoreHorizontal className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
+        {/* 顶部标题栏（抽取为独立组件，见 components/Topbar.tsx） */}
+        <Topbar
+          activeView={activeView}
+          breadcrumbPath={breadcrumbPath}
+          onNavigatePage={setActivePageId}
+          canGoBack={canGoBack}
+          canGoForward={canGoForward}
+          onGoBack={goBack}
+          onGoForward={goForward}
+          saveIndicator={topbarSaveIndicator}
+          isGuest={!user}
+          wideMode={wideMode}
+          onToggleWide={toggleWideMode}
+        />
 
         {/* 编辑区 / 主页 / 收件箱 */}
         <div className="flex-1 overflow-auto bg-background">
@@ -1066,10 +1045,11 @@ export default function App() {
               onActivatePage={activatePage}
               restorePage={restorePage}
               permanentDeletePage={permanentDeletePage}
+              wideMode={wideMode}
             />
           )}
           {activeView === 'home' && (
-            <HomeView pages={pages} onNavigate={activatePage} />
+            <HomeView pages={pages} onNavigate={activatePage} onCreatePage={() => addPage()} />
           )}
           {activeView === 'inbox' && (
             <InboxView

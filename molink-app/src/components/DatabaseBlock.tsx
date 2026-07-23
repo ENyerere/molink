@@ -28,6 +28,11 @@ const COLUMN_TYPE_LABELS: Record<string, string> = {
   checkbox: '复选框',
 };
 
+// 聚焦/编辑中单元格的 --selection 描边：用 inset box-shadow 实现 ring，
+// 避免普通 ring 向单元格外扩时被相邻单元格/容器裁切
+const CELL_FOCUS_RING =
+  'focus-within:shadow-[inset_0_0_0_2px_hsl(var(--selection)/0.5)]';
+
 function generateId() {
   return Math.random().toString(36).substring(2, 10);
 }
@@ -133,7 +138,7 @@ export default function DatabaseBlock({ columns, rows, onChange, readOnly }: Dat
               updateCell(row.id, col.id, e.target.checked);
               setEditingCell(null);
             }}
-            className="w-4 h-4 rounded border-border accent-primary"
+            className="h-4 w-4 rounded border-border accent-primary"
           />
         );
       }
@@ -178,7 +183,7 @@ export default function DatabaseBlock({ columns, rows, onChange, readOnly }: Dat
           type="checkbox"
           checked={!!value}
           onChange={(e) => updateCell(row.id, col.id, e.target.checked)}
-          className="w-4 h-4 rounded border-border accent-primary cursor-pointer"
+          className="h-4 w-4 cursor-pointer rounded border-border accent-primary"
         />
       );
     }
@@ -186,7 +191,7 @@ export default function DatabaseBlock({ columns, rows, onChange, readOnly }: Dat
     return (
       <button
         onClick={() => startEditCell(row.id, col.id, value)}
-        className="w-full text-left text-sm text-foreground truncate hover:bg-accent/50 px-1 py-0.5 rounded transition-colors"
+        className="w-full truncate rounded px-1 py-0.5 text-left text-sm text-foreground outline-none"
       >
         {value || <span className="text-muted-foreground/40">空</span>}
       </button>
@@ -194,18 +199,18 @@ export default function DatabaseBlock({ columns, rows, onChange, readOnly }: Dat
   };
 
   return (
-    <div className="w-full my-1">
+    <div className="my-1 w-full">
       {/* 表格容器 */}
-      <div className="border border-border rounded-lg overflow-hidden bg-card">
-        {/* 表头 */}
-        <div className="flex items-center bg-muted/60 border-b border-border">
-          <div className="w-8 flex-shrink-0" /> {/* 拖拽/序号占位 */}
+      <div className="overflow-hidden rounded-lg border border-border bg-card">
+        {/* 表头：置于滚动容器之外，滚动时天然吸顶（同时避免列菜单被 overflow 裁切） */}
+        <div className="flex items-center border-b border-border bg-surface-2">
+          <div className="w-8 flex-shrink-0" /> {/* 序号占位 */}
           {safeCols.map((col) => {
             const Icon = COLUMN_TYPE_ICONS[col.type] || Type;
             return (
-              <div key={col.id} className="flex-1 min-w-[100px] px-2 py-2 border-r border-border last:border-r-0 relative group/col">
+              <div key={col.id} className="group/col relative min-w-[100px] flex-1 px-2 py-2">
                 <div className="flex items-center gap-1.5">
-                  <Icon className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                  <Icon className="h-4 w-4 flex-shrink-0 text-muted-foreground" strokeWidth={1.75} />
                   {editingColName === col.id ? (
                     <input
                       value={colNameValue}
@@ -223,7 +228,7 @@ export default function DatabaseBlock({ columns, rows, onChange, readOnly }: Dat
                         }
                         if (e.key === 'Escape') setEditingColName(null);
                       }}
-                      className="w-full bg-transparent text-xs font-semibold uppercase tracking-wider text-muted-foreground outline-none"
+                      className="w-full bg-transparent text-xs font-medium text-muted-foreground outline-none"
                       autoFocus
                     />
                   ) : (
@@ -232,22 +237,22 @@ export default function DatabaseBlock({ columns, rows, onChange, readOnly }: Dat
                         setEditingColName(col.id);
                         setColNameValue(col.name);
                       }}
-                      className="text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
+                      className="truncate text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
                     >
                       {col.name}
                     </button>
                   )}
                   <button
                     onClick={() => setShowColMenu(showColMenu === col.id ? null : col.id)}
-                    className="opacity-0 group-hover/col:opacity-100 p-0.5 rounded hover:bg-accent transition-opacity"
+                    className="rounded p-0.5 opacity-0 transition-opacity hover:bg-accent group-hover/col:opacity-100"
                   >
-                    <ChevronDown className="w-3 h-3 text-muted-foreground" />
+                    <ChevronDown className="h-3 w-3 text-muted-foreground" strokeWidth={1.75} />
                   </button>
                 </div>
 
-                {/* 列类型菜单 */}
+                {/* 列类型菜单（弹层：rounded-lg + shadow-1 + border） */}
                 {showColMenu === col.id && (
-                  <div className="absolute top-full left-0 mt-1 z-20 bg-card border border-border rounded-lg shadow-lg py-1 w-36">
+                  <div className="absolute left-0 top-full z-20 mt-1 w-36 rounded-lg border border-border bg-popover py-1 shadow-1">
                     {(['text', 'number', 'select', 'date', 'checkbox'] as const).map(type => {
                       const TIcon = COLUMN_TYPE_ICONS[type];
                       return (
@@ -257,24 +262,24 @@ export default function DatabaseBlock({ columns, rows, onChange, readOnly }: Dat
                             changeColumnType(col.id, type);
                             setShowColMenu(null);
                           }}
-                          className={`w-full flex items-center gap-2 px-3 py-1.5 text-sm hover:bg-accent transition-colors ${
-                            col.type === type ? 'text-primary font-medium' : 'text-secondary-foreground'
+                          className={`flex w-full items-center gap-2 px-3 py-1.5 text-sm transition-colors hover:bg-accent ${
+                            col.type === type ? 'font-medium text-primary' : 'text-foreground'
                           }`}
                         >
-                          <TIcon className="w-3.5 h-3.5" />
+                          <TIcon className="h-4 w-4 text-muted-foreground" strokeWidth={1.75} />
                           {COLUMN_TYPE_LABELS[type]}
                         </button>
                       );
                     })}
-                    <div className="border-t border-border my-1" />
+                    <div className="my-1 border-t border-border" />
                     <button
                       onClick={() => {
                         deleteColumn(col.id);
                         setShowColMenu(null);
                       }}
-                      className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                      className="flex w-full items-center gap-2 px-3 py-1.5 text-sm text-destructive transition-colors hover:bg-destructive-soft"
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
+                      <Trash2 className="h-4 w-4" strokeWidth={1.75} />
                       删除列
                     </button>
                   </div>
@@ -287,64 +292,62 @@ export default function DatabaseBlock({ columns, rows, onChange, readOnly }: Dat
             <div className="flex-shrink-0 px-2">
               <button
                 onClick={() => addColumn('text')}
-                className="p-1 rounded hover:bg-accent text-muted-foreground transition-colors"
+                className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                 title="添加列"
               >
-                <Plus className="w-4 h-4" />
+                <Plus className="h-4 w-4" strokeWidth={1.75} />
               </button>
             </div>
           )}
         </div>
 
-        {/* 表体 */}
-        <div>
+        {/* 表体：限高滚动，表头保持吸顶；分隔线统一走 divide，新增行为底部虚线行 */}
+        <div className="max-h-[480px] divide-y divide-border overflow-y-auto">
           {safeRows.map((row, idx) => (
             <div
               key={row.id}
-              className="flex items-center border-b border-border last:border-b-0 hover:bg-accent/30 transition-colors group/row"
+              className="group/row flex items-center transition-colors hover:bg-surface-1"
             >
-              <div className="w-8 flex-shrink-0 flex items-center justify-center text-xs text-muted-foreground">
+              <div className="flex w-8 flex-shrink-0 items-center justify-center text-[11px] tabular-nums text-muted-foreground">
                 {idx + 1}
               </div>
               {safeCols.map(col => (
-                <div key={col.id} className="flex-1 min-w-[100px] px-2 py-2 border-r border-border last:border-r-0">
+                <div key={col.id} className={`min-w-[100px] flex-1 px-2 py-2 ${CELL_FOCUS_RING}`}>
                   {renderCell(row, col)}
                 </div>
               ))}
               {!readOnly && (
-                <div className="flex-shrink-0 px-2 opacity-0 group-hover/row:opacity-100 transition-opacity">
+                <div className="flex flex-shrink-0 items-center px-2 opacity-0 transition-opacity group-hover/row:opacity-100">
                   <button
                     onClick={() => deleteRow(row.id)}
-                    className="p-1 rounded hover:bg-accent text-muted-foreground transition-colors"
+                    className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                     title="删除行"
                   >
-                    <Trash2 className="w-3.5 h-3.5" />
+                    <Trash2 className="h-4 w-4" strokeWidth={1.75} />
                   </button>
                 </div>
               )}
             </div>
           ))}
-        </div>
 
-        {/* 空状态 */}
-        {safeRows.length === 0 && (
-          <div className="px-4 py-8 text-center text-sm text-muted-foreground">
-            暂无数据，点击下方按钮添加行
-          </div>
-        )}
+          {/* 空状态 */}
+          {safeRows.length === 0 && (
+            <div className="px-4 py-8 text-center text-sm text-muted-foreground">
+              暂无数据，点击下方新增一行
+            </div>
+          )}
 
-        {/* 添加行 */}
-        {!readOnly && (
-          <div className="px-4 py-2 border-t border-border">
+          {/* 新增行：表格底部虚线行，hover 实色化 */}
+          {!readOnly && (
             <button
               onClick={addRow}
-              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+              className="flex w-full items-center gap-2 border-dashed px-4 py-2 text-sm text-muted-foreground transition-colors hover:bg-surface-1 hover:text-foreground"
             >
-              <Plus className="w-4 h-4" />
-              新建
+              <Plus className="h-4 w-4" strokeWidth={1.75} />
+              新增行
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );

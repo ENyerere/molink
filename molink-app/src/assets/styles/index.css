@@ -1,27 +1,29 @@
+@import '@fontsource-variable/inter';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    /* ========== 亮色主题 ========== */
-    --background: 40 12% 97%;
-    --foreground: 240 6% 10%;
+    /* ========== 亮色主题（monochrome：灰阶明度阶梯，蓝色仅作功能性 accent） ========== */
+    --background: 0 0% 100%;
+    --foreground: 0 0% 4%;
     --card: 0 0% 100%;
-    --card-foreground: 240 6% 10%;
+    --card-foreground: 0 0% 4%;
     --popover: 0 0% 100%;
-    --popover-foreground: 240 6% 10%;
+    --popover-foreground: 0 0% 4%;
     --primary: 217 91% 60%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 40 8% 94%;
-    --secondary-foreground: 240 6% 10%;
-    --muted: 40 8% 94%;
-    --muted-foreground: 240 4% 46%;
-    --accent: 40 6% 90%;
-    --accent-foreground: 240 6% 10%;
+    --secondary: 0 0% 96%;
+    --secondary-foreground: 0 0% 4%;
+    --muted: 0 0% 96%;
+    --muted-foreground: 0 0% 42%;
+    --accent: 0 0% 93%;
+    --accent-foreground: 0 0% 4%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
-    --border: 40 6% 88%;
+    --border: 0 0% 90%;
     --input: 0 0% 100%;
     --ring: 217 91% 60%;
     --chart-1: 12 76% 61%;
@@ -30,44 +32,47 @@
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
     --radius: 0.5rem;
-    /* ===== 重设计令牌（方案 A · 纸感文档） ===== */
+    /* ===== 重设计令牌（现代科技风 · monochrome） ===== */
     --radius-sm: 6px;
     --radius-lg: 12px;
     --radius-xl: 16px;
     /* 表面层次：桌面 → 侧栏 → 纸张 */
-    --surface-1: 40 10% 95%;
-    --surface-2: 40 8% 92%;
+    --surface-1: 0 0% 98%;
+    --surface-2: 0 0% 94%;
     /* 编辑器交互态与职责分离色 */
-    --block-hover: 240 6% 10%;
+    --block-hover: 0 0% 4%;
     --selection: 217 91% 60%;
     --link: 217 91% 55%;
     --destructive-soft: 0 84% 96%;
+    /* code-block 双主题统一深底浅字面板（少数不随主题的组件，亮暗同值） */
+    --code-bg: 222 14% 14%;
+    --code-fg: 220 15% 88%;
     /* 三级阴影（弹层/模态/拖拽浮层） */
-    --shadow-1: 0 2px 8px hsl(240 6% 10% / 0.06), 0 0 0 1px hsl(40 6% 88% / 0.6);
-    --shadow-2: 0 8px 30px hsl(240 6% 10% / 0.1), 0 0 0 1px hsl(40 6% 88% / 0.6);
-    --shadow-3: 0 12px 40px hsl(240 6% 10% / 0.16)
+    --shadow-1: 0 2px 8px hsl(0 0% 0% / 0.05), 0 0 0 1px hsl(0 0% 90% / 0.6);
+    --shadow-2: 0 8px 30px hsl(0 0% 0% / 0.08), 0 0 0 1px hsl(0 0% 90% / 0.6);
+    --shadow-3: 0 12px 40px hsl(0 0% 0% / 0.12)
   }
 
   .dark {
-    /* ========== 暗色主题 ========== */
-    --background: 224 10% 6%;
+    /* ========== 暗色主题（Vercel 纯黑路线） ========== */
+    --background: 0 0% 0%;
     --foreground: 0 0% 98%;
-    --card: 240 4% 10%;
+    --card: 0 0% 5%;
     --card-foreground: 0 0% 98%;
-    --popover: 240 4% 10%;
+    --popover: 0 0% 5%;
     --popover-foreground: 0 0% 98%;
     --primary: 217 91% 60%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 240 4% 16%;
+    --secondary: 0 0% 10%;
     --secondary-foreground: 0 0% 98%;
-    --muted: 240 4% 16%;
-    --muted-foreground: 240 5% 65%;
-    --accent: 240 4% 20%;
+    --muted: 0 0% 10%;
+    --muted-foreground: 0 0% 64%;
+    --accent: 0 0% 14%;
     --accent-foreground: 0 0% 98%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
-    --border: 240 4% 20%;
-    --input: 240 4% 16%;
+    --border: 0 0% 14%;
+    --input: 0 0% 10%;
     --ring: 217 91% 60%;
     --chart-1: 220 70% 50%;
     --chart-2: 160 60% 45%;
@@ -77,15 +82,17 @@
     --radius-sm: 6px;
     --radius-lg: 12px;
     --radius-xl: 16px;
-    --surface-1: 240 5% 7%;
-    --surface-2: 240 5% 12%;
+    --surface-1: 0 0% 4%;
+    --surface-2: 0 0% 8%;
     --block-hover: 0 0% 98%;
     --selection: 217 91% 60%;
     --link: 217 91% 68%;
     --destructive-soft: 0 60% 16%;
+    --code-bg: 222 14% 14%;
+    --code-fg: 220 15% 88%;
     /* 暗色阴影加深 1.5 倍并保留描边，否则层次丢失 */
-    --shadow-1: 0 2px 8px hsl(0 0% 0% / 0.35), 0 0 0 1px hsl(240 4% 20% / 0.8);
-    --shadow-2: 0 8px 30px hsl(0 0% 0% / 0.45), 0 0 0 1px hsl(240 4% 20% / 0.8);
+    --shadow-1: 0 2px 8px hsl(0 0% 0% / 0.35), 0 0 0 1px hsl(0 0% 14% / 0.8);
+    --shadow-2: 0 8px 30px hsl(0 0% 0% / 0.45), 0 0 0 1px hsl(0 0% 14% / 0.8);
     --shadow-3: 0 12px 40px hsl(0 0% 0% / 0.55)
   }
 }
@@ -96,13 +103,24 @@
   }
   body {
     @apply bg-background text-foreground;
+    /* 全站字体系统：Inter Variable，几何特征 cv11/ss01，数字等宽 */
+    font-family: 'Inter Variable', -apple-system, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    font-feature-settings: 'cv11', 'ss01';
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
   }
 }
 
 /* Slate 块级框选高亮 — 纯 CSS，不经过 React re-render */
 [data-block-selected="true"] {
-  background-color: hsl(var(--primary) / 0.15);
+  background-color: hsl(var(--selection) / 0.12);
+  box-shadow: 0 0 0 1px hsl(var(--selection) / 0.35);
   border-radius: 0.25rem;
+}
+
+/* 块 hover 底色：--block-hover 6% 灰阶（选中态优先，不叠加） */
+[data-slate-block]:hover:not([data-block-selected="true"]) {
+  background-color: hsl(var(--block-hover) / 0.06);
 }
 
 /* Slate placeholder 垂直居中 */
@@ -116,11 +134,15 @@
     mix-blend-mode: normal;
 }
 
-/* ===== 落地页专属暗色令牌（现代科技风，常驻暗色不随应用主题变化） ===== */
+/* ===== 落地页专属暗色令牌（现代科技风 · Vercel 纯黑路线，常驻暗色不随应用主题变化） ===== */
 .landing {
-  --ld-bg: 225 39% 5%;
-  --ld-fg: 0 0% 98%;
-  --ld-muted: 224 12% 64%;
-  --ld-card: 225 25% 9%;
-  --ld-border: 225 18% 15%;
+  --ld-bg: 0 0% 0%;
+  --ld-fg: 0 0% 100%;
+  --ld-muted: 0 0% 64%;
+  --ld-card: 0 0% 4%;
+  --ld-border: 0 0% 14%;
+}
+.landing h1,
+.landing h2 {
+  letter-spacing: -0.03em;
 }

@@ -62,6 +62,10 @@ module.exports = {
   			selection: 'hsl(var(--selection))',
   			link: 'hsl(var(--link))',
   			'destructive-soft': 'hsl(var(--destructive-soft))',
+  			code: {
+  				bg: 'hsl(var(--code-bg))',
+  				fg: 'hsl(var(--code-fg))'
+  			},
   			ld: {
   				bg: 'hsl(var(--ld-bg))',
   				fg: 'hsl(var(--ld-fg))',

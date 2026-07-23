@@ -44,7 +44,7 @@ export default function UserMenu({
   useLayoutEffect(() => {
     if (!isOpen || !triggerRef?.current) return;
     const rect = triggerRef.current.getBoundingClientRect();
-    setPos({ top: rect.bottom + 6, left: rect.left });
+    setPos({ top: rect.bottom + 8, left: rect.left });
   }, [isOpen, triggerRef]);
 
   // 点击外部关闭
@@ -67,7 +67,7 @@ export default function UserMenu({
   return (
     <div
       ref={menuRef}
-      className="fixed w-72 bg-popover rounded-lg shadow-xl border border-border z-[100] py-1 transition-all duration-150 ease-out"
+      className="fixed w-72 bg-popover rounded-xl shadow-2 border border-border z-[100] py-1 transition-all duration-150 ease-[cubic-bezier(0.22,1,0.36,1)]"
       style={{
         top: pos.top,
         left: pos.left,
@@ -82,9 +82,9 @@ export default function UserMenu({
             onClose();
             onOpenSettings();
           }}
-          className="flex-1 flex items-center justify-center gap-2 py-1.5 px-3 rounded-md hover:bg-accent text-sm text-secondary-foreground border border-border transition-colors"
+          className="flex-1 flex items-center justify-center gap-2 h-8 px-3 rounded-md hover:bg-accent text-sm text-foreground border border-border transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
         >
-          <Settings className="w-4 h-4" />
+          <Settings className="w-4 h-4" strokeWidth={1.75} />
           设置
         </button>
       </div>
@@ -98,14 +98,14 @@ export default function UserMenu({
         )}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded bg-secondary flex items-center justify-center text-xs font-medium text-secondary-foreground">
+            <div className="w-6 h-6 rounded-md bg-secondary flex items-center justify-center text-xs font-medium text-secondary-foreground">
               {isLoggedIn ? userName.charAt(0).toUpperCase() : '?'}
             </div>
             <span className="text-sm text-foreground">
               {isLoggedIn ? `${userName} 的 Molink` : '临时工作空间'}
             </span>
           </div>
-          {isLoggedIn && <Check className="w-4 h-4 text-foreground" />}
+          {isLoggedIn && <Check className="w-4 h-4 text-foreground" strokeWidth={1.75} />}
         </div>
       </div>
 
@@ -113,16 +113,16 @@ export default function UserMenu({
         <>
           <div className="border-t border-border my-1" />
 
-          {/* 账号操作 */}
-          <div className="py-1">
+          {/* 账号操作（危险项：text-destructive + hover bg-destructive-soft） */}
+          <div className="px-2 py-1">
             <button
               onClick={() => {
                 onClose();
                 signOut();
               }}
-              className="w-full text-left px-3 py-2 text-sm text-secondary-foreground hover:bg-accent transition-colors flex items-center gap-2"
+              className="w-full text-left px-3 h-9 rounded-md text-sm text-destructive hover:bg-destructive-soft transition-colors duration-150 flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
             >
-              <LogOut className="w-4 h-4" />
+              <LogOut className="w-4 h-4" strokeWidth={1.75} />
               登出
             </button>
           </div>

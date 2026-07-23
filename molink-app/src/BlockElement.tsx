@@ -16,7 +16,7 @@ import {
 import type { PageData } from './App';
 import { getFileUrl } from './api/client';
 import { PageIcon } from './components/IconPicker';
-import { FileText } from 'lucide-react';
+import { FileText, Plus, Check, Copy } from 'lucide-react';
 import AnimatedPresence from './components/AnimatedPresence';
 import DatabaseBlock from './components/DatabaseBlock';
 
@@ -81,6 +81,51 @@ const DragHandleIcon = () => (
   </svg>
 );
 
+/* ---- code-block 工具条：语言标签 + 复制按钮（hover 浮现） ---- */
+function CodeBlockToolbar({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+  }, []);
+
+  const handleCopy = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      if (timerRef.current) clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(() => setCopied(false), 1500);
+    } catch (err) {
+      console.error('复制代码失败:', err);
+    }
+  };
+
+  return (
+    <div
+      contentEditable={false}
+      className="absolute right-2 top-2 flex items-center gap-2 opacity-0 transition-opacity group-hover:opacity-100"
+    >
+      {/* 语言标签：文档结构不存语言字段，暂为静态标识 */}
+      <span className="font-mono text-[11px] uppercase tracking-wide text-[hsl(var(--code-fg)/0.5)]">代码</span>
+      <button
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={handleCopy}
+        className="flex items-center gap-1 rounded px-1.5 py-0.5 font-mono text-[11px] text-[hsl(var(--code-fg)/0.7)] transition-colors hover:bg-[hsl(var(--code-fg)/0.1)]"
+        title="复制代码"
+      >
+        {copied ? (
+          <Check className="w-3.5 h-3.5" strokeWidth={1.75} />
+        ) : (
+          <Copy className="w-3.5 h-3.5" strokeWidth={1.75} />
+        )}
+        {copied ? '已复制' : '复制'}
+      </button>
+    </div>
+  );
+}
+
 /* ==================== page-link / database 子组件 ==================== */
 // page-link 与 database 分支拆成独立子组件，避免在 BlockElement 内条件调用 hooks
 interface BlockBranchProps extends RenderElementProps {
@@ -90,6 +135,7 @@ interface BlockBranchProps extends RenderElementProps {
   indicator: { top: number; left: number; width: number } | null;
   onBlockClick: (e: React.MouseEvent) => void;
   onDragHandleMouseDown: (e: React.MouseEvent) => void;
+  onAddBelow: (e: React.MouseEvent) => void;
 }
 
 /* ---- 从 Slate 内容提取文本预览 ---- */
@@ -146,6 +192,7 @@ function PageLinkElement({
   indicator,
   onBlockClick,
   onDragHandleMouseDown,
+  onAddBelow,
   pages,
   onActivatePage,
 }: BlockBranchProps & { pages?: PageData[]; onActivatePage?: (id: string) => void }) {
@@ -168,6 +215,17 @@ function PageLinkElement({
         onActivatePage?.(pageId!);
       }}
     >
+      {/* ＋ 把手：在下方插入空段落块 */}
+      <span
+        contentEditable={false}
+        className={`absolute -left-12 top-1/2 -translate-y-1/2 opacity-0 ${dragHandleVisibleClass} transition-opacity cursor-pointer select-none text-muted-foreground hover:text-foreground p-1`}
+        onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
+        onClick={onAddBelow}
+        title="在下方插入块"
+      >
+        <Plus className="w-4 h-4" strokeWidth={1.75} />
+      </span>
+
       {/* 拖拽手柄 */}
       <span
         contentEditable={false}
@@ -178,11 +236,12 @@ function PageLinkElement({
         <DragHandleIcon />
       </span>
 
-      <div className="flex items-center gap-2 py-0.5">
+      {/* 卡片化：border + 圆角 + hover bg-accent */}
+      <div className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 transition-colors hover:bg-accent">
         {targetPage?.icon ? (
-          <PageIcon icon={targetPage.icon} size={18} />
+          <PageIcon icon={targetPage.icon} size={16} />
         ) : (
-          <FileText className="w-4 h-4 text-muted-foreground" />
+          <FileText className="w-4 h-4 text-muted-foreground" strokeWidth={1.75} />
         )}
         <span className={`text-sm hover:underline ${targetPage?.deletedAt ? 'text-muted-foreground line-through' : 'text-foreground'}`}>
           {targetPage?.title || '未命名页面'}
@@ -236,6 +295,7 @@ function DatabaseElement({
   indicator,
   onBlockClick,
   onDragHandleMouseDown,
+  onAddBelow,
 }: BlockBranchProps) {
   const editor = useSlateStatic();
   const dbElement = element as BlockElementType;
@@ -249,6 +309,17 @@ function DatabaseElement({
       contentEditable={false}
       onClick={onBlockClick}
     >
+      {/* ＋ 把手：在下方插入空段落块 */}
+      <span
+        contentEditable={false}
+        className={`absolute -left-12 top-1/2 -translate-y-1/2 opacity-0 ${dragHandleVisibleClass} transition-opacity cursor-pointer select-none text-muted-foreground hover:text-foreground p-1`}
+        onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
+        onClick={onAddBelow}
+        title="在下方插入块"
+      >
+        <Plus className="w-4 h-4" strokeWidth={1.75} />
+      </span>
+
       {/* 拖拽手柄 */}
       <span
         contentEditable={false}
@@ -332,7 +403,7 @@ const BlockElement = (props: RenderElementProps & { pages?: PageData[]; onActiva
     if (element.type === 'paragraph') {
       // "输入内容..." 提示只在最后一个空 paragraph 显示
       const isLastBlock = path.length > 0 && path[0] === editor.children.length - 1;
-      return isLastBlock ? '输入内容，或输入 / 打开命令菜单...' : undefined;
+      return isLastBlock ? '输入 / 唤起命令' : undefined;
     }
     const map: Record<string, string> = {
       'heading-one': '标题 1',
@@ -382,6 +453,22 @@ const BlockElement = (props: RenderElementProps & { pages?: PageData[]; onActiva
     });
   }, [editor]);
 
+  /* ---- ＋ 把手：在当前块下方插入空段落块，并把光标移入新块 ---- */
+  const handleAddBelow = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const insertPath = Path.next(path);
+      Transforms.insertNodes(
+        editor,
+        { type: 'paragraph', children: [{ text: '' }] } as BlockElementType,
+        { at: insertPath }
+      );
+      Transforms.select(editor, SlateEditor.start(editor, insertPath));
+    },
+    [editor, path]
+  );
+
   /* ---- 块级样式 ---- */
   const blockClass = useMemo(() => {
     const base = 'relative py-[3px] px-1 rounded transition-colors my-[2px]';
@@ -395,9 +482,10 @@ const BlockElement = (props: RenderElementProps & { pages?: PageData[]; onActiva
       case 'heading-four':
         return `${base} text-[1.1rem] font-medium text-foreground mt-3 mb-1 leading-snug`;
       case 'blockquote':
-        return `${base} border-l-[3px] border-primary/30 pl-3 italic text-muted-foreground my-2`;
+        return `${base} border-l-[3px] border-foreground/25 pl-3 italic text-muted-foreground my-2`;
       case 'code-block':
-        return `${base} bg-muted font-mono text-[0.875rem] p-3 rounded-md my-2 whitespace-pre-wrap leading-relaxed`;
+        // 双主题统一深底浅字面板，令牌见 index.css --code-bg / --code-fg
+        return `${base} bg-code-bg text-code-fg font-mono text-[0.875rem] p-3 rounded-md my-2 whitespace-pre-wrap leading-relaxed`;
       case 'math-block':
         return `${base} bg-muted font-mono text-center p-3 rounded-md my-2 text-sm`;
       case 'emphasis-block':
@@ -813,6 +901,7 @@ const BlockElement = (props: RenderElementProps & { pages?: PageData[]; onActiva
         indicator={indicator}
         onBlockClick={handleClick}
         onDragHandleMouseDown={handleDragMouseDown}
+        onAddBelow={handleAddBelow}
         pages={pages}
         onActivatePage={onActivatePage}
       >
@@ -832,6 +921,7 @@ const BlockElement = (props: RenderElementProps & { pages?: PageData[]; onActiva
         indicator={indicator}
         onBlockClick={handleClick}
         onDragHandleMouseDown={handleDragMouseDown}
+        onAddBelow={handleAddBelow}
       >
         {children}
       </DatabaseElement>
@@ -846,6 +936,17 @@ const BlockElement = (props: RenderElementProps & { pages?: PageData[]; onActiva
       data-slate-block="true"
       onClick={handleClick}
     >
+      {/* ＋ 把手：在下方插入空段落块 */}
+      <span
+        contentEditable={false}
+        className={`absolute -left-12 top-[3px] opacity-0 ${dragHandleVisibleClass} transition-opacity cursor-pointer select-none text-muted-foreground hover:text-foreground p-1`}
+        onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
+        onClick={handleAddBelow}
+        title="在下方插入块"
+      >
+        <Plus className="w-4 h-4" strokeWidth={1.75} />
+      </span>
+
       {/* 拖拽手柄 — select-none + SVG 防止被复制 */}
       <span
         contentEditable={false}
@@ -855,6 +956,11 @@ const BlockElement = (props: RenderElementProps & { pages?: PageData[]; onActiva
       >
         <DragHandleIcon />
       </span>
+
+      {/* code-block 工具条：语言标签 + 复制按钮（hover 浮现） */}
+      {element.type === 'code-block' && (
+        <CodeBlockToolbar text={Node.string(element)} />
+      )}
 
       {/* 列表前缀 */}
       {prefix}

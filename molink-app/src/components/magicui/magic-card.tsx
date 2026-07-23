@@ -50,20 +50,22 @@ function isOrbMode(props: MagicCardProps): props is MagicCardOrbProps {
   return props.mode === "orb"
 }
 
+// 色彩宪法：光效禁彩色，默认全部走前景色的灰阶透明度；
+// 光效收敛：仅 hover 时出现，非 hover 态为静态细边 + 纯色卡片
 export function MagicCard(props: MagicCardProps) {
   const {
     children,
     className,
     gradientSize = 200,
-    gradientColor = "#262626",
+    gradientColor = "hsl(var(--foreground) / 0.06)",
     gradientOpacity = 0.8,
-    gradientFrom = "#9E7AFF",
-    gradientTo = "#FE8BBB",
+    gradientFrom = "hsl(var(--foreground) / 0.35)",
+    gradientTo = "hsl(var(--foreground) / 0)",
     mode = "gradient",
   } = props
 
-  const glowFrom = isOrbMode(props) ? (props.glowFrom ?? "#ee4f27") : "#ee4f27"
-  const glowTo = isOrbMode(props) ? (props.glowTo ?? "#6b21ef") : "#6b21ef"
+  const glowFrom = isOrbMode(props) ? (props.glowFrom ?? "hsl(var(--foreground) / 0.25)") : "hsl(var(--foreground) / 0.25)"
+  const glowTo = isOrbMode(props) ? (props.glowTo ?? "hsl(var(--foreground) / 0.05)") : "hsl(var(--foreground) / 0.05)"
   const glowAngle = isOrbMode(props) ? (props.glowAngle ?? 90) : 90
   const glowSize = isOrbMode(props) ? (props.glowSize ?? 420) : 420
   const glowBlur = isOrbMode(props) ? (props.glowBlur ?? 60) : 60
@@ -146,40 +148,52 @@ export function MagicCard(props: MagicCardProps) {
     }
   }, [reset])
 
+  // 模板无条件创建，避免在 JSX 条件分支里调用 Hook
+  const borderSpotlight = useMotionTemplate`
+    linear-gradient(transparent 0 0) padding-box,
+    radial-gradient(${gradientSize}px circle at ${mouseX}px ${mouseY}px,
+      ${gradientFrom},
+      ${gradientTo},
+      transparent 100%
+    ) border-box
+  `
+  const innerGlow = useMotionTemplate`
+    radial-gradient(${gradientSize}px circle at ${mouseX}px ${mouseY}px,
+      ${gradientColor},
+      transparent 100%
+    )
+  `
+
   return (
     <motion.div
       className={cn(
-        "group relative isolate overflow-hidden rounded-[inherit] border border-transparent",
+        "group relative isolate overflow-hidden border border-border",
         className
       )}
       onPointerMove={handlePointerMove}
       onPointerLeave={() => reset("leave")}
       onPointerEnter={() => reset("enter")}
-      style={{
-        background: useMotionTemplate`
-          linear-gradient(var(--color-background) 0 0) padding-box,
-          radial-gradient(${gradientSize}px circle at ${mouseX}px ${mouseY}px,
-            ${gradientFrom},
-            ${gradientTo},
-            var(--color-border) 100%
-          ) border-box
-        `,
-      }}
     >
-      <div className="bg-background absolute inset-px z-20 rounded-[inherit]" />
+      {/* 卡片底色（非 hover 态的静态表面） */}
+      <div className="bg-card absolute inset-0 z-20 rounded-[inherit]" />
+
+      {/* 鼠标聚光边框：仅 hover 时出现，monochrome 灰阶 */}
+      <motion.div
+        suppressHydrationWarning
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 z-30 rounded-[inherit] border border-transparent opacity-0 transition-opacity duration-[220ms] group-hover:opacity-100"
+        style={{ background: borderSpotlight }}
+      />
 
       {mode === "gradient" && (
         <motion.div
           suppressHydrationWarning
-          className="pointer-events-none absolute inset-px z-30 rounded-[inherit] opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-px z-30 rounded-[inherit] opacity-0 transition-opacity duration-[220ms] group-hover:opacity-[var(--glow-opacity)]"
           style={{
-            background: useMotionTemplate`
-              radial-gradient(${gradientSize}px circle at ${mouseX}px ${mouseY}px,
-                ${gradientColor},
-                transparent 100%
-              )
-            `,
-            opacity: gradientOpacity,
+            background: innerGlow,
+            // hover 目标不透明度通过 CSS 变量传给 group-hover 类
+            ...({ "--glow-opacity": gradientOpacity } as React.CSSProperties),
           }}
         />
       )}

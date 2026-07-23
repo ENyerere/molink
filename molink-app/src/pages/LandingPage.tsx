@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { motion } from "motion/react";
+import { motion, MotionConfig } from "motion/react";
 import { MolinkLogo } from "../components/MolinkLogo";
 import {
   Github,
@@ -16,13 +16,22 @@ interface LandingPageProps {
   onLogin: () => void;
 }
 
-/* 现代科技风落地页（常驻暗色，不随应用主题变化）
-   设计要点：深青黑底 + 顶部网格与光晕 + 渐变标题 + 玻璃质感卡片 */
+/* 现代科技风落地页 · Vercel 路线（常驻暗色，不随应用主题变化）
+   设计要点：纯黑底 + Inter 字体 + 白雾光效 + 极低对比细线 + 克制动效
+   宪法约束：光效/边框只用白灰透明度，禁用渐变文字与彩色装饰 */
 
+// Linear 同款缓动
+const EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
+
+// 入场动效：位移 + 轻微缩放
 const fadeUp = {
-  initial: { opacity: 0, y: 20 },
-  animate: { opacity: 1, y: 0 },
+  initial: { opacity: 0, y: 20, scale: 0.98 },
+  animate: { opacity: 1, y: 0, scale: 1 },
 };
+
+// IntersectionObserver 不可用时降级为默认可见（动画仅作增强，不 gate 内容可见性）
+const ioSupported =
+  typeof window !== "undefined" && "IntersectionObserver" in window;
 
 function Navbar({ onLogin, onEnterWorkspace }: LandingPageProps) {
   const [scrolled, setScrolled] = useState(false);
@@ -43,18 +52,18 @@ function Navbar({ onLogin, onEnterWorkspace }: LandingPageProps) {
       <div className="max-w-6xl mx-auto flex items-center justify-between px-6 h-16">
         <div className="flex items-center gap-2.5">
           <MolinkLogo size={24} variant="pure" />
-          <span className="text-base font-semibold text-ld-fg tracking-tight">Molink</span>
+          <span className="text-base font-semibold text-ld-fg">Molink</span>
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={onLogin}
-            className="h-9 px-4 text-sm font-medium text-ld-muted hover:text-ld-fg rounded-lg transition-colors duration-150"
+            className="h-9 px-4 text-sm font-medium text-ld-muted hover:text-ld-fg rounded-lg transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
           >
             登录
           </button>
           <button
             onClick={onEnterWorkspace}
-            className="h-9 px-4 text-sm font-medium bg-ld-fg text-ld-bg rounded-lg hover:opacity-90 transition-opacity duration-150"
+            className="h-9 px-4 text-sm font-medium bg-ld-fg text-ld-bg rounded-lg transition-all duration-150 hover:-translate-y-px hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
           >
             开始使用
           </button>
@@ -66,15 +75,16 @@ function Navbar({ onLogin, onEnterWorkspace }: LandingPageProps) {
 
 function Hero({ onLogin, onEnterWorkspace }: LandingPageProps) {
   return (
-    <section className="relative pt-44 pb-24 overflow-hidden">
-      {/* 网格背景（顶部径向渐隐） */}
-      <div className="absolute inset-0 bg-[linear-gradient(to_right,hsl(var(--ld-border)/0.35)_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--ld-border)/0.35)_1px,transparent_1px)] bg-[size:64px_64px] [mask-image:radial-gradient(ellipse_60%_55%_at_50%_0%,black,transparent)]" />
-      {/* 顶部主光晕 */}
-      <div className="absolute -top-48 left-1/2 -translate-x-1/2 w-[840px] h-[420px] rounded-full bg-primary/20 blur-[120px]" />
+    <section className="relative pt-32 pb-24 overflow-hidden">
+      {/* 网格背景（32px 密网格，顶部径向渐隐） */}
+      <div className="absolute inset-0 bg-[linear-gradient(to_right,hsl(var(--ld-border)/0.35)_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--ld-border)/0.35)_1px,transparent_1px)] bg-[size:32px_32px] [mask-image:radial-gradient(ellipse_60%_55%_at_50%_0%,black,transparent)]" />
+      {/* 顶部主光晕（白雾，monochrome 宪法：光效不用彩色） */}
+      <div className="absolute -top-48 left-1/2 -translate-x-1/2 w-[840px] h-[420px] rounded-full bg-white/[0.07] blur-[120px]" />
 
-      <div className="relative max-w-4xl mx-auto text-center px-6">
-        <motion.div {...fadeUp} transition={{ duration: 0.5 }}>
-          <span className="inline-flex items-center gap-2 rounded-full border border-ld-border bg-ld-card/60 backdrop-blur px-3.5 py-1.5 text-xs text-ld-muted">
+      {/* 文本块收窄到 8 栅格（max-w-3xl），外层容器全站统一 max-w-6xl */}
+      <div className="relative max-w-3xl mx-auto text-center px-6">
+        <motion.div {...fadeUp} transition={{ duration: 0.5, ease: EASE }}>
+          <span className="inline-flex items-center gap-2 rounded-full border border-ld-border bg-ld-card/60 px-3.5 py-1.5 text-xs text-ld-muted">
             <span className="w-1.5 h-1.5 rounded-full bg-primary" />
             开源 · 自托管 · 实时协作
           </span>
@@ -82,19 +92,17 @@ function Hero({ onLogin, onEnterWorkspace }: LandingPageProps) {
 
         <motion.h1
           {...fadeUp}
-          transition={{ duration: 0.5, delay: 0.08 }}
-          className="mt-8 text-5xl md:text-7xl font-bold tracking-tight text-ld-fg"
+          transition={{ duration: 0.5, delay: 0.08, ease: EASE }}
+          className="mt-8 text-5xl md:text-7xl font-bold text-ld-fg [text-wrap:balance]"
         >
           你的{" "}
-          <span className="bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-400 bg-clip-text text-transparent">
-            AI 工作空间
-          </span>
+          <span className="font-extrabold">模块化工作空间</span>
         </motion.h1>
 
         <motion.p
           {...fadeUp}
-          transition={{ duration: 0.5, delay: 0.16 }}
-          className="mt-6 text-base md:text-lg text-ld-muted max-w-xl mx-auto leading-relaxed"
+          transition={{ duration: 0.5, delay: 0.16, ease: EASE }}
+          className="mt-6 text-base md:text-lg text-ld-muted max-w-xl mx-auto leading-relaxed [text-wrap:pretty]"
         >
           块级编辑器、无限层级页面树、WebSocket 实时协作——
           模块化编辑器，连接你的思维，让知识自然生长。
@@ -102,19 +110,19 @@ function Hero({ onLogin, onEnterWorkspace }: LandingPageProps) {
 
         <motion.div
           {...fadeUp}
-          transition={{ duration: 0.5, delay: 0.24 }}
+          transition={{ duration: 0.5, delay: 0.24, ease: EASE }}
           className="mt-10 flex items-center justify-center gap-3"
         >
           <button
             onClick={onEnterWorkspace}
-            className="group inline-flex items-center gap-2 h-11 px-6 text-sm font-medium bg-ld-fg text-ld-bg rounded-lg hover:opacity-90 transition-opacity duration-150"
+            className="group inline-flex items-center gap-2 h-11 px-6 text-sm font-medium bg-ld-fg text-ld-bg rounded-lg transition-all duration-150 hover:-translate-y-px hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
           >
             免费开始使用
             <ArrowRight className="w-4 h-4 transition-transform duration-150 group-hover:translate-x-0.5" />
           </button>
           <button
             onClick={onLogin}
-            className="h-11 px-6 text-sm font-medium text-ld-muted hover:text-ld-fg border border-ld-border hover:border-ld-muted rounded-lg transition-colors duration-150"
+            className="h-11 px-6 text-sm font-medium text-ld-muted hover:text-ld-fg border border-ld-border hover:border-ld-muted rounded-lg transition-all duration-150 hover:-translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40"
           >
             登录
           </button>
@@ -126,17 +134,17 @@ function Hero({ onLogin, onEnterWorkspace }: LandingPageProps) {
 
 function Showcase() {
   return (
-    <section className="relative max-w-5xl mx-auto px-6 pb-28">
+    <section className="relative max-w-6xl mx-auto px-6 pb-32">
       <motion.div
-        initial={{ opacity: 0, y: 48 }}
+        initial={ioSupported ? { opacity: 0, y: 48 } : false}
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true, margin: "-80px" }}
-        transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+        transition={{ duration: 0.7, ease: EASE }}
         className="relative"
       >
-        {/* 截图背后辉光 */}
-        <div className="absolute -inset-x-10 -top-10 bottom-0 bg-gradient-to-b from-primary/25 via-purple-500/10 to-transparent blur-3xl" />
-        <div className="relative rounded-xl border border-ld-border bg-ld-card/70 backdrop-blur p-1.5 shadow-2xl">
+        {/* 截图背后辉光（白雾，不用彩色光效） */}
+        <div className="absolute -inset-x-10 -top-10 bottom-0 bg-gradient-to-b from-white/10 via-white/5 to-transparent blur-3xl" />
+        <div className="relative rounded-xl border border-ld-border bg-ld-card/70 p-1.5 shadow-2xl">
           <img
             src="/landingpage.png"
             alt="Molink 编辑器界面"
@@ -170,26 +178,28 @@ const features = [
     icon: Database,
     title: "数据库多视图",
     desc: "表格、看板、日历多视图切换，结构化与自由写作共存。",
+    wide: true,
   },
 ];
 
 function Features() {
   return (
-    <section className="relative max-w-6xl mx-auto px-6 pb-28">
+    <section className="relative max-w-6xl mx-auto px-6 pb-40">
       <motion.div
         {...fadeUp}
-        whileInView={{ opacity: 1, y: 0 }}
+        initial={ioSupported ? fadeUp.initial : false}
+        whileInView={{ opacity: 1, y: 0, scale: 1 }}
         viewport={{ once: true }}
-        transition={{ duration: 0.5 }}
+        transition={{ duration: 0.5, ease: EASE }}
         className="text-center mb-14"
       >
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-ld-muted mb-3">
+        <p className="text-xs font-semibold text-ld-muted mb-3">
           为什么选择 Molink
         </p>
-        <h2 className="text-3xl md:text-4xl font-bold tracking-tight text-ld-fg">
+        <h2 className="text-3xl md:text-4xl font-bold text-ld-fg [text-wrap:balance]">
           为专注写作而生
         </h2>
-        <p className="mt-4 text-sm md:text-base text-ld-muted max-w-xl mx-auto">
+        <p className="mt-4 text-sm md:text-base text-ld-muted max-w-xl mx-auto [text-wrap:pretty]">
           没有繁杂的表单和面板，只有一张干净的纸，和刚好够用的工具。
         </p>
       </motion.div>
@@ -198,19 +208,20 @@ function Features() {
         {features.map(({ icon: Icon, title, desc, wide }) => (
           <motion.div
             key={title}
-            initial={{ opacity: 0, y: 24 }}
+            initial={ioSupported ? { opacity: 0, y: 24 } : false}
             whileInView={{ opacity: 1, y: 0 }}
+            whileHover={{ scale: 1.02 }}
             viewport={{ once: true, margin: "-40px" }}
-            transition={{ duration: 0.5 }}
-            className={`group rounded-xl border border-ld-border bg-ld-card/40 backdrop-blur p-6 transition-colors duration-150 hover:border-primary/40 ${
+            transition={{ duration: 0.5, ease: EASE }}
+            className={`group rounded-xl border border-ld-border bg-ld-card/40 p-6 transition-colors duration-150 hover:border-white/20 hover:bg-white/[0.02] ${
               wide ? "md:col-span-2" : ""
             }`}
           >
-            <div className="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-gradient-to-br from-primary/25 to-purple-500/25 text-primary mb-5">
+            <div className="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-white/[0.08] text-ld-fg mb-5">
               <Icon className="w-5 h-5" strokeWidth={1.75} />
             </div>
             <h3 className="text-base font-semibold text-ld-fg mb-2">{title}</h3>
-            <p className="text-sm leading-relaxed text-ld-muted">{desc}</p>
+            <p className="text-sm leading-relaxed text-ld-muted [text-wrap:pretty]">{desc}</p>
           </motion.div>
         ))}
       </div>
@@ -218,35 +229,74 @@ function Features() {
   );
 }
 
-function Footer() {
+function Footer({ onLogin, onEnterWorkspace }: LandingPageProps) {
   const currentYear = new Date().getFullYear();
 
   return (
     <footer className="border-t border-ld-border">
-      <div className="max-w-6xl mx-auto px-6 py-10 flex flex-col md:flex-row items-center justify-between gap-4">
-        <div className="flex items-center gap-2.5 text-sm text-ld-muted">
-          <MolinkLogo size={20} variant="pure" />
-          <span>© {currentYear} Molink. All rights reserved.</span>
+      {/* 多列分组：品牌 / 产品 / 资源 */}
+      <div className="max-w-6xl mx-auto px-6 pt-14 pb-10 grid gap-10 md:grid-cols-4">
+        <div className="md:col-span-2">
+          <div className="flex items-center gap-2.5">
+            <MolinkLogo size={20} variant="pure" />
+            <span className="text-sm font-semibold text-ld-fg">Molink</span>
+          </div>
+          <p className="mt-3 text-sm text-ld-muted max-w-xs [text-wrap:pretty]">
+            模块化工作空间，让知识自然生长。
+          </p>
         </div>
-        <div className="flex items-center gap-5">
-          <a
-            href="https://github.com"
-            target="_blank"
-            rel="nofollow noopener"
-            aria-label="GitHub"
-            className="text-ld-muted hover:text-ld-fg transition-colors duration-150"
-          >
-            <Github className="w-5 h-5" />
-          </a>
-          <a
-            href="https://twitter.com"
-            target="_blank"
-            rel="nofollow noopener"
-            aria-label="X (formerly Twitter)"
-            className="text-ld-muted hover:text-ld-fg transition-colors duration-150"
-          >
-            <Twitter className="w-5 h-5" />
-          </a>
+        <div>
+          <p className="text-xs font-semibold text-ld-muted mb-3">产品</p>
+          <ul className="space-y-2.5 text-sm">
+            <li>
+              <button
+                onClick={onEnterWorkspace}
+                className="text-ld-muted hover:text-ld-fg transition-colors duration-150"
+              >
+                开始使用
+              </button>
+            </li>
+            <li>
+              <button
+                onClick={onLogin}
+                className="text-ld-muted hover:text-ld-fg transition-colors duration-150"
+              >
+                登录
+              </button>
+            </li>
+          </ul>
+        </div>
+        <div>
+          <p className="text-xs font-semibold text-ld-muted mb-3">资源</p>
+          <ul className="space-y-2.5 text-sm">
+            <li>
+              <a
+                href="https://github.com"
+                target="_blank"
+                rel="nofollow noopener"
+                className="inline-flex items-center gap-1.5 text-ld-muted hover:text-ld-fg transition-colors duration-150"
+              >
+                <Github className="w-4 h-4" />
+                GitHub
+              </a>
+            </li>
+            <li>
+              <a
+                href="https://twitter.com"
+                target="_blank"
+                rel="nofollow noopener"
+                className="inline-flex items-center gap-1.5 text-ld-muted hover:text-ld-fg transition-colors duration-150"
+              >
+                <Twitter className="w-4 h-4" />
+                X
+              </a>
+            </li>
+          </ul>
+        </div>
+      </div>
+      <div className="border-t border-ld-border">
+        <div className="max-w-6xl mx-auto px-6 py-6 text-sm text-ld-muted">
+          © {currentYear} Molink. All rights reserved.
         </div>
       </div>
     </footer>
@@ -255,12 +305,15 @@ function Footer() {
 
 export default function LandingPage({ onEnterWorkspace, onLogin }: LandingPageProps) {
   return (
-    <div className="landing relative w-full min-h-screen bg-ld-bg text-ld-fg antialiased">
-      <Navbar onLogin={onLogin} onEnterWorkspace={onEnterWorkspace} />
-      <Hero onLogin={onLogin} onEnterWorkspace={onEnterWorkspace} />
-      <Showcase />
-      <Features />
-      <Footer />
-    </div>
+    // reducedMotion="user"：尊重系统"减弱动态效果"设置
+    <MotionConfig reducedMotion="user">
+      <div className="landing relative w-full min-h-screen bg-ld-bg text-ld-fg antialiased">
+        <Navbar onLogin={onLogin} onEnterWorkspace={onEnterWorkspace} />
+        <Hero onLogin={onLogin} onEnterWorkspace={onEnterWorkspace} />
+        <Showcase />
+        <Features />
+        <Footer onLogin={onLogin} onEnterWorkspace={onEnterWorkspace} />
+      </div>
+    </MotionConfig>
   );
 }

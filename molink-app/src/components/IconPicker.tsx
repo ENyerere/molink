@@ -446,7 +446,8 @@ export default function IconPicker({ isOpen, onClose, onSelect, currentIcon, anc
     const el = document.getElementById(`emoji-cat-${name}`);
     if (el && contentRef.current) {
       const container = contentRef.current;
-      const top = el.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop - 8;
+      // 多扣 32px：给吸顶分类标题留出遮挡空间
+      const top = el.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop - 32;
       container.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
     }
   };
@@ -482,7 +483,7 @@ export default function IconPicker({ isOpen, onClose, onSelect, currentIcon, anc
       {/* Picker 卡片 */}
       <div
         ref={pickerRef}
-        className="absolute bg-card rounded-lg w-[380px] max-w-[90vw] shadow-2xl border border-border flex flex-col max-h-[380px] overflow-hidden transition-transform duration-150 ease-out"
+        className="absolute bg-popover rounded-xl w-[380px] max-w-[90vw] shadow-2 border border-border flex flex-col max-h-[380px] overflow-hidden transition-transform duration-150 ease-[cubic-bezier(0.22,1,0.36,1)]"
         style={{
           top: position.top,
           left: position.left,
@@ -494,38 +495,38 @@ export default function IconPicker({ isOpen, onClose, onSelect, currentIcon, anc
           <div className="flex items-center gap-5">
             {(['emoji','icon','upload'] as TabType[]).map(tab => (
               <button key={tab} onClick={() => { setActiveTab(tab); setSearch(''); setUploadedImage(null); setPickingColorFor(null); }}
-                className={`pb-2 text-[13px] transition-colors relative ${activeTab === tab ? 'text-foreground font-medium' : 'text-muted-foreground hover:text-foreground'}`}>
+                className={`pb-2 text-[13px] transition-colors duration-150 relative rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 ${activeTab === tab ? 'text-foreground font-medium' : 'text-muted-foreground hover:text-foreground'}`}>
                 {tab === 'emoji' && '表情符号'}{tab === 'icon' && '图标'}{tab === 'upload' && '上传'}
                 {activeTab === tab && <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-foreground rounded-full" />}
               </button>
             ))}
           </div>
-          <button onClick={handleRemove} className="text-[13px] text-muted-foreground hover:text-foreground transition-colors pb-2">移除</button>
+          <button onClick={handleRemove} className="text-[13px] text-muted-foreground hover:text-foreground transition-colors duration-150 pb-2 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60">移除</button>
         </div>
 
         {/* Search */}
         {activeTab !== 'upload' && (
         <div className="px-3 py-2.5 flex items-center gap-1.5 shrink-0">
           <div className="flex-1 relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" strokeWidth={1.75} />
             <input ref={searchInputRef} type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="筛选..."
-              className="w-full h-8 pl-8 pr-3 bg-muted rounded-md text-[13px] text-foreground placeholder:text-muted-foreground focus:outline-none focus-visible:outline-none focus:ring-1 focus:ring-primary/50" />
+              className="w-full h-8 pl-8 pr-3 bg-muted rounded-md text-[13px] text-foreground placeholder:text-muted-foreground transition-shadow duration-150 focus:outline-none focus:ring-2 focus:ring-ring/60" />
           </div>
-          <button onClick={handleRandom} className="w-8 h-8 flex items-center justify-center rounded-md bg-muted hover:bg-accent text-muted-foreground hover:text-foreground transition-colors" title="随机">
-            <Shuffle className="w-3.5 h-3.5" />
+          <button onClick={handleRandom} className="w-8 h-8 flex items-center justify-center rounded-md bg-muted hover:bg-accent text-muted-foreground hover:text-foreground transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60" title="随机">
+            <Shuffle className="w-4 h-4" strokeWidth={1.75} />
           </button>
           {activeTab === 'icon' && (
             <div className="relative">
               <button onClick={() => { setShowColorPicker(v => !v); }}
-                className="w-8 h-8 flex items-center justify-center rounded-md bg-muted hover:bg-accent text-muted-foreground hover:text-foreground transition-colors" title="选择颜色">
-                <div className="w-3.5 h-3.5 rounded-full border border-border" style={{ backgroundColor: selectedColor || '#6b7280' }} />
+                className="w-8 h-8 flex items-center justify-center rounded-md bg-muted hover:bg-accent text-muted-foreground hover:text-foreground transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60" title="选择颜色">
+                <div className="w-3.5 h-3.5 rounded-full border border-border" style={{ backgroundColor: selectedColor || 'hsl(var(--muted-foreground))' }} />
               </button>
               {showColorPicker && (
-                <div className="absolute right-0 top-full mt-1.5 bg-card rounded-lg shadow-xl border border-border p-2.5 z-50 w-[180px]">
+                <div className="absolute right-0 top-full mt-1.5 bg-popover rounded-lg shadow-2 border border-border p-2.5 z-50 w-[180px]">
                   <div className="grid grid-cols-6 gap-1">
                     {COLORS.map(color => (
                       <button key={color} onClick={() => { setSelectedColor(color); setShowColorPicker(false); }}
-                        className={`w-6 h-6 rounded-full transition-transform hover:scale-110 ${selectedColor === color ? 'ring-2 ring-foreground ring-offset-1 ring-offset-card' : ''}`}
+                        className={`w-6 h-6 rounded-full transition-transform duration-150 hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 ${selectedColor === color ? 'ring-2 ring-foreground ring-offset-1 ring-offset-popover' : ''}`}
                         style={{ backgroundColor: color }} />
                     ))}
                   </div>
@@ -543,20 +544,27 @@ export default function IconPicker({ isOpen, onClose, onSelect, currentIcon, anc
             <div>
               {recentEmojis.length > 0 && !search && (
                 <div className="mb-3">
-                  <div className="text-[11px] text-muted-foreground mb-1.5 font-medium">最近</div>
-                  <div className="flex flex-wrap gap-0.5">
+                  <div className="sticky top-0 z-10 -mx-3 bg-popover px-3 py-1.5 text-[11px] text-muted-foreground font-medium">最近</div>
+                  <div className="grid grid-cols-10 gap-0.5">
                     {recentEmojis.map((emoji, i) => (
-                      <button key={`r-${i}`} onClick={() => onSelect(emoji)} className="w-8 h-8 flex items-center justify-center text-lg hover:bg-accent rounded transition-colors">{emoji}</button>
+                      <button key={`r-${i}`} onClick={() => onSelect(emoji)} className="aspect-square flex items-center justify-center text-lg hover:bg-accent rounded-md transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60">{emoji}</button>
                     ))}
                   </div>
                 </div>
               )}
-              {emojiCategories.map(cat => (
+              {emojiCategories.map((cat, catIdx) => (
                 <div key={cat} className="mb-3" id={`emoji-cat-${cat}`}>
-                  <div className="text-[11px] text-muted-foreground mb-1.5 font-medium">{cat}</div>
-                  <div className="flex flex-wrap gap-0.5">
+                  <div className="sticky top-0 z-10 -mx-3 bg-popover px-3 py-1.5 text-[11px] text-muted-foreground font-medium">{cat}</div>
+                  <div className="grid grid-cols-10 gap-0.5">
+                    {/* 上传入口固定在第一格，沿用现有上传 tab 逻辑 */}
+                    {catIdx === 0 && (
+                      <button onClick={() => { setActiveTab('upload'); setSearch(''); setPickingColorFor(null); }} title="上传图片"
+                        className="aspect-square flex items-center justify-center text-muted-foreground hover:bg-accent hover:text-foreground rounded-md transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60">
+                        <ImageIcon className="w-5 h-5" strokeWidth={1.75} />
+                      </button>
+                    )}
                     {filteredEmojis.filter(e => e.category === cat).map((item, i) => {
-                      return <button key={`${cat}-${i}`} onClick={() => handleSelectEmoji(item.char)} className="w-8 h-8 flex items-center justify-center text-lg hover:bg-accent rounded transition-colors">{item.char}</button>;
+                      return <button key={`${cat}-${i}`} onClick={() => handleSelectEmoji(item.char)} className="aspect-square flex items-center justify-center text-lg hover:bg-accent rounded-md transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60">{item.char}</button>;
                     })}
                   </div>
                 </div>
@@ -572,36 +580,36 @@ export default function IconPicker({ isOpen, onClose, onSelect, currentIcon, anc
                   <div className="flex flex-wrap gap-0.5">
                     {(() => { const IconComp = ICON_MAP[pickingColorFor]; if (!IconComp) return null;
                       return (<>
-                        <button onClick={() => handlePickIconColor(null)} className="w-8 h-8 flex items-center justify-center hover:bg-accent rounded transition-colors" title="默认"><IconComp className="w-5 h-5 text-muted-foreground" /></button>
-                        {COLORS.map(color => <button key={color} onClick={() => handlePickIconColor(color)} className="w-8 h-8 flex items-center justify-center hover:bg-accent rounded transition-colors"><IconComp className="w-5 h-5" style={{ color }} /></button>)}
+                        <button onClick={() => handlePickIconColor(null)} className="w-8 h-8 flex items-center justify-center hover:bg-accent rounded-md transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60" title="默认"><IconComp className="w-5 h-5 text-muted-foreground" strokeWidth={1.75} /></button>
+                        {COLORS.map(color => <button key={color} onClick={() => handlePickIconColor(color)} className="w-8 h-8 flex items-center justify-center hover:bg-accent rounded-md transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"><IconComp className="w-5 h-5" strokeWidth={1.75} style={{ color }} /></button>)}
                       </>);
                     })()}
                   </div>
                   <div className="flex items-center justify-between mt-2">
                     <span className="text-[11px] text-muted-foreground">每次询问</span>
-                    <button onClick={() => setAskEveryTime(v => !v)} className={`w-9 h-4.5 rounded-full transition-colors relative ${askEveryTime ? 'bg-primary' : 'bg-muted'}`}>
-                      <span className={`absolute top-0.5 w-3.5 h-3.5 bg-primary-foreground rounded-full transition-transform ${askEveryTime ? 'translate-x-[18px]' : 'translate-x-0.5'}`} />
+                    <button onClick={() => setAskEveryTime(v => !v)} className={`w-9 h-5 rounded-full transition-colors duration-150 relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 ${askEveryTime ? 'bg-primary' : 'bg-muted'}`}>
+                      <span className={`absolute left-0 top-[3px] w-3.5 h-3.5 bg-primary-foreground rounded-full transition-transform duration-150 ${askEveryTime ? 'translate-x-[19px]' : 'translate-x-[3px]'}`} />
                     </button>
                   </div>
                 </div>
               )}
               {!pickingColorFor && recentIcons.length > 0 && !search && (
                 <div className="mb-3">
-                  <div className="text-[11px] text-muted-foreground mb-1.5 font-medium">最近</div>
-                  <div className="flex flex-wrap gap-0.5">
+                  <div className="sticky top-0 z-10 -mx-3 bg-popover px-3 py-1.5 text-[11px] text-muted-foreground font-medium">最近</div>
+                  <div className="grid grid-cols-10 gap-0.5">
                     {recentIcons.map((iconVal, i) => {
                       const parsed = parseIcon(iconVal); const IconComp = parsed.type === 'lucide' ? ICON_MAP[parsed.value] : null;
-                      return IconComp ? <button key={`r-${i}`} onClick={() => onSelect(iconVal)} className="w-8 h-8 flex items-center justify-center hover:bg-accent rounded transition-colors"><IconComp className="w-5 h-5" style={{ color: parsed.color || 'currentColor' }} /></button> : null;
+                      return IconComp ? <button key={`r-${i}`} onClick={() => onSelect(iconVal)} className="aspect-square flex items-center justify-center hover:bg-accent rounded-md transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"><IconComp className="w-5 h-5" strokeWidth={1.75} style={{ color: parsed.color || 'currentColor' }} /></button> : null;
                     })}
                   </div>
                 </div>
               )}
               {filteredIcons.map(cat => (
                 <div key={cat.name} className="mb-3">
-                  <div className="text-[11px] text-muted-foreground mb-1.5 font-medium">{cat.name}</div>
-                  <div className="flex flex-wrap gap-0.5">
+                  <div className="sticky top-0 z-10 -mx-3 bg-popover px-3 py-1.5 text-[11px] text-muted-foreground font-medium">{cat.name}</div>
+                  <div className="grid grid-cols-10 gap-0.5">
                     {cat.icons.map((iconName, i) => { const IconComp = ICON_MAP[iconName]; if (!IconComp) return null;
-                      return <button key={`${cat.name}-${i}`} onClick={() => handleClickIcon(iconName)} className="w-8 h-8 flex items-center justify-center hover:bg-accent rounded transition-colors"><IconComp className="w-5 h-5" style={{ color: selectedColor || 'hsl(var(--muted-foreground))' }} /></button>;
+                      return <button key={`${cat.name}-${i}`} onClick={() => handleClickIcon(iconName)} className="aspect-square flex items-center justify-center hover:bg-accent rounded-md transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"><IconComp className="w-5 h-5 text-muted-foreground" strokeWidth={1.75} style={{ color: selectedColor || undefined }} /></button>;
                     })}
                   </div>
                 </div>
@@ -610,16 +618,16 @@ export default function IconPicker({ isOpen, onClose, onSelect, currentIcon, anc
           )}
 
           {activeTab === 'upload' && (
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-3 pt-2">
               <div onClick={() => fileInputRef.current?.click()} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); const file = e.dataTransfer.files?.[0]; if (file && file.type.startsWith('image/')) { const r = new FileReader(); r.onload = (ev) => setUploadedImage(ev.target?.result as string); r.readAsDataURL(file); }}}
-                className="border border-dashed border-border rounded-md p-6 flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-primary/40 transition-colors">
-                {uploadedImage ? <img src={uploadedImage} alt="预览" className="max-h-28 max-w-full rounded object-contain" /> : <><ImageIcon className="w-6 h-6 text-muted-foreground" /><span className="text-[13px] text-muted-foreground">上传图片</span></>}
+                className="border border-dashed border-border rounded-md p-6 flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-muted-foreground/60 hover:bg-accent/50 transition-colors duration-150">
+                {uploadedImage ? <img src={uploadedImage} alt="预览" className="max-h-28 max-w-full rounded object-contain" /> : <><ImageIcon className="w-6 h-6 text-muted-foreground" strokeWidth={1.75} /><span className="text-[13px] text-muted-foreground">上传图片</span></>}
               </div>
               <p className="text-[11px] text-muted-foreground text-center">或 Ctrl+V 粘贴图片或链接</p>
               {uploadedImage && (
                 <div className="flex items-center justify-end gap-2">
-                  <button onClick={() => setUploadedImage(null)} className="px-3 py-1 text-[13px] text-muted-foreground hover:text-foreground transition-colors">取消</button>
-                  <button onClick={handleSaveUpload} className="px-3 py-1 text-[13px] bg-primary text-primary-foreground rounded hover:opacity-90 transition-colors">保存</button>
+                  <button onClick={() => setUploadedImage(null)} className="px-3 py-1 text-[13px] text-muted-foreground hover:text-foreground rounded-md transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60">取消</button>
+                  <button onClick={handleSaveUpload} className="px-3 py-1 text-[13px] bg-primary text-primary-foreground rounded-md hover:opacity-90 transition-opacity duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60">保存</button>
                 </div>
               )}
               <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileUpload} />
@@ -632,7 +640,7 @@ export default function IconPicker({ isOpen, onClose, onSelect, currentIcon, anc
           <div className="shrink-0 border-t border-border px-2 py-1.5 grid grid-cols-8 place-items-center">
             {EMOJI_CAT_NAV.map(cat => {
               const NavIcon = cat.icon;
-              return <button key={cat.name} onClick={() => scrollToCategory(cat.name)} className="w-7 h-7 flex items-center justify-center rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors" title={cat.name}><NavIcon className="w-3.5 h-3.5" /></button>;
+              return <button key={cat.name} onClick={() => scrollToCategory(cat.name)} className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60" title={cat.name}><NavIcon className="w-4 h-4" strokeWidth={1.75} /></button>;
             })}
           </div>
         )}
