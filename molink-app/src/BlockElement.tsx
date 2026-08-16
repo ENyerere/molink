@@ -600,6 +600,49 @@ const BlockElement = (props: RenderElementProps & { pages?: PageData[]; onActiva
         ? { min: Math.min(...selectedPaths.map(p => p[0])), max: Math.max(...selectedPaths.map(p => p[0])) }
         : null;
 
+      // 单块拖拽：清掉其他块残留的框选选中态，避免旧的选中范围干扰本次放置判断
+      if (!isMultiSelect) {
+        SlateEditor.withoutNormalizing(editor, () => {
+          for (const [, p] of SlateEditor.nodes(editor, {
+            at: [],
+            match: (n) => SlateElement.isElement(n) && SlateEditor.isBlock(editor, n),
+          })) {
+            Transforms.setNodes<BlockElementType>(editor, { selected: false }, { at: p });
+          }
+        });
+      }
+
+      // 收集所有块（文档顺序）及其视口矩形
+      const collectBlockRects = () => {
+        const all: { rect: DOMRect }[] = [];
+        for (const [node] of SlateEditor.nodes(editor, {
+          at: [],
+          match: (n) => SlateElement.isElement(n) && SlateEditor.isBlock(editor, n),
+        })) {
+          try {
+            const dom = ReactEditor.toDOMNode(editor as ReactEditor, node as SlateElement);
+            all.push({ rect: dom.getBoundingClientRect() });
+          } catch { /* 节点对应的 DOM 可能已卸载或路径已失效，忽略 */ }
+        }
+        return all;
+      };
+
+      // 插入索引（0..块数）：以相邻块"间隙的中点"为分界。
+      // getBoundingClientRect 不含 margin，块间的空白间隙不属于任何块的矩形，
+      // 旧的"最近块中线"算法会让间隙成为归属暧昧的死区；用间隙中点分界后，
+      // 间隙上半归上方块、下半归下方块，整个垂直区间都可用
+      const computeInsertIndex = (all: { rect: DOMRect }[], clientY: number): number => {
+        let insertIndex = 0;
+        for (let i = 0; i < all.length; i++) {
+          const boundary = i < all.length - 1
+            ? (all[i].rect.bottom + all[i + 1].rect.top) / 2
+            : Infinity;
+          if (clientY >= boundary) insertIndex = i + 1;
+          else break;
+        }
+        return insertIndex;
+      };
+
       let ghost: HTMLElement | null = null;
       let hasStartedDrag = false;
       const ghostOffset = { x: 0, y: 0 };
@@ -701,53 +744,24 @@ const BlockElement = (props: RenderElementProps & { pages?: PageData[]; onActiva
           ghost.style.top = `${ev.clientY + ghostOffset.y}px`;
         }
 
-        // 计算插入指示线
-        let bestTarget: {
-          node: SlateElement;
-          path: Path;
-          rect: DOMRect;
-          before: boolean;
-        } | null = null;
-        let minDist = Infinity;
+        // 计算插入指示线：间隙中点分界，指示线画在间隙中央
+        const all = collectBlockRects();
+        const insertIndex = computeInsertIndex(all, ev.clientY);
+        // 多选时目标落在选中块组内部（含紧邻边界）→ 原地放置，不显示指示线
+        const isIdentityDrop = selectedRange !== null &&
+          insertIndex >= selectedRange.min &&
+          insertIndex <= selectedRange.max + 1;
 
-        for (const [node, p] of SlateEditor.nodes(editor, {
-          at: [],
-          match: (n) => SlateElement.isElement(n) && SlateEditor.isBlock(editor, n),
-        })) {
-          try {
-            const dom = ReactEditor.toDOMNode(editor as ReactEditor, node as SlateElement);
-            const rect = dom.getBoundingClientRect();
-            const midY = rect.top + rect.height / 2;
-            const dist = Math.abs(ev.clientY - midY);
-
-            if (dist < minDist) {
-              minDist = dist;
-              bestTarget = {
-                node: node as SlateElement,
-                path: p,
-                rect,
-                before: ev.clientY < midY,
-              };
-            }
-          } catch { /* 节点对应的 DOM 可能已卸载或路径已失效，忽略 */ }
-        }
-
-        if (bestTarget) {
-          const targetIndex = bestTarget.path[0];
-          // 多选时：如果目标在选中块组内部，不显示指示线
-          const isInsideSelection = selectedRange !== null &&
-            targetIndex >= selectedRange.min &&
-            targetIndex <= selectedRange.max;
-
-          if (isInsideSelection) {
-            setIndicator(null);
-          } else {
-            setIndicator({
-              top: bestTarget.before ? bestTarget.rect.top : bestTarget.rect.bottom,
-              left: bestTarget.rect.left,
-              width: bestTarget.rect.width,
-            });
-          }
+        if (all.length === 0 || isIdentityDrop) {
+          setIndicator(null);
+        } else {
+          const lineY = insertIndex === 0
+            ? all[0].rect.top
+            : insertIndex >= all.length
+              ? all[all.length - 1].rect.bottom
+              : (all[insertIndex - 1].rect.bottom + all[insertIndex].rect.top) / 2;
+          const refRect = insertIndex >= all.length ? all[all.length - 1].rect : all[insertIndex].rect;
+          setIndicator({ top: lineY, left: refRect.left, width: refRect.width });
         }
       };
 
@@ -803,39 +817,23 @@ const BlockElement = (props: RenderElementProps & { pages?: PageData[]; onActiva
             return structuredClone(node);
           });
 
-          // 确定目标位置（基于删除前的 DOM）
-          let targetIndex = -1;
-          let minDist = Infinity;
-          for (const [node, p] of SlateEditor.nodes(editor, {
-            at: [],
-            match: (n) => SlateElement.isElement(n) && SlateEditor.isBlock(editor, n),
-          })) {
-            try {
-              const dom = ReactEditor.toDOMNode(editor as ReactEditor, node as SlateElement);
-              const rect = dom.getBoundingClientRect();
-              const midY = rect.top + rect.height / 2;
-              const dist = Math.abs(ev.clientY - midY);
-              if (dist < minDist) {
-                minDist = dist;
-                targetIndex = ev.clientY < midY ? p[0] : p[0] + 1;
-              }
-            } catch { /* 节点对应的 DOM 可能已卸载或路径已失效，忽略 */ }
+          // 确定目标插入位置（间隙中点分界，与指示线一致）
+          const all = collectBlockRects();
+          const insertIndex = computeInsertIndex(all, ev.clientY);
+
+          // 目标落在选中块组内部（含紧邻边界）→ 原地放置，不移动
+          if (selectedRange !== null && insertIndex >= selectedRange.min && insertIndex <= selectedRange.max + 1) {
+            return;
           }
-          if (targetIndex === -1) return;
 
           // 调整目标 index（删除的节点在目标之前时，目标要前移）
-          let adjustedIndex = targetIndex;
+          let adjustedIndex = insertIndex;
           for (const p of selectedPaths) {
-            if (p[0] < targetIndex) {
+            if (p[0] < insertIndex) {
               adjustedIndex--;
             }
           }
           adjustedIndex = Math.max(0, adjustedIndex);
-
-          // 多选时：如果目标在选中块组内部，不移动
-          if (selectedRange !== null && adjustedIndex >= selectedRange.min && adjustedIndex <= selectedRange.max + 1) {
-            return;
-          }
 
           // 从后往前删除，然后批量插入
           SlateEditor.withoutNormalizing(editor, () => {
@@ -847,42 +845,14 @@ const BlockElement = (props: RenderElementProps & { pages?: PageData[]; onActiva
           return;
         }
 
-        // === 单选移动 ===
-        let bestTarget: {
-          node: SlateElement;
-          path: Path;
-          before: boolean;
-        } | null = null;
-        let minDist = Infinity;
-
-        for (const [node, p] of SlateEditor.nodes(editor, {
-          at: [],
-          match: (n) => SlateElement.isElement(n) && SlateEditor.isBlock(editor, n),
-        })) {
-          try {
-            const dom = ReactEditor.toDOMNode(editor as ReactEditor, node as SlateElement);
-            const rect = dom.getBoundingClientRect();
-            const midY = rect.top + rect.height / 2;
-            const dist = Math.abs(ev.clientY - midY);
-
-            if (dist < minDist) {
-              minDist = dist;
-              bestTarget = {
-                node: node as SlateElement,
-                path: p,
-                before: ev.clientY < midY,
-              };
-            }
-          } catch { /* 节点对应的 DOM 可能已卸载或路径已失效，忽略 */ }
-        }
-
-        if (bestTarget && !Path.equals(fromPath, bestTarget.path)) {
-          const toPath = bestTarget.before
-            ? bestTarget.path
-            : Path.next(bestTarget.path);
-          if (!Path.equals(fromPath, toPath)) {
-            Transforms.moveNodes(editor, { at: fromPath, to: toPath });
-          }
+        // === 单块移动：间隙中点分界计算插入索引，落在自身紧邻位置则不移动 ===
+        const all = collectBlockRects();
+        const insertIndex = computeInsertIndex(all, ev.clientY);
+        const fromIndex = fromPath[0];
+        if (all.length > 0 && insertIndex !== fromIndex && insertIndex !== fromIndex + 1) {
+          // 向后移动时先删除自身会导致索引前移一位，补偿之
+          const toIndex = insertIndex > fromIndex ? insertIndex - 1 : insertIndex;
+          Transforms.moveNodes(editor, { at: fromPath, to: [toIndex] });
         }
       };
 
