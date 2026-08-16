@@ -24,6 +24,9 @@ dist-ssr
 *.sw?
 docs
 
+# AI 编辑器本地计划目录
+.zcode/
+
 # Python
 __pycache__/
 *.py[cod]
