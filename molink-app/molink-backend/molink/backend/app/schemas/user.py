@@ -9,7 +9,7 @@ from datetime import datetime
 class UserCreate(BaseModel):
     email: EmailStr
     password: str = Field(..., min_length=8)
-    full_name: Optional[str] = None
+    full_name: Optional[str] = Field(default=None, max_length=100)
 
 
 class UserLogin(BaseModel):
@@ -21,8 +21,8 @@ class UserLogin(BaseModel):
 
 
 class UserUpdate(BaseModel):
-    full_name: Optional[str] = None
-    avatar_url: Optional[str] = None
+    full_name: Optional[str] = Field(default=None, max_length=100)
+    avatar_url: Optional[str] = Field(default=None, max_length=500)
     settings: Optional[dict] = None
 
 

@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect } from 'react';
+import { useState, useMemo, useRef, useEffect, useCallback, memo } from 'react';
 import type { PageData, User } from './App';
 import {
   Search, Home, Briefcase, Inbox,
@@ -93,15 +93,7 @@ function SidebarSection({
 // ============================================================
 // 页面树项（递归）
 // ============================================================
-function PageTreeItem({
-  node,
-  depth,
-  activePageId,
-  autoExpanded,
-  onActivate,
-  onAddChild,
-  onClose,
-}: {
+interface PageTreeItemProps {
   node: TreeNode;
   depth: number;
   activePageId: string | null;
@@ -109,11 +101,25 @@ function PageTreeItem({
   onActivate: (id: string) => void;
   onAddChild: (parentId: string) => void;
   onClose: (id: string) => void;
-}) {
+}
+
+// memo 化以减少 Sidebar 内无关状态（用户菜单、设置弹窗等）变化时的整树重渲染；
+// 必须用匿名函数：递归处的 <PageTreeItem> 指向 memo 结果本身（命名函数表达式的内部名会遮蔽外层 const，导致子节点绕过缓存）
+const PageTreeItem = memo(({
+  node,
+  depth,
+  activePageId,
+  autoExpanded,
+  onActivate,
+  onAddChild,
+  onClose,
+}: PageTreeItemProps) => {
   const isActive = activePageId === node.page.id;
   const isAutoExpanded = autoExpanded.has(node.page.id);
-  const [userExpanded, setUserExpanded] = useState(false);
-  const isExpanded = userExpanded || isAutoExpanded;
+  // 用户手动展开/折叠优先于自动展开（null = 未手动干预）。
+  // 否则激活页的祖先会被自动展开永远压住，用户无法折叠
+  const [userExpandState, setUserExpandState] = useState<boolean | null>(null);
+  const isExpanded = userExpandState ?? isAutoExpanded;
   const hasChildren = node.children.length > 0;
   const [isHovered, setIsHovered] = useState(false);
 
@@ -125,14 +131,13 @@ function PageTreeItem({
 
   const handleToggle = (e?: React.MouseEvent) => {
     e?.stopPropagation();
-    setUserExpanded((prev) => !prev);
+    setUserExpandState((prev) => (prev === null ? !isExpanded : !prev));
   };
 
   const handleClick = () => {
+    // 点击只做导航；展开/折叠统一走左侧 toggle 按钮，
+    // 每次点击页面都翻转展开状态会与导航意图冲突
     onActivate(node.page.id);
-    if (hasChildren) {
-      handleToggle();
-    }
   };
 
   return (
@@ -233,7 +238,7 @@ function PageTreeItem({
       )}
     </div>
   );
-}
+});
 
 // ============================================================
 // Sidebar 主组件
@@ -263,34 +268,54 @@ export default function Sidebar({
   // 构建页面树
   const tree = useMemo(() => buildTree(nonDeletedPages), [nonDeletedPages]);
 
-  // 计算需要自动展开的祖先节点（确保 activePage 可见）
+  // id → 页面索引，供沿父链查找时 O(1) 取节点（替代 while 循环内反复 find 的 O(n·D)）
+  const pagesById = useMemo(() => {
+    const map = new Map<string, PageData>();
+    for (const p of nonDeletedPages) map.set(p.id, p);
+    return map;
+  }, [nonDeletedPages]);
+
+  // 计算需要自动展开的祖先节点（确保 activePage 可见）；visited 防御脏数据成环死循环
   const autoExpandedIds = useMemo(() => {
     const auto = new Set<string>();
     if (!activePageId) return auto;
-    let current = nonDeletedPages.find((p) => p.id === activePageId);
-    while (current?.parentId) {
+    let current = pagesById.get(activePageId);
+    const visited = new Set<string>();
+    while (current?.parentId && !visited.has(current.parentId)) {
+      visited.add(current.parentId);
       auto.add(current.parentId);
-      current = nonDeletedPages.find((p) => p.id === current!.parentId);
+      current = pagesById.get(current.parentId);
     }
     return auto;
-  }, [nonDeletedPages, activePageId]);
+  }, [pagesById, activePageId]);
 
-  // 最近修改的页面（前5个，仅限顶层，按 updatedAt 降序）
+  // 最近修改的页面（前5个，仅限顶层，按 updatedAt 降序）。
+  // 单次遍历维护有序 top5，避免 filter→sort→slice 的中间数组；
+  // 时间戳相等时保持 pages 原有先后顺序，与原先的稳定性排序结果一致
   const recentPages = useMemo(() => {
-    return pages
-      .filter((p) => !p.parentId && !p.deletedAt)
-      .sort((a, b) => {
-        const tA = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
-        const tB = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
-        return tB - tA;
-      })
-      .slice(0, 5);
+    const top: { time: number; page: PageData }[] = [];
+    for (const page of pages) {
+      if (page.parentId || page.deletedAt) continue;
+      const time = page.updatedAt ? new Date(page.updatedAt).getTime() : 0;
+      let i = 0;
+      while (i < top.length && top[i].time >= time) i++;
+      top.splice(i, 0, { time, page });
+      if (top.length > 5) top.pop();
+    }
+    return top.map(({ page }) => page);
   }, [pages]);
-  // 从树中筛选出最近页面对应的节点（保留子节点关系）
-  const recentNodes = useMemo(() => {
-    const recentIds = new Set(recentPages.map((p) => p.id));
-    return tree.filter((node) => recentIds.has(node.page.id));
-  }, [tree, recentPages]);
+
+  // App.tsx 传入的 setActivePageId/addPage 是组件内普通函数、每次渲染更换身份，
+  // closePage 虽经 useCallback 但依赖 pages/activePageId 同样频繁变更。
+  // 用 ref 持有最新实现 + 空依赖 useCallback 生成身份稳定的包装，
+  // PageTreeItem 的 memo 才不会因回调 prop 变化而每次失效
+  const pageActionsRef = useRef({ setActivePageId, addPage, closePage });
+  useEffect(() => {
+    pageActionsRef.current = { setActivePageId, addPage, closePage };
+  });
+  const handleActivate = useCallback((id: string) => pageActionsRef.current.setActivePageId(id), []);
+  const handleAddChild = useCallback((parentId: string) => { pageActionsRef.current.addPage(parentId); }, []);
+  const handleClosePage = useCallback((id: string) => pageActionsRef.current.closePage(id), []);
 
   return (
     <div className="w-[260px] bg-surface-1 text-foreground flex flex-col border-r border-border h-full relative select-none">
@@ -360,21 +385,38 @@ export default function Sidebar({
 
       <div className="border-t border-border my-1 mx-3" />
 
-      {/* 最近 */}
+      {/* 最近：扁平列表，只显示页面本身。
+          原实现渲染完整子树，与下方"页面"区形成两份独立展开状态的重复树 */}
       {recentPages.length > 0 && (
         <div className="px-1 py-1">
           <SidebarSection title="最近">
-            {recentNodes.map((node) => (
-              <PageTreeItem
-                key={node.page.id}
-                node={node}
-                depth={0}
-                activePageId={activePageId}
-                autoExpanded={autoExpandedIds}
-                onActivate={setActivePageId}
-                onAddChild={addPage}
-                onClose={closePage}
-              />
+            {recentPages.map((page) => (
+              <div
+                key={page.id}
+                className={`group flex items-center gap-2 py-1.5 pl-3 pr-3 rounded-md text-sm cursor-pointer transition-colors ${
+                  activePageId === page.id
+                    ? 'bg-accent text-foreground font-medium'
+                    : 'text-secondary-foreground hover:bg-accent'
+                }`}
+                onClick={() => handleActivate(page.id)}
+              >
+                {page.icon ? (
+                  <PageIcon icon={page.icon} size={16} />
+                ) : (
+                  <FileText className="w-4 h-4 text-muted-foreground flex-shrink-0" strokeWidth={1.75} />
+                )}
+                <span className="truncate flex-1 text-left">{page.title || '未命名页面'}</span>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleClosePage(page.id);
+                  }}
+                  className="p-0.5 rounded hover:bg-accent text-muted-foreground opacity-0 group-hover:opacity-100"
+                  title="删除页面"
+                >
+                  <Trash2 className="w-4 h-4" strokeWidth={1.75} />
+                </button>
+              </div>
             ))}
           </SidebarSection>
         </div>
@@ -390,9 +432,9 @@ export default function Sidebar({
               depth={0}
               activePageId={activePageId}
               autoExpanded={autoExpandedIds}
-              onActivate={setActivePageId}
-              onAddChild={addPage}
-              onClose={closePage}
+              onActivate={handleActivate}
+              onAddChild={handleAddChild}
+              onClose={handleClosePage}
             />
           ))}
         </SidebarSection>

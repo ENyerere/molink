@@ -28,7 +28,12 @@ def seed_admin():
             is_active=True,
         )
         db.add(admin)
-        db.commit()
+        try:
+            db.commit()
+        except Exception:
+            # 多 worker 并发启动可能同时播种，唯一邮箱约束让后提交者失败——属正常情况
+            db.rollback()
+            return
         print(f"✅ 已创建默认管理员: {settings.ADMIN_EMAIL}")
     finally:
         db.close()

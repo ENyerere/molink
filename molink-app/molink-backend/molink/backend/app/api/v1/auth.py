@@ -11,7 +11,9 @@ from app.core.config import settings
 from app.core.database import get_db
 from app.core.ratelimit import rate_limit
 from app.core.redis import add_token_to_blacklist, is_token_blacklisted
-from app.core.security import create_access_token, verify_password, get_password_hash, verify_token
+from app.core.security import (
+    create_access_token, verify_password, get_password_hash, verify_token, get_current_user,
+)
 from app.models.user import User
 from app.schemas.user import UserCreate, UserLogin, UserResponse, Token
 
@@ -19,42 +21,7 @@ router = APIRouter()
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 
-
-async def get_current_user(
-    token: str = Depends(oauth2_scheme),
-    db: Session = Depends(get_db)
-) -> User:
-    """获取当前用户"""
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="无法验证凭据",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-
-    # 先查黑名单：已 logout 吊销的 token 直接拒绝
-    if await is_token_blacklisted(token):
-        raise credentials_exception
-
-    payload = verify_token(token)
-    if payload is None:
-        raise credentials_exception
-
-    user_id: str = payload.get("sub")
-    if user_id is None:
-        raise credentials_exception
-
-    user = db.query(User).filter(User.id == user_id).first()
-    if user is None:
-        raise credentials_exception
-
-    if not user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="账号已被禁用",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    return user
+# 统一使用 core/security.py 的规范实现，此处复用导出，避免两份实现漂移
 
 
 @router.post("/register", response_model=Token, dependencies=[Depends(rate_limit("register", limit=3))])
@@ -151,7 +118,13 @@ async def login_form(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="邮箱或密码错误"
         )
-    
+
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="账户已被禁用"
+        )
+
     access_token = create_access_token(data={"sub": user.id})
     
     return Token(

@@ -160,7 +160,10 @@ def auto_migrate():
                 total_changes += 1
 
         except Exception as e:
+            # 迁移失败不能静默吞掉，否则 schema 漂移无从发现
             print(f"[MIGRATION] ERROR processing table '{table_name}': {e}")
+            import logging
+            logging.getLogger(__name__).warning("自动迁移表 '%s' 失败: %s", table_name, e, exc_info=True)
 
     print("=" * 60)
     if total_changes == 0:

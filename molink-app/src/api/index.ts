@@ -1,5 +1,5 @@
 // 值导出
-export { default as apiClient, apiGet, apiPost, apiPut, apiDelete, uploadFile } from './client';
+export { default as apiClient, apiGet, apiPost, apiPut, apiDelete } from './client';
 export { authApi } from './auth';
 export { workspacesApi } from './workspaces';
 export { pagesApi } from './pages';

@@ -42,9 +42,12 @@ const MENU_ITEMS: MenuItem[] = [
   { type: 'database', label: '数据库', icon: Database, shortcut: '', keywords: '数据库 database table 表格 view 视图', group: '高级' },
 ];
 
+// fuzzyMatch 查询词的空白剥离正则：提升到模块级，避免每次匹配重建字面量
+const WHITESPACE_RE = /\s+/g;
+
 function fuzzyMatch(text: string, query: string): boolean {
   const t = text.toLowerCase();
-  const q = query.toLowerCase().replace(/\s+/g, '');
+  const q = query.toLowerCase().replace(WHITESPACE_RE, '');
   let i = 0;
   for (const char of t) {
     if (char === q[i]) i++;
@@ -104,10 +107,17 @@ export default function SlashCommandMenu({
     }
   }, [selectedIndex]);
 
+  // 键盘监听只绑定一次：最新状态经 ref 读取，避免每次按键/过滤变化都重绑 document 监听
+  const stateRef = useRef({ filtered, selectedIndex, onSelect, onClose });
+  useEffect(() => {
+    stateRef.current = { filtered, selectedIndex, onSelect, onClose };
+  }, [filtered, selectedIndex, onSelect, onClose]);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // 中文输入法组词期间不拦截按键（候选词选择、上屏）
       if (e.isComposing) return;
+      const { filtered, selectedIndex, onSelect, onClose } = stateRef.current;
       if (e.key === 'ArrowDown') {
         e.preventDefault();
         setSelectedIndex((i) => Math.min(i + 1, filtered.length - 1));
@@ -125,7 +135,7 @@ export default function SlashCommandMenu({
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [filtered, selectedIndex, onSelect, onClose]);
+  }, []);
 
   if (filtered.length === 0) {
     return (

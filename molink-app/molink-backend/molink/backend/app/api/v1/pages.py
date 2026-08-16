@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from typing import List, Optional
 import json
+import uuid
 
 from app.core.database import get_db
 from app.core.utils import utc_now
@@ -67,6 +68,25 @@ async def create_page(
 ):
     """创建页面"""
     check_workspace_access(page_data.workspace_id, current_user.id, db)
+
+    # 校验父页面：必须存在、同工作空间、且不在回收站，否则会产生孤儿页/跨空间树
+    if page_data.parent_id is not None:
+        parent = db.query(Page).filter(Page.id == page_data.parent_id).first()
+        if not parent:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="父页面不存在"
+            )
+        if parent.workspace_id != page_data.workspace_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="不能在其他工作空间的页面下创建页面"
+            )
+        if parent.deleted_at is not None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="不能在回收站中的页面下创建页面"
+            )
     
     # 计算位置：用 max(position)+1 而非 count()，避免删除行后 position 撞车
     max_position = db.query(func.max(Page.position)).filter(
@@ -138,8 +158,11 @@ async def update_page(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """更新页面"""
-    page = db.query(Page).filter(Page.id == page_id).first()
+    """更新页面（回收站中的页面视为不存在，不可更新）"""
+    page = db.query(Page).filter(
+        Page.id == page_id,
+        Page.deleted_at == None
+    ).first()
     
     if not page:
         raise HTTPException(
@@ -219,11 +242,14 @@ async def delete_page(
     
     check_workspace_access(page.workspace_id, current_user.id, db)
     
-    # 同批删除的页面共享同一个 deleted_at 时间戳，作为"删除批次"标识，
-    # 恢复时据此区分"随本页同批删除"与"更早单独删除"的后代
+    # 同批删除的页面共享同一个 delete_batch_id（UUID），作为"删除批次"标识，
+    # 恢复时据此区分"随本页同批删除"与"更早单独删除"的后代。
+    # 不用 deleted_at 时间戳做标识：MySQL DATETIME 秒级精度下同一秒的两次删除会撞批
     deleted_at = utc_now()
+    batch_id = str(uuid.uuid4())
     page.deleted_at = deleted_at
-    
+    page.delete_batch_id = batch_id
+
     def mark_descendants(parent_id: str):
         # 只处理未删除的后代，已被单独删除的子树保持原状
         children = db.query(Page).filter(
@@ -232,6 +258,7 @@ async def delete_page(
         ).all()
         for child in children:
             child.deleted_at = deleted_at
+            child.delete_batch_id = batch_id
             mark_descendants(child.id)
     
     mark_descendants(page.id)
@@ -248,30 +275,49 @@ async def restore_page(
 ):
     """从回收站恢复页面（仅恢复与本页同批删除的后代页面）"""
     page = db.query(Page).filter(Page.id == page_id).first()
-    
+
     if not page:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="页面不存在"
         )
-    
+
     check_workspace_access(page.workspace_id, current_user.id, db)
-    
-    # 删除时同批页面共享同一时间戳：只恢复 deleted_at 与本页完全相同的后代，
-    # 早于本页单独删除的后代保持删除态；整个恢复一次提交
+
+    # 若某位祖先仍在回收站，本页恢复后会变成"活着但挂在回收站页下面"的孤儿，
+    # 任何列表都看不到。处理方式：把仍在回收站的祖先链一并恢复（保留其原批次以外的状态）
+    ancestors = []
+    visited = set()
+    cursor = page.parent
+    while cursor is not None and cursor.id not in visited:
+        visited.add(cursor.id)
+        if cursor.deleted_at is not None:
+            ancestors.append(cursor)
+        cursor = cursor.parent
+    for ancestor in ancestors:
+        ancestor.deleted_at = None
+        ancestor.delete_batch_id = None
+
+    # 按 delete_batch_id 恢复同批后代；兼容旧数据（无批次 ID 时退回按 deleted_at 匹配）
+    batch_id = page.delete_batch_id
     batch_deleted_at = page.deleted_at
     page.deleted_at = None
-    
-    if batch_deleted_at is not None:
-        def restore_descendants(parent_id: str):
-            children = db.query(Page).filter(Page.parent_id == parent_id).all()
-            for child in children:
-                if child.deleted_at is not None and child.deleted_at == batch_deleted_at:
-                    child.deleted_at = None
-                    restore_descendants(child.id)
-        
-        restore_descendants(page.id)
-    
+    page.delete_batch_id = None
+
+    def restore_descendants(parent_id: str):
+        children = db.query(Page).filter(Page.parent_id == parent_id).all()
+        for child in children:
+            same_batch = (
+                (batch_id is not None and child.delete_batch_id == batch_id)
+                or (batch_id is None and child.deleted_at is not None and child.deleted_at == batch_deleted_at)
+            )
+            if same_batch:
+                child.deleted_at = None
+                child.delete_batch_id = None
+                restore_descendants(child.id)
+
+    restore_descendants(page.id)
+
     db.commit()
     db.refresh(page)
     

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
 
 type Theme = 'light' | 'dark' | 'system';
 
@@ -16,9 +16,14 @@ function getSystemTheme(): 'light' | 'dark' {
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 }
 
+// 纯函数：只解析主题，不触碰 DOM，可在渲染期（useState initializer）安全调用
+function resolveTheme(theme: Theme): 'light' | 'dark' {
+  return theme === 'system' ? getSystemTheme() : theme;
+}
+
 function applyTheme(theme: Theme) {
   const root = document.documentElement;
-  const resolved = theme === 'system' ? getSystemTheme() : theme;
+  const resolved = resolveTheme(theme);
 
   if (resolved === 'dark') {
     root.classList.add('dark');
@@ -35,8 +40,10 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     return saved || 'system';
   });
 
+  // 初始值只能是纯计算：applyTheme 含 classList DOM 副作用，不允许在渲染期执行，
+  // 这里只解析出初始 resolvedTheme，DOM 应用交给下方的挂载 effect
   const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>(() => {
-    return applyTheme(theme);
+    return resolveTheme(theme);
   });
 
   const setTheme = useCallback((newTheme: Theme) => {
@@ -63,8 +70,14 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // value memo 化：theme/resolvedTheme 不变时 consumer 不因 Provider 重渲染而重渲染
+  const value = useMemo(
+    () => ({ theme, setTheme, resolvedTheme }),
+    [theme, setTheme, resolvedTheme]
+  );
+
   return (
-    <ThemeContext.Provider value={{ theme, setTheme, resolvedTheme }}>
+    <ThemeContext.Provider value={value}>
       {children}
     </ThemeContext.Provider>
   );

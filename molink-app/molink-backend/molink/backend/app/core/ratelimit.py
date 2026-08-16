@@ -11,6 +11,8 @@ from typing import Callable
 
 from fastapi import Request, HTTPException, status
 
+from .config import settings
+
 
 class SlidingWindowRateLimiter:
     """滑动窗口限流器：key -> 时间戳列表"""
@@ -38,11 +40,22 @@ rate_limiter = SlidingWindowRateLimiter()
 
 
 def get_client_ip(request: Request) -> str:
-    """获取客户端 IP：容器/反代场景优先取 X-Forwarded-For 的第一个 IP"""
+    """获取客户端 IP。
+
+    仅当配置了 TRUSTED_PROXY（可信反向代理 IP，逗号分隔）且请求确实来自该代理时，
+    才信任 X-Forwarded-For；否则一律用直连 IP，防止伪造 XFF 绕过限流。
+    """
+    trusted_proxies = settings.TRUSTED_PROXY_LIST
+    direct_ip = request.client.host if request.client else "unknown"
+    if not trusted_proxies:
+        return direct_ip
+    if direct_ip not in trusted_proxies:
+        return direct_ip
     forwarded_for = request.headers.get("x-forwarded-for")
     if forwarded_for:
+        # 取最右侧可信链之外的第一个 IP（最靠近代理的真实客户端）
         return forwarded_for.split(",")[0].strip()
-    return request.client.host if request.client else "unknown"
+    return direct_ip
 
 
 def rate_limit(endpoint: str, limit: int, window_seconds: int = 60) -> Callable:

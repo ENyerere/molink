@@ -22,6 +22,17 @@ from .auth import get_current_user
 router = APIRouter()
 
 
+def safe_load_json(raw) -> dict:
+    """解析存储的 JSON 列；坏数据（损坏/超长截断）回退为空对象，不让单个脏行打挂接口"""
+    if not raw:
+        return {}
+    try:
+        parsed = json.loads(raw)
+        return parsed if isinstance(parsed, dict) else {}
+    except (ValueError, TypeError):
+        return {}
+
+
 def check_workspace_access(workspace_id: str, user_id: str, db: Session) -> Workspace:
     """检查用户对工作空间的访问权限"""
     workspace = db.query(Workspace).filter(
@@ -200,7 +211,7 @@ async def list_fields(
             "database_id": field.database_id,
             "name": field.name,
             "field_type": field.field_type.value if hasattr(field.field_type, 'value') else field.field_type,
-            "field_config": json.loads(field.field_config) if field.field_config else {},
+            "field_config": safe_load_json(field.field_config),
             "position": field.position,
             "is_visible": field.is_visible,
             "created_at": field.created_at,
@@ -254,7 +265,7 @@ async def create_field(
         database_id=field.database_id,
         name=field.name,
         field_type=field.field_type.value if hasattr(field.field_type, 'value') else field.field_type,
-        field_config=json.loads(field.field_config) if field.field_config else {},
+        field_config=safe_load_json(field.field_config),
         position=field.position,
         is_visible=field.is_visible,
         created_at=field.created_at,
@@ -300,7 +311,7 @@ async def update_field(
         database_id=field.database_id,
         name=field.name,
         field_type=field.field_type.value if hasattr(field.field_type, 'value') else field.field_type,
-        field_config=json.loads(field.field_config) if field.field_config else {},
+        field_config=safe_load_json(field.field_config),
         position=field.position,
         is_visible=field.is_visible,
         created_at=field.created_at,
@@ -359,7 +370,7 @@ async def list_records(
         record_dict = {
             "id": record.id,
             "database_id": record.database_id,
-            "properties": json.loads(record.properties) if record.properties else {},
+            "properties": safe_load_json(record.properties),
             "position": record.position,
             "created_by": record.created_by,
             "created_at": record.created_at,
@@ -410,7 +421,7 @@ async def create_record(
     return DatabaseRecordResponse(
         id=record.id,
         database_id=record.database_id,
-        properties=json.loads(record.properties) if record.properties else {},
+        properties=safe_load_json(record.properties),
         position=record.position,
         created_by=record.created_by,
         created_at=record.created_at,
@@ -448,7 +459,7 @@ async def update_record(
     return DatabaseRecordResponse(
         id=record.id,
         database_id=record.database_id,
-        properties=json.loads(record.properties) if record.properties else {},
+        properties=safe_load_json(record.properties),
         position=record.position,
         created_by=record.created_by,
         created_at=record.created_at,

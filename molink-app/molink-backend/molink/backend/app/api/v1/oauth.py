@@ -8,6 +8,7 @@ from typing import Optional
 import httpx
 import secrets
 import uuid
+from urllib.parse import urlencode
 
 from app.core.database import get_db
 from app.core.security import create_access_token
@@ -73,8 +74,8 @@ async def oauth_login(request: Request, provider: str):
     if provider == 'github':
         params['allow_signup'] = 'true'
 
-    query = '&'.join(f'{k}={v}' for k, v in params.items())
-    authorize_url = f"{cfg['authorize_url']}?{query}"
+    # urlencode 正确编码 scope 中的空格等保留字符
+    authorize_url = f"{cfg['authorize_url']}?{urlencode(params)}"
     return RedirectResponse(url=authorize_url)
 
 

@@ -34,9 +34,8 @@ export interface UpdatePageData {
   cover_image?: string | null;
   cover_position?: number;
   is_favorite?: boolean;
-  is_archived?: boolean;
-  deleted_at?: string | null;
   position?: number;
+  // 注意：deleted_at / is_archived 不开放客户端设置，删除/恢复走专用接口
 }
 
 export const pagesApi = {

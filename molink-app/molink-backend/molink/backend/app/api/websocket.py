@@ -7,6 +7,7 @@ from typing import Dict, List, Set
 import json
 
 from app.core.database import get_db, SessionLocal
+from app.core.redis import is_token_blacklisted
 from app.core.security import verify_token
 from app.core.utils import utc_now
 from app.models.user import User
@@ -22,8 +23,8 @@ class ConnectionManager:
         self.page_connections: Dict[str, Set[WebSocket]] = {}
         # WebSocket -> user info
         self.connection_info: Dict[WebSocket, dict] = {}
-        # user_id -> WebSocket for user status
-        self.user_connections: Dict[str, WebSocket] = {}
+        # user_id -> set of WebSocket（同一用户多标签页各有连接，不能互相覆盖）
+        self.user_connections: Dict[str, Set[WebSocket]] = {}
     
     async def connect_to_page(self, websocket: WebSocket, page_id: str, user_info: dict):
         """连接到页面进行协作编辑"""
@@ -84,12 +85,15 @@ class ConnectionManager:
     async def connect_user_status(self, websocket: WebSocket, user_id: str):
         """连接用户状态WebSocket"""
         await websocket.accept()
-        self.user_connections[user_id] = websocket
-    
-    async def disconnect_user_status(self, user_id: str):
-        """断开用户状态连接"""
-        if user_id in self.user_connections:
-            del self.user_connections[user_id]
+        self.user_connections.setdefault(user_id, set()).add(websocket)
+
+    async def disconnect_user_status(self, websocket: WebSocket, user_id: str):
+        """断开用户状态连接（只移除本连接，不影响同用户的其他标签页）"""
+        conns = self.user_connections.get(user_id)
+        if conns is not None:
+            conns.discard(websocket)
+            if not conns:
+                del self.user_connections[user_id]
     
     def get_online_users(self) -> List[str]:
         """获取在线用户列表"""
@@ -109,7 +113,9 @@ manager = ConnectionManager()
 
 
 async def get_user_from_token(token: str) -> dict:
-    """从token获取用户信息"""
+    """从token获取用户信息（已 logout 吊销的 token 拒绝建连）"""
+    if await is_token_blacklisted(token):
+        return None
     payload = verify_token(token)
     if not payload:
         return None
@@ -146,7 +152,7 @@ def check_page_access(page_id: str, user_id: str) -> bool:
         page = (
             db.query(Page)
             .join(Workspace, Page.workspace_id == Workspace.id)
-            .filter(Page.id == page_id, Workspace.owner_id == user_id)
+            .filter(Page.id == page_id, Workspace.owner_id == user_id, Page.deleted_at == None)
             .first()
         )
         return page is not None
@@ -173,7 +179,8 @@ async def websocket_editor(
         return
     
     await manager.connect_to_page(websocket, page_id, user_info)
-    
+
+    # try/finally 保证任何异常（含畸形 JSON）都会清理连接，避免管理器泄漏
     try:
         # 发送当前页面上的其他用户
         current_users = manager.get_page_users(page_id)
@@ -181,10 +188,16 @@ async def websocket_editor(
             "type": "current_users",
             "users": [u for u in current_users if u["id"] != user_info["id"]]
         })
-        
+
         while True:
-            data = await websocket.receive_json()
-            
+            try:
+                data = await websocket.receive_json()
+            except WebSocketDisconnect:
+                break
+            except Exception:
+                # 畸形消息等非断开异常：忽略本条继续收，不让连接悬挂
+                continue
+
             # 处理不同类型的消息
             msg_type = data.get("type")
             
@@ -237,8 +250,11 @@ async def websocket_editor(
             elif msg_type == "ping":
                 # 心跳
                 await websocket.send_json({"type": "pong"})
-    
-    except WebSocketDisconnect:
+
+    except Exception:
+        # 兜底：任何未预期异常也要走 finally 清理
+        pass
+    finally:
         await manager.disconnect_from_page(websocket)
 
 
@@ -252,21 +268,28 @@ async def websocket_user_status(
     if not user_info:
         await websocket.close(code=4001, reason="认证失败")
         return
-    
+
     await manager.connect_user_status(websocket, user_info["id"])
-    
+
     try:
         # 发送当前在线用户
         await websocket.send_json({
             "type": "online_users",
             "users": manager.get_online_users()
         })
-        
+
         while True:
-            data = await websocket.receive_json()
-            
+            try:
+                data = await websocket.receive_json()
+            except WebSocketDisconnect:
+                break
+            except Exception:
+                continue
+
             if data.get("type") == "ping":
                 await websocket.send_json({"type": "pong"})
-    
-    except WebSocketDisconnect:
-        await manager.disconnect_user_status(user_info["id"])
+
+    except Exception:
+        pass
+    finally:
+        await manager.disconnect_user_status(websocket, user_info["id"])

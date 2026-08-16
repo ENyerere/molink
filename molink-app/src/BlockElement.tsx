@@ -375,7 +375,13 @@ const BlockElement = (props: RenderElementProps & { pages?: PageData[]; onActiva
     width: number;
   } | null>(null);
 
-  const path = ReactEditor.findPath(editor as ReactEditor, element);
+  // findPath 每次渲染都返回新数组引用，直接放进依赖会让下方 memo 全部失效；
+  // 先 join 成字符串，再 memo 出引用稳定的 Path（pathKey 不变时 path 引用不变）
+  const pathKey = ReactEditor.findPath(editor as ReactEditor, element).join('.');
+  const path = useMemo<Path>(
+    () => (pathKey === '' ? [] : pathKey.split('.').map(Number)),
+    [pathKey]
+  );
 
   /* ---- 失去 focus 后短暂隐藏拖拽手柄（按回车切块时），需等鼠标移动才恢复 ---- */
   const focused = useFocused();
@@ -609,11 +615,8 @@ const BlockElement = (props: RenderElementProps & { pages?: PageData[]; onActiva
         // 创建拖拽虚影（第一次超过阈值时）
         if (!ghost) {
           ghost = document.createElement('div');
-          ghost.style.position = 'fixed';
-          ghost.style.pointerEvents = 'none';
-          ghost.style.zIndex = '9999';
-          ghost.style.opacity = '0.55';
-          ghost.style.filter = 'contrast(0.5) brightness(1.4)';
+          // 一次 cssText 完成初始化样式，避免逐属性赋值触发多次样式计算
+          ghost.style.cssText = 'position:fixed;pointer-events:none;z-index:9999;opacity:0.55;filter:contrast(0.5) brightness(1.4);';
 
           const cleanupClone = (el: HTMLElement) => {
             // 移除选中蓝色背景
@@ -797,7 +800,7 @@ const BlockElement = (props: RenderElementProps & { pages?: PageData[]; onActiva
           // 深拷贝节点内容
           const nodesToMove = selectedPaths.map((p) => {
             const node = Node.get(editor, p);
-            return JSON.parse(JSON.stringify(node));
+            return structuredClone(node);
           });
 
           // 确定目标位置（基于删除前的 DOM）

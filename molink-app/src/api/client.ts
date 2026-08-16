@@ -44,7 +44,12 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    // 只有"带 token 的请求被拒"才视为登录态过期。
+    // 登录/注册等免鉴权接口的 401（密码错误等）不在此列，
+    // 否则会误清 token 并广播 auth_expired，把已登录用户带下线
+    const status = error.response?.status;
+    const hadToken = !!error.config?.headers?.Authorization;
+    if (status === 401 && hadToken) {
       localStorage.removeItem('access_token');
       localStorage.removeItem('user');
       window.dispatchEvent(new CustomEvent('molink:auth_expired'));
@@ -73,18 +78,5 @@ export async function apiPut<T>(url: string, data?: unknown): Promise<T> {
 
 export async function apiDelete<T>(url: string): Promise<T> {
   const response = await apiClient.delete<T>(url);
-  return response.data;
-}
-
-// 文件上传（与 filesApi.upload 相同的响应结构）
-export async function uploadFile(file: File): Promise<unknown> {
-  const formData = new FormData();
-  formData.append('file', file);
-
-  const response = await apiClient.post('/files/upload', formData, {
-    headers: {
-      'Content-Type': 'multipart/form-data',
-    },
-  });
   return response.data;
 }

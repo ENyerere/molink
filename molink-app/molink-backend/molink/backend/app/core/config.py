@@ -52,7 +52,15 @@ class Settings(BaseSettings):
     
     # CORS配置（支持逗号分隔的字符串，方便通过环境变量注入）
     CORS_ORIGINS: str = "http://localhost:3000,http://localhost:5173,http://127.0.0.1:5173"
-    
+
+    # 可信反向代理 IP（逗号分隔）。仅当直连 IP 在此列表内时才信任 X-Forwarded-For；
+    # 默认为空 = 一律用直连 IP 做限流，防止伪造 XFF 绕过
+    TRUSTED_PROXY: str = ""
+
+    @property
+    def TRUSTED_PROXY_LIST(self) -> list:
+        return [ip.strip() for ip in self.TRUSTED_PROXY.split(",") if ip.strip()]
+
     # OAuth 配置
     GOOGLE_CLIENT_ID: str = ""
     GOOGLE_CLIENT_SECRET: str = ""

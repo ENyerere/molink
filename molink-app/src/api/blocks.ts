@@ -1,4 +1,4 @@
-import { apiGet, apiPost, apiPut, apiDelete } from './client';
+import { apiGet, apiPost, apiPut } from './client';
 
 export type BlockType =
   | 'text'
@@ -42,9 +42,5 @@ export const blocksApi = {
 
   update: async (id: string, data: UpdateBlockData): Promise<BackendBlock> => {
     return apiPut<BackendBlock>(`/blocks/${id}`, data);
-  },
-
-  delete: async (id: string): Promise<void> => {
-    await apiDelete(`/blocks/${id}`);
   },
 };

@@ -12,7 +12,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 from contextlib import asynccontextmanager
-import os
 
 from app.core.config import settings
 from app.core.database import engine, Base
@@ -57,14 +56,7 @@ app = FastAPI(
 # Session 中间件（OAuth state 参数需要）
 app.add_middleware(SessionMiddleware, secret_key=settings.SECRET_KEY, max_age=600)
 
-# CORS配置
-origins = [
-    "http://localhost:5173",    # Vite 开发服务器默认端口
-    "http://127.0.0.1:5173",
-    "http://localhost:3000",
-    "http://localhost:8000",
-]
-
+# CORS 配置（来源见 settings.CORS_ORIGINS_LIST）
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS_LIST,

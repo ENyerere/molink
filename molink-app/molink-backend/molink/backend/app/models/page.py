@@ -32,6 +32,9 @@ class Page(Base):
     is_favorite = Column(Boolean, default=False)
     is_archived = Column(Boolean, default=False)
     deleted_at = Column(DateTime, nullable=True)
+    # 删除批次标识：同一次删除操作（含级联子树）共享同一个 UUID。
+    # 不用 deleted_at 做批次标识——MySQL DATETIME 秒级精度下同一秒的两次删除会撞批
+    delete_batch_id = Column(CHAR(36), nullable=True, index=True)
     position = Column(Integer, default=0)
     created_by = Column(CHAR(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     created_at = Column(DateTime, default=utc_now)

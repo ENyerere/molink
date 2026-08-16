@@ -64,6 +64,20 @@ function serializeBlocks(blocks: SlateElement[]): string {
     .join('\n');
 }
 
+// Slate 0.118 的 Node 接口没有 equals 方法，按节点结构手写深度比较。
+// Slate 为不可变数据：未修改的子树保持引用相等，a === b 快速路径让比较近乎 O(1)
+function deepEqual(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (typeof a !== 'object' || typeof b !== 'object' || a === null || b === null) return false;
+  const aRec = a as Record<string, unknown>;
+  const bRec = b as Record<string, unknown>;
+  const aKeys = Object.keys(aRec);
+  if (aKeys.length !== Object.keys(bRec).length) return false;
+  return aKeys.every(
+    (k) => Object.prototype.hasOwnProperty.call(bRec, k) && deepEqual(aRec[k], bRec[k])
+  );
+}
+
 // 覆盖 Slate React 的 setFragmentData：当选中块存在时，直接写入带标记纯文本
 const originalSetFragmentData = ReactEditor.setFragmentData.bind(ReactEditor);
 ReactEditor.setFragmentData = (editor, data, origin) => {
@@ -163,7 +177,14 @@ export default function Editor({
   permanentDeletePage?: (id: string) => void;
   wideMode?: boolean;
 }) {
-  const editor = useMemo(() => withMarkdownShortcuts(withHistory(withReact(createEditor()))), []);
+  // 编辑器实例按页面重建：Slate 组件虽按 page.id 重挂，但同一 editor 对象会带上
+  // 上一页的 undo 历史，切页后 Ctrl+Z 会把旧页面操作回放到新页面内容上
+  const editor = useMemo(
+    () => withMarkdownShortcuts(withHistory(withReact(createEditor()))),
+    // 故意依赖 page.id：page.id 变化时重建 editor 实例（工厂本身不读 page.id）
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [page.id]
+  );
   const isSyncingRef = useRef(false);
 
   // 持有最新的 childPages / onActivatePage，供身份稳定的回调读取
@@ -228,33 +249,28 @@ export default function Editor({
         match: (n) => SlateElement.isElement(n) && SlateEditor.isBlock(editor, n),
       });
       if (!blockEntry) return;
-      const [, path] = blockEntry;
+      const [block, path] = blockEntry;
 
-      if (type === 'database') {
-        // 数据库块：替换当前块为数据库块
-        Transforms.removeNodes(editor, { at: path });
-        const dbBlock: BlockElementType = {
-          type: 'database',
-          children: [{ text: '' }],
-          columns: [
-            { id: 'col_1', name: '名称', type: 'text' },
-            { id: 'col_2', name: '状态', type: 'select', options: ['待办', '进行中', '已完成'] },
-          ],
-          rows: [],
-        };
-        Transforms.insertNodes(editor, dbBlock, { at: path });
-        setSlashMenuOpen(false);
-        return;
+      // 只删除块开头的 "/查询词" 文本，保留块内其余内容
+      //（原实现整块删除，块内斜杠命令之外的内容会一起丢失）
+      const text = Node.string(block);
+      const slashMatch = text.match(/^\/[^\s]*/);
+      if (slashMatch) {
+        const start = SlateEditor.start(editor, path);
+        Transforms.delete(editor, {
+          at: { anchor: start, focus: { path: start.path, offset: slashMatch[0].length } },
+        });
       }
 
-      // 选中并删除当前块内所有文本（包括 / 和搜索词）
-      const blockStart = SlateEditor.start(editor, path);
-      const blockEnd = SlateEditor.end(editor, path);
-      Transforms.select(editor, { anchor: blockStart, focus: blockEnd });
-      Transforms.delete(editor);
-      // 设置新块类型
       const newProps: Partial<BlockElementType> = { type: type as BlockElementType['type'] };
       if (type === 'todo') newProps.checked = false;
+      if (type === 'database') {
+        newProps.columns = [
+          { id: 'col_1', name: '名称', type: 'text' },
+          { id: 'col_2', name: '状态', type: 'select', options: ['待办', '进行中', '已完成'] },
+        ];
+        newProps.rows = [];
+      }
       Transforms.setNodes(editor, newProps, { at: path });
     });
     setSlashMenuOpen(false);
@@ -289,8 +305,9 @@ export default function Editor({
   const handleChange = useCallback(
     (value: Descendant[]) => {
       if (isSyncingRef.current) return;
-      // 内容未变化则跳过（防止 updatePage 后 Slate 二次触发 onChange）
-      if (JSON.stringify(page.content) === JSON.stringify(value)) return;
+      // 内容未变化则跳过（防止 updatePage 后 Slate 二次触发 onChange）；
+      // 深度比较不受键顺序影响，避免每次击键对全篇做两次 JSON 序列化
+      if (deepEqual(page.content, value)) return;
 
       // Slash 命令菜单检测（在 onChange 中检测比 onKeyDown 更可靠）
       const { selection } = editor;
@@ -327,8 +344,11 @@ export default function Editor({
       const newTexts = value.map((node) =>
         SlateElement.isElement(node) ? node.children.map((c) => c.text || '').join('') : (node.text || '')
       );
-      const added = newTexts.filter((t: string) => !oldTexts.includes(t));
-      const removed = oldTexts.filter((t: string) => !newTexts.includes(t));
+      // 集合查询替代数组 includes，避免 O(n²)
+      const oldTextSet = new Set(oldTexts);
+      const newTextSet = new Set(newTexts);
+      const added = newTexts.filter((t: string) => !oldTextSet.has(t));
+      const removed = oldTexts.filter((t: string) => !newTextSet.has(t));
 
       // 无新增/删除块：可能是纯重排序或纯编辑
       if (added.length === 0 && removed.length === 0) {
@@ -840,6 +860,24 @@ export default function Editor({
             renderLeaf={renderLeaf}
             className="prose dark:prose-invert max-w-none outline-none border-none focus:outline-none"
             spellCheck={false}
+            onCompositionStart={() => { (editor as SlateEditor & { isComposing?: boolean }).isComposing = true; }}
+            onCompositionEnd={() => { (editor as SlateEditor & { isComposing?: boolean }).isComposing = false; }}
+            onCut={() => {
+              // setFragmentData 覆盖已把框选块写成序列化文本；Slate 默认 cut 只删
+              // 光标选区，框选的块由这里负责删除（推迟到默认流程写完剪贴板后）
+              setTimeout(() => {
+                const entries = Array.from(SlateEditor.nodes(editor, {
+                  at: [],
+                  match: (n) => SlateElement.isElement(n) && (n as BlockElementType).selected === true,
+                }));
+                if (entries.length === 0) return;
+                SlateEditor.withoutNormalizing(editor, () => {
+                  for (let i = entries.length - 1; i >= 0; i--) {
+                    Transforms.removeNodes(editor, { at: entries[i][1] });
+                  }
+                });
+              }, 0);
+            }}
             onKeyDown={(event) => {
               // 中文输入法组词期间不拦截按键（候选词选择、上屏）
               if (event.nativeEvent.isComposing) return;

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback, useDeferredValue } from 'react';
 import { Search, FileText } from 'lucide-react';
 import { PageIcon } from './IconPicker';
 import AnimatedPresence from './AnimatedPresence';
@@ -30,6 +30,20 @@ function extractText(content: Descendant[]): string {
   return text;
 }
 
+// 页面正文文本缓存：key 为 content 数组引用。
+// App.tsx 中页面内容按 Immutable 方式更新，引用变化即自然失效，不会读到过期文本。
+const pageTextCache = new WeakMap<Descendant[], string>();
+
+// 取页面正文纯文本（保留原始大小写，供预览截取；匹配处自行转小写）。
+// 一次搜索中标题命中、内容命中、预览截取共用同一份文本，避免重复递归遍历 Slate 树。
+function getPageText(content: Descendant[]): string {
+  const cached = pageTextCache.get(content);
+  if (cached !== undefined) return cached;
+  const text = extractText(content);
+  pageTextCache.set(content, text);
+  return text;
+}
+
 // 底部快捷键提示
 function Kbd({ children }: { children: React.ReactNode }) {
   return (
@@ -45,26 +59,30 @@ export default function SearchModal({ isOpen, onClose, pages, onNavigate }: Sear
   const inputRef = useRef<HTMLInputElement>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
 
+  // 输入框立即响应，搜索结果延迟计算，连续输入更顺滑
+  const deferredQuery = useDeferredValue(query);
+
   const results = useMemo(() => {
-    if (!query.trim()) return [];
-    const q = query.toLowerCase();
+    if (!deferredQuery.trim()) return [];
+    const q = deferredQuery.toLowerCase();
     const scored: SearchResult[] = [];
 
     for (const page of pages.filter(p => !p.deletedAt)) {
       const title = (page.title || '').toLowerCase();
-      const content = extractText(page.content).toLowerCase();
+      const pageText = getPageText(page.content);
+      const content = pageText.toLowerCase();
       let score = 0;
       let preview = '';
 
       if (title.includes(q)) {
         score += 10;
-        preview = extractText(page.content).slice(0, 80);
+        preview = pageText.slice(0, 80);
       }
       if (content.includes(q)) {
         score += 5;
         const idx = content.indexOf(q);
         const start = Math.max(0, idx - 30);
-        preview = extractText(page.content).slice(start, start + 80);
+        preview = pageText.slice(start, start + 80);
       }
 
       if (score > 0) {
@@ -73,16 +91,29 @@ export default function SearchModal({ isOpen, onClose, pages, onNavigate }: Sear
     }
 
     return scored.sort((a, b) => b.score - a.score);
-  }, [query, pages]);
+  }, [deferredQuery, pages]);
 
   // 结果分组：标题命中（score ≥ 10）为「页面」，仅正文命中为「内容匹配」。
-  // 打分规则保证标题命中分恒高于仅正文命中，分组后顺序与原排序一致。
-  const titleMatches = useMemo(() => results.filter(r => r.score >= 10), [results]);
-  const contentMatches = useMemo(() => results.filter(r => r.score < 10), [results]);
+  // 打分规则保证标题命中分恒高于仅正文命中，单次遍历分入两组，组内顺序与原排序一致。
+  const { titleMatches, contentMatches } = useMemo(() => {
+    const titleMatches: SearchResult[] = [];
+    const contentMatches: SearchResult[] = [];
+    for (const r of results) {
+      if (r.score >= 10) titleMatches.push(r);
+      else contentMatches.push(r);
+    }
+    return { titleMatches, contentMatches };
+  }, [results]);
 
   useEffect(() => {
     setSelectedIndex(0);
   }, [query]);
+
+  // 结果集缩小（deferred 值追上输入）时，鼠标悬停旧列表设置的高亮索引可能越界：
+  // 及时钳制，保证 Enter 打开的一定是可见且存在的结果
+  useEffect(() => {
+    setSelectedIndex(idx => Math.min(idx, results.length - 1));
+  }, [results.length]);
 
   useEffect(() => {
     if (isOpen) {

@@ -1,21 +1,33 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo, useTransition, lazy, Suspense } from 'react';
 import Sidebar from './Sidebar';
-import Editor from './Editor';
-import Login from './components/auth/Login';
-import LandingPage from './pages/LandingPage';
 import LoadingScreen from './components/LoadingScreen';
-import SearchModal from './components/SearchModal';
-import HomeView from './components/HomeView';
-import WorkspacePanel from './components/WorkspacePanel';
-import InboxView from './components/InboxView';
+// 重组件按需加载：首屏只拉取当前视图所需 chunk，其余在切换到对应视图时再加载
+// （Sidebar/Topbar/LoadingScreen 首屏工作区必渲染，保持静态 import）
+const Editor = lazy(() => import('./Editor'));
+const Login = lazy(() => import('./components/auth/Login'));
+const LandingPage = lazy(() => import('./pages/LandingPage'));
+const SearchModal = lazy(() => import('./components/SearchModal'));
+const HomeView = lazy(() => import('./components/HomeView'));
+const WorkspacePanel = lazy(() => import('./components/WorkspacePanel'));
+const InboxView = lazy(() => import('./components/InboxView'));
 import { v4 as uuidv4 } from 'uuid';
 import { Element, type Descendant } from 'slate';
 import { useAuth } from './context/AuthContext';
 import { workspacesApi, pagesApi, blocksApi, filesApi } from './api';
 import { AnimatePresence, motion } from 'motion/react';
-import type { Workspace, BackendBlock, BackendPage } from './api';
+import type { Workspace, BackendBlock, BackendPage, UpdatePageData } from './api';
 import AnimatedPresence from './components/AnimatedPresence';
 import Topbar, { type SaveIndicatorState } from './components/Topbar';
+
+// 懒加载占位：轻量居中 spinner。不要用 LoadingScreen——它有自己的进度计时逻辑，
+// 作为 Suspense fallback 会反复触发计时与 onFinish 副作用
+function LazyFallback({ fullScreen = false }: { fullScreen?: boolean }) {
+  return (
+    <div className={`flex items-center justify-center bg-background ${fullScreen ? 'h-screen w-full' : 'h-full w-full'}`}>
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+    </div>
+  );
+}
 
 export interface PageData {
   id: string;
@@ -62,7 +74,17 @@ function blocksToSlate(blocks: BackendBlock[]): Descendant[] {
 }
 
 function slateToBlockContent(content: Descendant[]): Record<string, unknown> {
-  return { slate: content };
+  // 落库前剥离瞬态状态：块级选中的 selected 标记与渲染用 page-link 块，
+  // 否则刷新后内容里会带蓝色选中高亮 / 与 page-link 同步逻辑重复的链接块
+  const slate = content
+    .filter(node => !(Element.isElement(node) && node.type === 'page-link'))
+    .map(node => {
+      if (!Element.isElement(node) || !('selected' in node)) return node;
+      const rest: typeof node = { ...node };
+      delete (rest as { selected?: boolean }).selected;
+      return rest as Descendant;
+    });
+  return { slate };
 }
 
 // 内容保存状态：按页面 id 各自维护防抖计时器、单调递增版本号与在途标记
@@ -71,6 +93,7 @@ interface ContentSaveState {
   version: number;
   inFlight: boolean;
   pendingContent?: Descendant[];
+  retries: number;
 }
 
 // 顶栏保存状态指示：记录最近一次调度/完成保存的页面与时间，仅供 UI 读取，与保存队列语义解耦
@@ -82,7 +105,7 @@ interface PageSaveIndicator {
 
 function getContentSaveState(states: Record<string, ContentSaveState>, pageId: string): ContentSaveState {
   if (!states[pageId]) {
-    states[pageId] = { version: 0, inFlight: false };
+    states[pageId] = { version: 0, inFlight: false, retries: 0 };
   }
   return states[pageId];
 }
@@ -184,6 +207,9 @@ export default function App() {
 
   const blockIdMap = useRef<Record<string, string>>({}); // pageId -> blockId
   const contentSaveStates = useRef<Record<string, ContentSaveState>>({});
+  // 标题保存防抖：pageId -> 定时器 / 最新标题
+  const titleTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const titleLatest = useRef<Record<string, string>>({});
   // 会话世代号：登录/登出或重新调用 loadPages 时 +1，使在途加载失效
   const sessionRef = useRef(0);
 
@@ -217,6 +243,16 @@ export default function App() {
       }
     } catch (err) {
       console.error('保存页面内容失败:', err);
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      // 401 是登录态失效，重试无意义（由 auth_expired 流程接管）；
+      // 其他失败把内容放回待保存队列并做有限次退避重试，避免静默丢数据
+      if (status !== 401 && st.pendingContent === undefined && st.retries < 3) {
+        st.pendingContent = content;
+        st.retries += 1;
+        st.timer = setTimeout(() => {
+          void flushContentSave(pageId);
+        }, 1000 * st.retries);
+      }
     } finally {
       st.inFlight = false;
       // 保存期间产生了更新版本：本次响应已过期，立即补发最新内容
@@ -224,6 +260,7 @@ export default function App() {
         void flushContentSave(pageId);
       } else {
         // 该页队列已清空：仅更新顶栏 UI 指示，不触碰队列本身
+        st.retries = 0;
         setSaveIndicator({ pageId, status: 'saved', savedAt: Date.now() });
       }
     }
@@ -234,6 +271,7 @@ export default function App() {
     const st = getContentSaveState(contentSaveStates.current, pageId);
     st.version += 1;
     st.pendingContent = content;
+    st.retries = 0;
     // 仅外显 UI 状态，不改变队列行为
     setSaveIndicator({ pageId, status: 'saving' });
     if (st.timer) clearTimeout(st.timer);
@@ -264,21 +302,6 @@ export default function App() {
   // ==========================================
   // 已登录：从后端加载数据
   // ==========================================
-  const loadWorkspace = useCallback(async () => {
-    if (!user) return;
-    try {
-      const list = await workspacesApi.list();
-      if (list.length > 0) {
-        setWorkspace(list[0]);
-      } else {
-        const ws = await workspacesApi.create({ name: '我的空间' });
-        setWorkspace(ws);
-      }
-    } catch (err) {
-      console.error('加载工作空间失败:', err);
-    }
-  }, [user]);
-
   const loadPages = useCallback(async (wsId: string) => {
     // 每次调用开启新会话：世代号 +1，旧加载循环在 await 后校验时自动失效
     const session = ++sessionRef.current;
@@ -330,7 +353,9 @@ export default function App() {
       try {
         const trashPages = await pagesApi.trash(wsId);
         if (isStale()) return;
-        const newTrashPages = trashPages.filter(bp => !loadedPages.some(p => p.id === bp.id));
+        // 已加载 id 建 Set，回收站去重从 O(n²) 降为 O(n)
+        const loadedIds = new Set(loadedPages.map(p => p.id));
+        const newTrashPages = trashPages.filter(bp => !loadedIds.has(bp.id));
         const trashDataList = await Promise.all(newTrashPages.map(loadOne));
         if (isStale()) return;
         loadedPages.push(...trashDataList);
@@ -343,9 +368,10 @@ export default function App() {
       blockIdMap.current = idMap;
       setPages(loadedPages);
       const activePages = loadedPages.filter(p => !p.deletedAt);
+      const activePageIds = new Set(activePages.map(p => p.id));
       setActivePageId(currentId => {
         if (activePages.length === 0) return null;
-        if (currentId && activePages.some(p => p.id === currentId)) {
+        if (currentId && activePageIds.has(currentId)) {
           return currentId;
         }
         return null;
@@ -358,18 +384,26 @@ export default function App() {
     }
   }, []);
 
-  // 登录后自动加载工作空间和页面
+  // 登录后加载工作空间与页面：合并为单条异步链，消除 user → workspace state → pages 的请求瀑布。
+  // cancelled 标志保证登出/切换账号后不再写入旧用户的数据；
+  // 无工作空间时自动创建"我的空间"（保持原有行为）
   useEffect(() => {
-    if (user) {
-      loadWorkspace();
-    }
-  }, [user, loadWorkspace]);
-
-  useEffect(() => {
-    if (workspace) {
-      loadPages(workspace.id);
-    }
-  }, [workspace, loadPages]);
+    if (!user) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const list = await workspacesApi.list();
+        if (cancelled) return;
+        const ws = list.length > 0 ? list[0] : await workspacesApi.create({ name: '我的空间' });
+        if (cancelled) return;
+        setWorkspace(ws);
+        await loadPages(ws.id);
+      } catch (err) {
+        if (!cancelled) console.error('加载工作空间失败:', err);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [user, loadPages]);
 
   // ==========================================
   // 未登录：从 localStorage 加载
@@ -611,57 +645,81 @@ export default function App() {
     setActiveView('page');
   };
 
+  // 页面切换属于非紧急更新：包 transition，避免编辑器/页树重渲染阻塞输入响应
+  const [, startTransition] = useTransition();
   const activatePage = (id: string) => {
     if (id === activePageId && activeView === 'page') return;
-    if (activePageId && activeView === 'page') setBackStack(prev => [...prev, activePageId]);
-    setForwardStack([]);
-    setActivePageId(id);
-    setActiveView('page');
+    startTransition(() => {
+      if (activePageId && activeView === 'page') setBackStack(prev => [...prev, activePageId]);
+      setForwardStack([]);
+      setActivePageId(id);
+      setActiveView('page');
+    });
   };
 
-  const getDescendantIds = useCallback((pageId: string, allPages: PageData[]): string[] => {
-    const descendants: string[] = [];
-    const children = allPages.filter(p => p.parentId === pageId);
-    for (const child of children) {
-      descendants.push(child.id);
-      descendants.push(...getDescendantIds(child.id, allPages));
+  // 页面索引：id 直查与父→子映射，替代渲染期反复的 find/filter 线性扫描
+  const pagesById = useMemo(() => {
+    const map = new Map<string, PageData>();
+    for (const p of pages) map.set(p.id, p);
+    return map;
+  }, [pages]);
+
+  const childrenByParent = useMemo(() => {
+    const map = new Map<string, PageData[]>();
+    for (const p of pages) {
+      if (!p.parentId) continue;
+      const siblings = map.get(p.parentId);
+      if (siblings) siblings.push(p);
+      else map.set(p.parentId, [p]);
     }
+    return map;
+  }, [pages]);
+
+  // 基于 childrenByParent 收集整棵子树（DFS 先序，与原逐层 filter 版本的结果顺序一致）
+  const getDescendantIds = useCallback((pageId: string): string[] => {
+    const descendants: string[] = [];
+    const walk = (id: string) => {
+      const children = childrenByParent.get(id);
+      if (!children) return;
+      for (const child of children) {
+        descendants.push(child.id);
+        walk(child.id);
+      }
+    };
+    walk(pageId);
     return descendants;
-  }, []);
+  }, [childrenByParent]);
 
   const closePage = useCallback((id: string) => {
-    const pageToDelete = pages.find(p => p.id === id);
+    const pageToDelete = pagesById.get(id);
     if (pageToDelete) {
       addActivity('delete', pageToDelete);
     }
     const now = new Date().toISOString();
-    setPages(prev => {
-      const descendantIds = getDescendantIds(id, prev);
-      const allIds = new Set([id, ...descendantIds]);
-      const newPages = prev.map(p =>
-        allIds.has(p.id) ? { ...p, deletedAt: now } : p
-      );
-      if (id === activePageId) {
-        const remaining = newPages.filter(p => !p.deletedAt);
-        const nextActive = remaining[0] || null;
-        setActivePageId(nextActive?.id || null);
-      }
-      return newPages;
-    });
+    // 后代在 setState 之前基于当前渲染的索引算好，updater 内不再做全表扫描；
+    // 与原先在 updater 内读 prev 等价：事件触发时当前渲染的 pages 即最新已提交状态
+    const allIds = new Set([id, ...getDescendantIds(id)]);
+    // 不在 setPages updater 里调 setActivePageId（StrictMode 双调用 updater 会重复执行副作用）；
+    // 直接基于当前渲染的 pages 计算下一个激活页
+    setPages(prev => prev.map(p =>
+      allIds.has(p.id) ? { ...p, deletedAt: now } : p
+    ));
+    if (id === activePageId) {
+      const nextActive = pages.find(p => !allIds.has(p.id) && !p.deletedAt) || null;
+      setActivePageId(nextActive?.id || null);
+    }
     setBackStack(prev => prev.filter(pid => pid !== id));
     setForwardStack(prev => prev.filter(pid => pid !== id));
     // 已登录时同步软删除后端（后端在单个事务中级联软删除整棵子树，无需逐页删后代）
     if (user) {
       pagesApi.delete(id).catch(err => console.error('删除页面失败:', err));
     }
-  }, [user, pages, getDescendantIds, activePageId, addActivity]);
+  }, [user, pages, pagesById, getDescendantIds, activePageId, addActivity]);
 
   const restorePage = useCallback(async (id: string) => {
-    setPages(prev => {
-      const descendantIds = getDescendantIds(id, prev);
-      const allIds = new Set([id, ...descendantIds]);
-      return prev.map(p => allIds.has(p.id) ? { ...p, deletedAt: undefined } : p);
-    });
+    // 同 closePage：先算好后代再 setState
+    const allIds = new Set([id, ...getDescendantIds(id)]);
+    setPages(prev => prev.map(p => allIds.has(p.id) ? { ...p, deletedAt: undefined } : p));
     if (user) {
       try {
         await pagesApi.restore(id);
@@ -672,43 +730,37 @@ export default function App() {
   }, [user, getDescendantIds]);
 
   const permanentDeletePage = useCallback((id: string) => {
-    setPages(prev => {
-      const descendantIds = getDescendantIds(id, prev);
-      const allIdsToRemove = new Set([id, ...descendantIds]);
-      const newPages = prev.filter(p => !allIdsToRemove.has(p.id));
-      if (id === activePageId || descendantIds.includes(activePageId || '')) {
-        const nextActive = newPages[0] || null;
-        setActivePageId(nextActive?.id || null);
-      }
-      return newPages;
-    });
+    // 同 closePage：先算好后代再 setState
+    const descendantIds = getDescendantIds(id);
+    const allIdsToRemove = new Set([id, ...descendantIds]);
+    setPages(prev => prev.filter(p => !allIdsToRemove.has(p.id)));
+    if (id === activePageId || descendantIds.includes(activePageId || '')) {
+      const nextActive = pages.find(p => !allIdsToRemove.has(p.id)) || null;
+      setActivePageId(nextActive?.id || null);
+    }
     setBackStack(prev => prev.filter(pid => pid !== id));
     setForwardStack(prev => prev.filter(pid => pid !== id));
     if (user) {
       pagesApi.permanentDelete(id).catch(err => console.error('永久删除页面失败:', err));
     }
-  }, [user, getDescendantIds, activePageId]);
+  }, [user, pages, getDescendantIds, activePageId]);
 
+  // 纯函数式导航：updater 内不调用其他 setState。
+  // StrictMode 会双调用 updater，混入副作用会导致历史栈状态错乱（如页面被重复压栈）
   const goBack = () => {
-    setBackStack(prev => {
-      if (prev.length === 0) return prev;
-      const nextBack = [...prev];
-      const prevId = nextBack.pop()!;
-      if (activePageId) setForwardStack(f => [...f, activePageId]);
-      setActivePageId(prevId);
-      return nextBack;
-    });
+    if (backStack.length === 0) return;
+    const prevId = backStack[backStack.length - 1];
+    if (activePageId) setForwardStack(f => [...f, activePageId]);
+    setBackStack(backStack.slice(0, -1));
+    setActivePageId(prevId);
   };
 
   const goForward = () => {
-    setForwardStack(prev => {
-      if (prev.length === 0) return prev;
-      const nextForward = [...prev];
-      const nextId = nextForward.pop()!;
-      if (activePageId) setBackStack(b => [...b, activePageId]);
-      setActivePageId(nextId);
-      return nextForward;
-    });
+    if (forwardStack.length === 0) return;
+    const nextId = forwardStack[forwardStack.length - 1];
+    if (activePageId) setBackStack(b => [...b, activePageId]);
+    setForwardStack(forwardStack.slice(0, -1));
+    setActivePageId(nextId);
   };
 
   const canGoBack = backStack.length > 0;
@@ -720,6 +772,9 @@ export default function App() {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        // 编辑器内 Ctrl+K 是"插入链接"快捷键，不抢去开搜索弹窗
+        const target = e.target as HTMLElement | null;
+        if (target?.closest?.('[data-slate-editor="true"]')) return;
         e.preventDefault();
         setShowSearch(prev => !prev);
       }
@@ -745,7 +800,7 @@ export default function App() {
     setPages(prev => prev.map(p => p.id === id ? { ...p, ...dataWithTimestamp } : p));
 
     // 记录活动（activityType 显式传 null 时跳过）
-    const page = pages.find(p => p.id === id);
+    const page = pagesById.get(id);
     if (page && activityType !== null) {
       const updatedPage = { ...page, ...dataWithTimestamp };
       let type: Activity['type'] = activityType || 'edit';
@@ -782,18 +837,31 @@ export default function App() {
     if (!user) return; // 未登录不调用后端
 
     try {
-      const page = pages.find(p => p.id === id);
+      const page = pagesById.get(id);
       if (!page) return;
 
       // 更新页面基本信息。icon / cover 用 in 判断：调用方显式传 undefined 表示清除，
       // 转为 null 发给后端（exclude_unset 语义下显式 null 会被写入，即置空）
-      if (newData.title !== undefined || 'cover' in newData || newData.coverPosition !== undefined || 'icon' in newData) {
-        await pagesApi.update(id, {
-          title: newData.title,
-          cover_image: 'cover' in newData ? (newData.cover ?? null) : undefined,
-          cover_position: newData.coverPosition,
-          icon: 'icon' in newData ? (newData.icon ?? null) : undefined,
-        });
+      // 标题单独走 500ms 防抖：本地状态已即时更新，网络请求按页合并，
+      // 避免标题每敲一键就发一次 PUT
+      const metaUpdate: UpdatePageData = {};
+      if ('cover' in newData) metaUpdate.cover_image = newData.cover ?? null;
+      if (newData.coverPosition !== undefined) metaUpdate.cover_position = newData.coverPosition;
+      if ('icon' in newData) metaUpdate.icon = newData.icon ?? null;
+      if (Object.keys(metaUpdate).length > 0) {
+        await pagesApi.update(id, metaUpdate);
+      }
+      if (newData.title !== undefined) {
+        titleLatest.current[id] = newData.title;
+        const existing = titleTimers.current[id];
+        if (existing) clearTimeout(existing);
+        titleTimers.current[id] = setTimeout(() => {
+          const title = titleLatest.current[id];
+          if (title === undefined) return;
+          pagesApi.update(id, { title }).catch(err => {
+            console.error('保存页面标题失败:', err);
+          });
+        }, 500);
       }
 
       // 保存封面位置到 localStorage（兜底，后端可能暂不支持）
@@ -808,7 +876,7 @@ export default function App() {
     } catch (err) {
       console.error('保存页面失败:', err);
     }
-  }, [user, pages, addActivity, extractPreview, setActivities, scheduleContentSave]);
+  }, [user, pagesById, addActivity, extractPreview, setActivities, scheduleContentSave]);
 
   // 封面上传
   const uploadCover = async (pageId: string, file: File): Promise<string | null> => {
@@ -874,13 +942,17 @@ export default function App() {
 
     // 按层级拓扑序迁移：父页面先于子页面，保证 parent_id 能映射到后端 id
     const pending = [...local];
+    // 待迁移 id 集合与 pending 同步维护，父页面在队判断从 O(n) 扫描降为 O(1)
+    const pendingIds = new Set(local.map(p => p.id));
     let progressed = true;
     while (pending.length > 0 && progressed) {
       progressed = false;
       for (let i = pending.length - 1; i >= 0; i--) {
         // 父页面仍在待迁移队列中则等下一轮；父页面不在本地集合（悬空）按根页面处理
-        if (pending[i].parentId && pending.some(q => q.id === pending[i].parentId)) continue;
+        const parentId = pending[i].parentId;
+        if (parentId && pendingIds.has(parentId)) continue;
         await migrateOne(pending[i]);
+        pendingIds.delete(pending[i].id);
         pending.splice(i, 1);
         progressed = true;
       }
@@ -913,20 +985,30 @@ export default function App() {
     if (workspace) loadPages(workspace.id);
   };
 
-  const activePage = pages.find(p => p.id === activePageId);
+  const activePage = activePageId ? pagesById.get(activePageId) : undefined;
 
-  // 计算面包屑路径
+  // 页面视图下激活页已不存在（被永久删除/加载后失效）时回退到主页，避免内容区空白、面包屑残留。
+  // 注意：回收站中的页面仍允许打开（编辑器有"已移至回收站"横幅），不在此列
+  useEffect(() => {
+    if (activeView === 'page' && (!activePageId || !activePage)) {
+      setActiveView('home');
+    }
+  }, [activeView, activePageId, activePage]);
+
+  // 计算面包屑路径（沿 parentId 链走 pagesById 直查；visited 防御脏数据成环导致死循环）
   const breadcrumbPath = useMemo(() => {
     if (!activePage) return [];
     const path: PageData[] = [];
+    const visited = new Set<string>();
     let current: PageData | undefined = activePage;
-    while (current) {
+    while (current && !visited.has(current.id)) {
+      visited.add(current.id);
       path.unshift(current);
       if (!current.parentId) break;
-      current = pages.find(p => p.id === current!.parentId);
+      current = pagesById.get(current.parentId);
     }
     return path;
-  }, [activePage, pages]);
+  }, [activePage, pagesById]);
 
   // 顶栏只展示当前活动页的保存状态；其他页面或视图视为 idle
   const topbarSaveIndicator: SaveIndicatorState =
@@ -935,10 +1017,11 @@ export default function App() {
       : { status: 'idle' };
 
   // 当前页面的子页面（包含已删除的，用于 page-link 块渲染）
+  // childrenByParent 按 pages 顺序插入，与 filter 的结果顺序一致
   const childPages = useMemo(() => {
     if (!activePageId) return [];
-    return pages.filter(p => p.parentId === activePageId);
-  }, [pages, activePageId]);
+    return childrenByParent.get(activePageId) ?? [];
+  }, [childrenByParent, activePageId]);
 
   if (!loadingDone) {
     return <LoadingScreen onFinish={() => setLoadingDone(true)} />;
@@ -971,21 +1054,26 @@ export default function App() {
             exit={{ opacity: 0, y: -30, filter: "blur(8px)" }}
             transition={{ duration: 0.5, ease: "easeInOut" }}
           >
-            <LandingPage
-              onEnterWorkspace={() => {
-                setShowWorkspace(true);
-                const local = loadLocalPages();
-                if (local.length > 0) {
-                  setPages(local);
-                }
-              }}
-              onLogin={() => setShowLogin(true)}
-            />
-            <Login
-              isOpen={showLogin}
-              onClose={() => setShowLogin(false)}
-              onLogin={handleLoginSuccess}
-            />
+            <Suspense fallback={<LazyFallback fullScreen />}>
+              <LandingPage
+                onEnterWorkspace={() => {
+                  setShowWorkspace(true);
+                  const local = loadLocalPages();
+                  if (local.length > 0) {
+                    setPages(local);
+                  }
+                }}
+                onLogin={() => setShowLogin(true)}
+              />
+            </Suspense>
+            {/* 弹窗类组件初始不可见，fallback 用 null 即可 */}
+            <Suspense fallback={null}>
+              <Login
+                isOpen={showLogin}
+                onClose={() => setShowLogin(false)}
+                onLogin={handleLoginSuccess}
+              />
+            </Suspense>
           </motion.div>
         ) : (
           <motion.div
@@ -1011,12 +1099,14 @@ export default function App() {
               onShowWorkspace={() => setShowWorkspacePanel(true)}
             />
 
-      {/* 登录弹窗 */}
-      <Login
-        isOpen={showLogin}
-        onClose={() => setShowLogin(false)}
-        onLogin={handleLoginSuccess}
-      />
+      {/* 登录弹窗（初始不可见，fallback 用 null） */}
+      <Suspense fallback={null}>
+        <Login
+          isOpen={showLogin}
+          onClose={() => setShowLogin(false)}
+          onLogin={handleLoginSuccess}
+        />
+      </Suspense>
 
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* 顶部标题栏（抽取为独立组件，见 components/Topbar.tsx） */}
@@ -1034,51 +1124,56 @@ export default function App() {
           onToggleWide={toggleWideMode}
         />
 
-        {/* 编辑区 / 主页 / 收件箱 */}
+        {/* 编辑区 / 主页 / 收件箱（懒加载共用一个轻量 spinner 占位） */}
         <div className="flex-1 overflow-auto bg-background">
-          {activeView === 'page' && activePageId && activePage && (
-            <Editor
-              page={activePage}
-              childPages={childPages}
-              updatePage={updatePage}
-              uploadCover={uploadCover}
-              onActivatePage={activatePage}
-              restorePage={restorePage}
-              permanentDeletePage={permanentDeletePage}
-              wideMode={wideMode}
-            />
-          )}
-          {activeView === 'home' && (
-            <HomeView pages={pages} onNavigate={activatePage} onCreatePage={() => addPage()} />
-          )}
-          {activeView === 'inbox' && (
-            <InboxView
-              activities={activities}
-              onNavigate={activatePage}
-            />
-          )}
+          <Suspense fallback={<LazyFallback />}>
+            {activeView === 'page' && activePageId && activePage && (
+              <Editor
+                page={activePage}
+                childPages={childPages}
+                updatePage={updatePage}
+                uploadCover={uploadCover}
+                onActivatePage={activatePage}
+                restorePage={restorePage}
+                permanentDeletePage={permanentDeletePage}
+                wideMode={wideMode}
+              />
+            )}
+            {activeView === 'home' && (
+              <HomeView pages={pages} onNavigate={activatePage} onCreatePage={() => addPage()} />
+            )}
+            {activeView === 'inbox' && (
+              <InboxView
+                activities={activities}
+                onNavigate={activatePage}
+              />
+            )}
+          </Suspense>
         </div>
       </div>
 
-      {/* 搜索弹窗 */}
-      <SearchModal
-        isOpen={showSearch}
-        onClose={() => setShowSearch(false)}
-        pages={pages}
-        onNavigate={(id) => {
-          activatePage(id);
-          setShowSearch(false);
-        }}
-      />
+      {/* 弹窗类组件初始不可见，fallback 用 null */}
+      <Suspense fallback={null}>
+        {/* 搜索弹窗 */}
+        <SearchModal
+          isOpen={showSearch}
+          onClose={() => setShowSearch(false)}
+          pages={pages}
+          onNavigate={(id) => {
+            activatePage(id);
+            setShowSearch(false);
+          }}
+        />
 
-      {/* 工作空间面板 */}
-      <WorkspacePanel
-        isOpen={showWorkspacePanel}
-        onClose={() => setShowWorkspacePanel(false)}
-        workspace={workspace}
-        pageCount={pages.length}
-        userName={user?.full_name || user?.email.split('@')[0]}
-      />
+        {/* 工作空间面板 */}
+        <WorkspacePanel
+          isOpen={showWorkspacePanel}
+          onClose={() => setShowWorkspacePanel(false)}
+          workspace={workspace}
+          pageCount={pages.length}
+          userName={user?.full_name || user?.email.split('@')[0]}
+        />
+      </Suspense>
 
       {/* 页面迁移确认对话框 */}
       <AnimatedPresence

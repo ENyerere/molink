@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { authApi } from '../api';
 import type { BackendUser } from '../api';
 
@@ -34,6 +34,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  // StrictMode 下挂载 effect 会执行两次，用 ref 守卫保证初始会话恢复请求只发一次；
+  // OAuth 回调路径也会调用 loadUser，同样置位，避免与初始 effect 重复请求
+  const initStartedRef = useRef(false);
+
   // 处理 OAuth 回调（URL hash 中的 token）
   useEffect(() => {
     const handleOAuthCallback = () => {
@@ -46,6 +50,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (token) {
             localStorage.setItem('access_token', token);
             window.location.hash = '';
+            initStartedRef.current = true;
             loadUser();
           }
         }
@@ -58,6 +63,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [loadUser]);
 
   useEffect(() => {
+    if (initStartedRef.current) return;
+    initStartedRef.current = true;
     loadUser();
   }, [loadUser]);
 
@@ -70,21 +77,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener('molink:auth_expired', handler);
   }, []);
 
-  const signIn = async (email: string, password: string) => {
+  const signIn = useCallback(async (email: string, password: string) => {
     const response = await authApi.login({ email, password });
     localStorage.setItem('access_token', response.access_token);
     localStorage.setItem('user', JSON.stringify(response.user));
     setUser(response.user);
-  };
+  }, []);
 
-  const signUp = async (email: string, password: string, fullName?: string) => {
+  const signUp = useCallback(async (email: string, password: string, fullName?: string) => {
     const response = await authApi.register({ email, password, full_name: fullName });
     localStorage.setItem('access_token', response.access_token);
     localStorage.setItem('user', JSON.stringify(response.user));
     setUser(response.user);
-  };
+  }, []);
 
-  const signOut = async () => {
+  const signOut = useCallback(async () => {
     try {
       await authApi.logout();
     } catch (err) {
@@ -94,10 +101,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       localStorage.removeItem('user');
       setUser(null);
     }
-  };
+  }, []);
+
+  // 函数均已 useCallback 稳定化，value 整体 memo，避免 consumer 无谓重渲染
+  const value = useMemo(
+    () => ({ user, loading, signIn, signUp, signOut }),
+    [user, loading, signIn, signUp, signOut]
+  );
 
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );

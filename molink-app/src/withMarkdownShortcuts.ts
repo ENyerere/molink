@@ -48,8 +48,16 @@ const toggleOffBlocks = new Set([
 export const withMarkdownShortcuts = (editor: Editor) => {
   const { insertText, insertBreak, deleteBackward } = editor;
 
+  // 输入法组词期间不做任何替换/转换（否则中文 IME 敲 "--"、"《=" 会中途触发替换）。
+  // 标志位由 Editable 的 onCompositionStart/End 维护
+  const isComposing = () => (editor as Editor & { isComposing?: boolean }).isComposing === true;
+
   /* ---- 行内替换规则 ---- */
   editor.insertText = ((originalInsertText) => (text: string) => {
+    if (isComposing()) {
+      originalInsertText(text);
+      return;
+    }
     const { selection } = editor;
     if (text && selection && Range.isCollapsed(selection)) {
       const { anchor } = selection;
@@ -82,6 +90,10 @@ export const withMarkdownShortcuts = (editor: Editor) => {
 
   /* ---- 块级规则：space 触发 ---- */
   editor.insertText = ((originalInsertText) => (text: string) => {
+    if (isComposing()) {
+      originalInsertText(text);
+      return;
+    }
     const { selection } = editor;
     if (text === ' ' && selection && Range.isCollapsed(selection)) {
       const block = Editor.above(editor, {

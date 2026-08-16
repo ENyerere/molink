@@ -8,11 +8,11 @@ import io
 import os
 import uuid
 import aiofiles
-from datetime import datetime
 from PIL import Image
 
 from app.core.database import get_db
 from app.core.config import settings
+from app.core.utils import utc_now
 from app.models.user import User
 from app.models.file import File
 from app.schemas.file import FileResponse, FileUploadResponse
@@ -32,7 +32,7 @@ def get_file_extension(filename: str) -> str:
 def generate_unique_filename(original_filename: str) -> str:
     """生成唯一文件名"""
     ext = get_file_extension(original_filename)
-    unique_name = f"{uuid.uuid4().hex}_{datetime.now().strftime('%Y%m%d%H%M%S')}"
+    unique_name = f"{uuid.uuid4().hex}_{utc_now().strftime('%Y%m%d%H%M%S')}"
     return f"{unique_name}.{ext}" if ext else unique_name
 
 
@@ -53,6 +53,13 @@ async def upload_file(
     db: Session = Depends(get_db)
 ):
     """上传文件"""
+    # ASGI 规范允许 filename 为 None（如 multipart 无 filename 的字段）
+    if not file.filename:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="缺少文件名"
+        )
+
     # 检查文件扩展名（无扩展名直接拒绝，不允许绕过白名单）
     ext = get_file_extension(file.filename)
     if not ext or ext not in settings.ALLOWED_EXTENSIONS:
@@ -164,13 +171,17 @@ async def delete_file(
             detail="文件不存在"
         )
     
-    # 删除物理文件
-    file_path = os.path.join(settings.UPLOAD_DIR, file.name)
-    if os.path.exists(file_path):
-        os.remove(file_path)
-    
-    # 删除数据库记录
+    # 先删数据库记录并提交，成功后再删物理文件：
+    # 若先删盘上文件而 DB 提交失败，记录会指向已消失的文件
     db.delete(file)
     db.commit()
-    
+
+    file_path = os.path.join(settings.UPLOAD_DIR, file.name)
+    try:
+        if os.path.exists(file_path):
+            os.remove(file_path)
+    except OSError:
+        # 物理文件删除失败只留孤儿文件，不影响接口语义
+        pass
+
     return {"success": True, "message": "文件已删除"}

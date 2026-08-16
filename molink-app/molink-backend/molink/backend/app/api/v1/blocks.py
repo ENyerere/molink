@@ -18,6 +18,17 @@ from .auth import get_current_user
 router = APIRouter()
 
 
+def safe_load_content(raw: Optional[str]) -> dict:
+    """解析块内容 JSON；坏数据（损坏/超长截断）回退为空对象，不让单个脏行打挂接口"""
+    if not raw:
+        return {}
+    try:
+        parsed = json.loads(raw)
+        return parsed if isinstance(parsed, dict) else {}
+    except (ValueError, TypeError):
+        return {}
+
+
 def check_page_access(page_id: str, user_id: str, db: Session) -> Page:
     """检查用户对页面的访问权限（回收站中的页面视为不存在）"""
     page = db.query(Page).filter(
@@ -66,7 +77,7 @@ async def list_blocks(
             "page_id": block.page_id,
             "parent_block_id": block.parent_block_id,
             "block_type": block.block_type.value if hasattr(block.block_type, 'value') else block.block_type,
-            "content": json.loads(block.content) if block.content else {},
+            "content": safe_load_content(block.content),
             "position": block.position,
             "created_at": block.created_at,
             "updated_at": block.updated_at
@@ -84,7 +95,19 @@ async def create_block(
 ):
     """创建块"""
     check_page_access(block_data.page_id, current_user.id, db)
-    
+
+    # 校验父块：必须存在且属于同一页面，防止 FK 报 500 或跨页面块树
+    if block_data.parent_block_id is not None:
+        parent_block = db.query(Block).filter(
+            Block.id == block_data.parent_block_id,
+            Block.page_id == block_data.page_id
+        ).first()
+        if not parent_block:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="父块不存在或不属于该页面"
+            )
+
     # 计算位置：用 max(position)+1 而非 count()，避免删除行后 position 撞车
     if block_data.position is None:
         max_position = db.query(func.max(Block.position)).filter(
@@ -225,6 +248,14 @@ async def reorder_blocks(
         Block.page_id == page_id
     ).all()
     block_map = {block.id: block for block in blocks}
+
+    # 提交的 id 与页面实际块不一致（含不属于本页的 id）时直接拒绝，
+    # 不能静默跳过——否则部分乱序会被误报为成功
+    if len(block_map) != len(set(reorder_data.block_ids)):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="块 ID 列表与页面实际块不一致"
+        )
 
     for index, block_id in enumerate(reorder_data.block_ids):
         block = block_map.get(block_id)

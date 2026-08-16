@@ -49,19 +49,18 @@ async def get_system_stats(
     total_size = db.query(func.sum(File.size)).scalar() or 0
     storage_used = format_file_size(total_size)
     
-    # 获取活跃用户数（最近24小时内更新的）
-    yesterday = utc_now() - timedelta(hours=24)
-    active_users = db.query(func.count(User.id)).filter(
-        User.updated_at >= yesterday
-    ).scalar() or 0
-    
+    # 在线用户：基于 WebSocket 连接管理器的实时连接数
+    # （原实现按 User.updated_at 统计，而该字段只在改资料时变化，数据无意义）
+    from app.api.websocket import manager as ws_manager
+    online_users = len(ws_manager.get_online_users())
+
     return {
         "totalUsers": total_users,
         "totalPages": total_pages,
         "totalDatabases": total_databases,
         "totalFiles": total_files,
         "storageUsed": storage_used,
-        "onlineUsers": active_users
+        "onlineUsers": online_users
     }
 
 
