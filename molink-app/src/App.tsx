@@ -1122,6 +1122,8 @@ export default function App() {
           isGuest={!user}
           wideMode={wideMode}
           onToggleWide={toggleWideMode}
+          activePage={activePage}
+          allPages={pages}
         />
 
         {/* 编辑区 / 主页 / 收件箱（懒加载共用一个轻量 spinner 占位） */}

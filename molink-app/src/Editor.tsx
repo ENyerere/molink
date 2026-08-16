@@ -27,42 +27,12 @@ import Leaf from './Leaf';
 import { Smile, Image, MessageSquare, MoveVertical, RotateCcw, Trash2 } from 'lucide-react';
 import IconPicker, { PageIcon } from './components/IconPicker';
 import SlashCommandMenu from './components/SlashCommandMenu';
+import { slateToMarkdown, slateToHTML, markdownToBlocks, htmlToBlocks } from './lib/serialize';
 
 // 封面固定高度 200px（§5.2）
 const COVER_PX = 200;
 const TOP_MARGIN_PX = 60;
 const NO_COVER_PX = 120;
-
-// 块类型 ↔ 文本标记前缀
-const BLOCK_PREFIXES: Record<string, string> = {
-  'heading-one': '# ',
-  'heading-two': '## ',
-  'heading-three': '### ',
-  'heading-four': '#### ',
-  'bulleted-list': '- ',
-  'numbered-list': '1. ',
-  'toggle-list': '>> ',
-  'blockquote': '> ',
-};
-
-function serializeBlocks(blocks: SlateElement[]): string {
-  return blocks
-    .map((block) => {
-      // 保留块内换行（代码块以 \n 存多行），不再压成空格
-      const text = block.children.map((c) => c.text).join('');
-      if (block.type === 'code-block') {
-        // 代码块加 ``` 围栏，parse 端据此还原
-        return '```\n' + text + '\n```';
-      }
-      if (block.type === 'todo') {
-        const prefix = block.checked ? '- [x] ' : '- [ ] ';
-        return prefix + text;
-      }
-      const prefix = BLOCK_PREFIXES[block.type] || '';
-      return prefix + text;
-    })
-    .join('\n');
-}
 
 // Slate 0.118 的 Node 接口没有 equals 方法，按节点结构手写深度比较。
 // Slate 为不可变数据：未修改的子树保持引用相等，a === b 快速路径让比较近乎 O(1)
@@ -76,86 +46,6 @@ function deepEqual(a: unknown, b: unknown): boolean {
   return aKeys.every(
     (k) => Object.prototype.hasOwnProperty.call(bRec, k) && deepEqual(aRec[k], bRec[k])
   );
-}
-
-// 覆盖 Slate React 的 setFragmentData：当选中块存在时，直接写入带标记纯文本
-const originalSetFragmentData = ReactEditor.setFragmentData.bind(ReactEditor);
-ReactEditor.setFragmentData = (editor, data, origin) => {
-  // 回调参数声明为 slate-dom 的 DOMEditor，运行时传入的实为完整自定义 Editor
-  const customEditor = editor as SlateEditor;
-  const selected: SlateElement[] = [];
-  for (const [node] of SlateEditor.nodes(customEditor, {
-    at: [],
-    match: (n) => SlateElement.isElement(n) && SlateEditor.isBlock(customEditor, n) && (n as BlockElementType).selected === true,
-  })) {
-    selected.push(node as SlateElement);
-  }
-  if (selected.length > 0 && (origin === 'copy' || origin === 'cut')) {
-    const text = serializeBlocks(selected);
-    data.setData('text/plain', text);
-    data.setData('text/html', '');
-  } else {
-    originalSetFragmentData(editor, data, origin);
-  }
-};
-
-function parseClipboardText(text: string): BlockElementType[] {
-  const lines = text.split('\n');
-  const blocks: BlockElementType[] = [];
-
-  // ``` 围栏内的行原样累积，闭合时还原为一个代码块
-  let inCodeFence = false;
-  let codeLines: string[] = [];
-
-  for (const line of lines) {
-    if (inCodeFence) {
-      if (line.trim() === '```') {
-        blocks.push({ type: 'code-block', children: [{ text: codeLines.join('\n') }] });
-        inCodeFence = false;
-        codeLines = [];
-      } else {
-        codeLines.push(line);
-      }
-      continue;
-    }
-    if (line.trim() === '```') {
-      inCodeFence = true;
-      codeLines = [];
-      continue;
-    }
-    const trimmed = line.trimStart();
-    // 顺序很重要：先匹配更长的前缀
-    if (trimmed.startsWith('- [x] ')) {
-      blocks.push({ type: 'todo', checked: true, children: [{ text: trimmed.slice(6) }] });
-    } else if (trimmed.startsWith('- [ ] ')) {
-      blocks.push({ type: 'todo', checked: false, children: [{ text: trimmed.slice(6) }] });
-    } else if (trimmed.startsWith('#### ')) {
-      blocks.push({ type: 'heading-four', children: [{ text: trimmed.slice(5) }] });
-    } else if (trimmed.startsWith('### ')) {
-      blocks.push({ type: 'heading-three', children: [{ text: trimmed.slice(4) }] });
-    } else if (trimmed.startsWith('## ')) {
-      blocks.push({ type: 'heading-two', children: [{ text: trimmed.slice(3) }] });
-    } else if (trimmed.startsWith('# ')) {
-      blocks.push({ type: 'heading-one', children: [{ text: trimmed.slice(2) }] });
-    } else if (trimmed.startsWith('>> ')) {
-      blocks.push({ type: 'toggle-list', children: [{ text: trimmed.slice(3) }] });
-    } else if (trimmed.startsWith('> ')) {
-      blocks.push({ type: 'blockquote', children: [{ text: trimmed.slice(2) }] });
-    } else if (trimmed.startsWith('- ')) {
-      blocks.push({ type: 'bulleted-list', children: [{ text: trimmed.slice(2) }] });
-    } else if (trimmed.startsWith('1. ')) {
-      blocks.push({ type: 'numbered-list', children: [{ text: trimmed.slice(3) }] });
-    } else {
-      blocks.push({ type: 'paragraph', children: [{ text: line }] });
-    }
-  }
-
-  // 围栏未闭合的兜底：仍按代码块还原，避免丢内容
-  if (inCodeFence) {
-    blocks.push({ type: 'code-block', children: [{ text: codeLines.join('\n') }] });
-  }
-
-  return blocks;
 }
 
 export default function Editor({
@@ -192,6 +82,33 @@ export default function Editor({
   useEffect(() => { childPagesRef.current = childPages; }, [childPages]);
   const onActivatePageRef = useRef(onActivatePage);
   useEffect(() => { onActivatePageRef.current = onActivatePage; }, [onActivatePage]);
+
+  // page-link 标题解析：与 BlockElement 保持一致，从当前子页面列表查
+  const resolvePageTitle = useCallback(
+    (id: string) => childPagesRef.current.find((p) => p.id === id)?.title,
+    []
+  );
+
+  // 当前框选（块级 selected）的块，按文档顺序返回
+  const getBoxSelectedBlocks = useCallback((): BlockElementType[] => {
+    const selected: BlockElementType[] = [];
+    for (const [node] of SlateEditor.nodes(editor, {
+      at: [],
+      match: (n) => SlateElement.isElement(n) && SlateEditor.isBlock(editor, n) && (n as BlockElementType).selected === true,
+    })) {
+      selected.push(node as BlockElementType);
+    }
+    return selected;
+  }, [editor]);
+
+  // 剪贴板双格式写入：text/plain 走 Markdown，text/html 供粘贴到 Word/飞书等保留格式
+  const writeClipboard = useCallback(
+    (data: DataTransfer, blocks: Descendant[]) => {
+      data.setData('text/plain', slateToMarkdown(blocks, { resolvePageTitle }));
+      data.setData('text/html', slateToHTML(blocks, { resolvePageTitle }));
+    },
+    [resolvePageTitle]
+  );
 
   const [coverPx, setCoverPx] = useState<number>(
     page.cover ? COVER_PX : NO_COVER_PX
@@ -862,21 +779,38 @@ export default function Editor({
             spellCheck={false}
             onCompositionStart={() => { (editor as SlateEditor & { isComposing?: boolean }).isComposing = true; }}
             onCompositionEnd={() => { (editor as SlateEditor & { isComposing?: boolean }).isComposing = false; }}
-            onCut={() => {
-              // setFragmentData 覆盖已把框选块写成序列化文本；Slate 默认 cut 只删
-              // 光标选区，框选的块由这里负责删除（推迟到默认流程写完剪贴板后）
-              setTimeout(() => {
-                const entries = Array.from(SlateEditor.nodes(editor, {
-                  at: [],
-                  match: (n) => SlateElement.isElement(n) && (n as BlockElementType).selected === true,
-                }));
-                if (entries.length === 0) return;
-                SlateEditor.withoutNormalizing(editor, () => {
-                  for (let i = entries.length - 1; i >= 0; i--) {
-                    Transforms.removeNodes(editor, { at: entries[i][1] });
-                  }
-                });
-              }, 0);
+            onCopy={(event) => {
+              const selected = getBoxSelectedBlocks();
+              if (selected.length > 0) {
+                // 框选块整体序列化（Markdown + HTML 双格式，行内标记不再丢失）
+                event.preventDefault();
+                writeClipboard(event.clipboardData, selected);
+                return;
+              }
+              // 光标选区同样提供带格式复制；空选区不拦截
+              const { selection } = editor;
+              if (selection && !Range.isCollapsed(selection)) {
+                event.preventDefault();
+                const fragment = Node.fragment(editor, selection);
+                writeClipboard(event.clipboardData, fragment as Descendant[]);
+              }
+            }}
+            onCut={(event) => {
+              const selected = getBoxSelectedBlocks();
+              // 无框选块时交给 Slate 默认剪切（只处理光标选区）
+              if (selected.length === 0) return;
+              event.preventDefault();
+              writeClipboard(event.clipboardData, selected);
+              // 框选的块由这里负责删除
+              const entries = Array.from(SlateEditor.nodes(editor, {
+                at: [],
+                match: (n) => SlateElement.isElement(n) && (n as BlockElementType).selected === true,
+              }));
+              SlateEditor.withoutNormalizing(editor, () => {
+                for (let i = entries.length - 1; i >= 0; i--) {
+                  Transforms.removeNodes(editor, { at: entries[i][1] });
+                }
+              });
             }}
             onKeyDown={(event) => {
               // 中文输入法组词期间不拦截按键（候选词选择、上屏）
@@ -919,26 +853,42 @@ export default function Editor({
             }}
             onPaste={(event) => {
               const text = event.clipboardData.getData('text/plain');
-              if (!text) return;
 
-              // 光标在代码块内：原样插入（保留换行），不走 Markdown 解析
+              // 光标在代码块内：原样插入（保留换行），不走任何解析
               const pasteBlock = editor.selection
                 ? SlateEditor.above(editor, {
                     match: (n) => SlateElement.isElement(n) && SlateEditor.isBlock(editor, n),
                   })
                 : null;
               if (pasteBlock && (pasteBlock[0] as BlockElementType).type === 'code-block') {
+                if (!text) return;
                 event.preventDefault();
                 editor.insertText(text.replace(/\r\n?/g, '\n'));
                 return;
               }
 
-              const blocks = parseClipboardText(text);
+              // 优先解析 HTML（网页 / Word / 本应用复制都带格式），没有 HTML 再走 Markdown 启发式
+              const html = event.clipboardData.getData('text/html');
+              let blocks: BlockElementType[] = [];
+              if (html) {
+                try {
+                  blocks = htmlToBlocks(html);
+                } catch (err) {
+                  console.error('解析粘贴的 HTML 失败:', err);
+                }
+              }
+              if (blocks.length === 0 && text) {
+                blocks = markdownToBlocks(text);
+              }
               if (blocks.length === 0) return;
 
-              // 只有检测到非 paragraph 标记时才拦截，纯文本让 Slate 默认处理
-              const hasSpecialBlock = blocks.some((b) => b.type !== 'paragraph');
-              if (!hasSpecialBlock) return;
+              // 纯段落且无任何行内标记时不拦截，让 Slate 默认处理纯文本粘贴
+              const hasRichContent = blocks.some(
+                (b) =>
+                  b.type !== 'paragraph' ||
+                  b.children.some((c) => c.bold || c.italic || c.code || c.underline || c.strikethrough || c.link)
+              );
+              if (!hasRichContent) return;
 
               event.preventDefault();
 

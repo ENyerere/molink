@@ -1,9 +1,11 @@
-import { Fragment } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import {
   ChevronLeft, ChevronRight, Share2, Star, Lock, Maximize2, Minimize2,
+  Download, FileCode, FileText, ClipboardCopy,
 } from 'lucide-react';
 import { PageIcon } from './IconPicker';
 import type { PageData } from '../App';
+import { slateToMarkdown, slateToHTML, wrapHtmlDocument, downloadTextFile } from '../lib/serialize';
 
 // 顶栏保存状态（由 App 基于防抖保存队列派生，仅作 UI 外显）
 export interface SaveIndicatorState {
@@ -23,6 +25,107 @@ interface TopbarProps {
   isGuest: boolean;
   wideMode: boolean;
   onToggleWide: () => void;
+  // 导出用：当前页内容 + 全量页面列表（解析 page-link 标题）
+  activePage?: PageData | null;
+  allPages?: PageData[];
+}
+
+// 导出文件名清洗：去掉文件系统非法字符，空标题回退「无标题」
+function exportBaseName(title: string): string {
+  const cleaned = title.replace(/[\\/:*?"<>|]/g, '').trim();
+  return cleaned || '无标题';
+}
+
+// 页面导出菜单：Markdown / HTML 下载 + 复制 Markdown 到剪贴板
+function ExportMenu({ activePage, allPages }: { activePage: PageData; allPages: PageData[] }) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement | null>(null);
+
+  // 点击菜单外关闭
+  useEffect(() => {
+    if (!open) return;
+    const onMouseDown = (e: MouseEvent) => {
+      if (rootRef.current && !rootRef.current.contains(e.target as globalThis.Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onMouseDown);
+    return () => document.removeEventListener('mousedown', onMouseDown);
+  }, [open]);
+
+  const resolvePageTitle = (id: string) => allPages.find((p) => p.id === id)?.title;
+  const baseName = exportBaseName(activePage.title);
+
+  const items = [
+    {
+      key: 'markdown',
+      label: '导出 Markdown (.md)',
+      icon: FileCode,
+      action: () =>
+        downloadTextFile(
+          `${baseName}.md`,
+          slateToMarkdown(activePage.content, { resolvePageTitle }),
+          'text/markdown;charset=utf-8'
+        ),
+    },
+    {
+      key: 'html',
+      label: '导出 HTML (.html)',
+      icon: FileText,
+      action: () =>
+        downloadTextFile(
+          `${baseName}.html`,
+          wrapHtmlDocument(
+            activePage.title || '无标题',
+            slateToHTML(activePage.content, { resolvePageTitle })
+          ),
+          'text/html;charset=utf-8'
+        ),
+    },
+    {
+      key: 'copy-md',
+      label: '复制为 Markdown',
+      icon: ClipboardCopy,
+      action: async () => {
+        try {
+          await navigator.clipboard.writeText(
+            slateToMarkdown(activePage.content, { resolvePageTitle })
+          );
+        } catch (err) {
+          console.error('复制 Markdown 失败:', err);
+        }
+      },
+    },
+  ];
+
+  return (
+    <div ref={rootRef} className="relative">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className={iconButtonClass}
+        title="导出页面"
+      >
+        <Download className="h-5 w-5" strokeWidth={1.75} />
+      </button>
+      {open && (
+        <div className="absolute right-0 top-full z-[60] mt-1 w-52 rounded-lg border border-border bg-popover py-1 shadow-1">
+          {items.map((item) => (
+            <button
+              key={item.key}
+              onClick={async () => {
+                setOpen(false);
+                await item.action();
+              }}
+              className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-foreground transition-colors hover:bg-accent"
+            >
+              <item.icon className="h-4 w-4 text-muted-foreground" strokeWidth={1.75} />
+              {item.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 // 图标按钮统一样式：monochrome，hover 灰底，focus-visible 可见
@@ -64,6 +167,8 @@ export default function Topbar({
   isGuest,
   wideMode,
   onToggleWide,
+  activePage,
+  allPages,
 }: TopbarProps) {
   // 面包屑超过 3 段时收缩中间段为 "…"，只保留首尾（null 为省略段占位）
   const crumbs: (PageData | null)[] =
@@ -156,6 +261,10 @@ export default function Topbar({
         <button className={iconButtonClass} title="收藏">
           <Star className="h-5 w-5" strokeWidth={1.75} />
         </button>
+        {/* 导出菜单（仅页面视图可用） */}
+        {activeView === 'page' && activePage && (
+          <ExportMenu activePage={activePage} allPages={allPages ?? []} />
+        )}
         {/* 宽版切换（替代原 ⋯ 死按钮） */}
         <button
           onClick={onToggleWide}
