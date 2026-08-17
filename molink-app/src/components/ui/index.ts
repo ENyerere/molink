@@ -7,3 +7,4 @@ export type { MenuPopupProps } from './MenuPopup';
 export { Input } from './Input';
 export type { InputProps } from './Input';
 export { ImageOverlayBar, ImageOverlayButton, ImageOverlayDivider } from './ImageOverlayBar';
+export { RouteProgress } from './RouteProgress';

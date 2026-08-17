@@ -16,7 +16,7 @@ import { useAuth } from './context/AuthContext';
 import { AnimatePresence, motion } from 'motion/react';
 import AnimatedPresence from './components/AnimatedPresence';
 import Topbar, { type SaveIndicatorState } from './components/Topbar';
-import { Button } from './components/ui';
+import { Button, RouteProgress } from './components/ui';
 import { usePageNav } from './hooks/usePageNav';
 import { useContentSaver } from './hooks/useContentSaver';
 import { useActivities } from './hooks/useActivities';
@@ -28,15 +28,9 @@ import type { PageData, User, Activity } from './types';
 // `from './App'` 引用路径不变
 export type { PageData, User, Activity };
 
-// 懒加载占位：轻量居中 spinner。不要用 LoadingScreen——它需要外部喂入真实进度，
-// 作为 Suspense fallback 没有进度来源，只会停在 0%
-function LazyFallback({ fullScreen = false }: { fullScreen?: boolean }) {
-  return (
-    <div className={`flex items-center justify-center bg-background ${fullScreen ? 'h-screen w-full' : 'h-full w-full'}`}>
-      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-    </div>
-  );
-}
+// 懒加载与整屏加载的统一占位是 ui/RouteProgress（顶部细进度条）：
+// 不用 LoadingScreen——它需要外部喂入真实进度，作为 Suspense fallback 没有进度来源；
+// 也不用 spinner——与 monochrome 设计不契合
 
 export default function App() {
   const { user, loading: authLoading } = useAuth();
@@ -66,6 +60,21 @@ export default function App() {
       .finally(() => { if (!cancelled) setViewChunkReady(true); });
     return () => { cancelled = true; };
   }, []);
+
+  // 启动完成后闲时预载其余主视图 chunk：消除"点免费开始使用后主页再转圈"这类二次加载
+  useEffect(() => {
+    if (!loadingDone) return;
+    const timer = setTimeout(() => {
+      import('./pages/LandingPage');
+      import('./components/HomeView');
+      import('./Editor');
+      import('./components/InboxView');
+      import('./components/auth/Login');
+      import('./components/SearchModal');
+      import('./components/WorkspacePanel');
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [loadingDone]);
 
   // 宽版内容列开关（持久化到 localStorage）
   const [wideMode, setWideMode] = useState(() => {
@@ -203,12 +212,11 @@ export default function App() {
     );
   }
 
-  // 启动完成后的后续加载（如切换账号重新拉取）走轻量 spinner
+  // 启动完成后的后续加载（如切换账号重新拉取）：顶部细进度条 + 空背景
   if (authLoading || apiLoading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-background text-foreground">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-        <span className="ml-3">加载中...</span>
+      <div className="h-screen w-full bg-background">
+        <RouteProgress />
       </div>
     );
   }
@@ -231,7 +239,7 @@ export default function App() {
             exit={{ opacity: 0, y: -30, filter: "blur(8px)" }}
             transition={{ duration: 0.5, ease: "easeInOut" }}
           >
-            <Suspense fallback={<LazyFallback fullScreen />}>
+            <Suspense fallback={<RouteProgress />}>
               <LandingPage
                 onEnterWorkspace={() => {
                   setShowWorkspace(true);
@@ -300,31 +308,43 @@ export default function App() {
           allPages={pages}
         />
 
-        {/* 编辑区 / 主页 / 收件箱（懒加载共用一个轻量 spinner 占位） */}
+        {/* 编辑区 / 主页 / 收件箱：chunk 加载走顶部细进度条；视图切换做 150ms 淡入淡出过渡
+            （key 只到视图级，页间切换不重建 Editor，避免 Slate 状态被重置） */}
         <div className="flex-1 overflow-auto bg-background">
-          <Suspense fallback={<LazyFallback />}>
-            {activeView === 'page' && activePageId && activePage && (
-              <Editor
-                page={activePage}
-                childPages={childPages}
-                updatePage={updatePage}
-                uploadCover={uploadCover}
-                onActivatePage={nav.activatePage}
-                restorePage={restorePage}
-                permanentDeletePage={permanentDeletePage}
-                wideMode={wideMode}
-              />
-            )}
-            {activeView === 'home' && (
-              <HomeView pages={pages} onNavigate={nav.activatePage} onCreatePage={() => addPage()} />
-            )}
-            {activeView === 'inbox' && (
-              <InboxView
-                activities={activitiesApi.activities}
-                onNavigate={nav.activatePage}
-              />
-            )}
-          </Suspense>
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={activeView}
+              className="h-full"
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
+              transition={{ duration: 0.15, ease: 'easeOut' }}
+            >
+              <Suspense fallback={<RouteProgress />}>
+                {activeView === 'page' && activePageId && activePage && (
+                  <Editor
+                    page={activePage}
+                    childPages={childPages}
+                    updatePage={updatePage}
+                    uploadCover={uploadCover}
+                    onActivatePage={nav.activatePage}
+                    restorePage={restorePage}
+                    permanentDeletePage={permanentDeletePage}
+                    wideMode={wideMode}
+                  />
+                )}
+                {activeView === 'home' && (
+                  <HomeView pages={pages} onNavigate={nav.activatePage} onCreatePage={() => addPage()} />
+                )}
+                {activeView === 'inbox' && (
+                  <InboxView
+                    activities={activitiesApi.activities}
+                    onNavigate={nav.activatePage}
+                  />
+                )}
+              </Suspense>
+            </motion.div>
+          </AnimatePresence>
         </div>
       </div>
 

@@ -93,6 +93,19 @@ module.exports = {
   			modal: '70',
   			overlay: '80',
   			toast: '100'
+  		},
+  		// 路由级顶部进度条动画：scaleX 缓速爬升逼近 85% 后停住（indeterminate trickle，
+  		// 不伪造完成），透明度在开头淡入；配合 origin-left 使用
+  		keyframes: {
+  			'route-progress': {
+  				'0%': { transform: 'scaleX(0)', opacity: '0' },
+  				'8%': { opacity: '1' },
+  				'55%': { transform: 'scaleX(0.55)' },
+  				'100%': { transform: 'scaleX(0.85)' }
+  			}
+  		},
+  		animation: {
+  			'route-progress': 'route-progress 2.4s cubic-bezier(0.22, 1, 0.36, 1) forwards'
   		}
   	}
   },
