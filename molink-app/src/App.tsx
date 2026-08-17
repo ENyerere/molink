@@ -48,6 +48,25 @@ export default function App() {
   const [showWorkspacePanel, setShowWorkspacePanel] = useState(false);
   const [loadingDone, setLoadingDone] = useState(false);
 
+  // 首屏视图 chunk 预加载：启动屏期间与数据管道并行下载。
+  // 否则启动屏（提前 return）期间视图树不渲染，lazy chunk 在进度条结束后才开始拉取，
+  // 表现为"淡出后又出现一个 spinner"的二次加载
+  const [viewChunkReady, setViewChunkReady] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    // 有 token 的会话恢复多半直接进工作区（主页/编辑器），无 token 落在 LandingPage
+    // （key 与 AuthContext 的 'access_token' 字面量保持一致）
+    const hasToken = !!localStorage.getItem('access_token');
+    const preload: Promise<unknown> = hasToken
+      ? Promise.all([import('./components/HomeView'), import('./Editor')])
+      : import('./pages/LandingPage');
+    preload
+      .catch((err) => console.error('预加载首屏视图失败:', err))
+      // 失败也放行：保持懒加载原有的报错路径，不让启动屏卡死
+      .finally(() => { if (!cancelled) setViewChunkReady(true); });
+    return () => { cancelled = true; };
+  }, []);
+
   // 宽版内容列开关（持久化到 localStorage）
   const [wideMode, setWideMode] = useState(() => {
     try {
@@ -163,14 +182,16 @@ export default function App() {
     return childrenByParent.get(activePageId) ?? [];
   }, [childrenByParent, activePageId]);
 
-  // 启动屏真实进度：三个里程碑对应真实的异步边界——
-  // 登录态恢复（有 token 时是一次真实的 /users/me 请求）→ 初始数据管道落地 → 完成
-  const bootProgress = authLoading ? 35 : !initialDataReady ? 70 : 100;
+  // 启动屏真实进度：四个里程碑对应真实的异步边界——
+  // 登录态恢复（有 token 时是一次真实的 /users/me 请求）→ 初始数据管道落地 → 首屏视图 chunk 就绪 → 完成
+  const bootProgress = authLoading ? 35 : !initialDataReady ? 70 : !viewChunkReady ? 90 : 100;
   const bootLabel = authLoading
     ? '正在恢复登录状态…'
     : !initialDataReady
       ? '正在加载页面数据…'
-      : '即将就绪';
+      : !viewChunkReady
+        ? '正在加载界面资源…'
+        : '即将就绪';
 
   if (!loadingDone) {
     return (
