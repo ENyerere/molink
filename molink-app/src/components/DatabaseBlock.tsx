@@ -253,7 +253,7 @@ export default function DatabaseBlock({ columns, rows, onChange, readOnly }: Dat
 
                 {/* 列类型菜单 */}
                 {showColMenu === col.id && (
-                  <MenuPopup className="absolute left-0 top-full z-20 mt-1 w-36 py-1">
+                  <MenuPopup className="absolute left-0 top-full z-dropdown mt-1 w-36 py-1">
                     {(['text', 'number', 'select', 'date', 'checkbox'] as const).map(type => {
                       const TIcon = COLUMN_TYPE_ICONS[type];
                       return (
@@ -312,7 +312,7 @@ export default function DatabaseBlock({ columns, rows, onChange, readOnly }: Dat
               key={row.id}
               className="group/row flex items-center transition-colors hover:bg-surface-1"
             >
-              <div className="flex w-8 flex-shrink-0 items-center justify-center text-[11px] tabular-nums text-muted-foreground">
+              <div className="flex w-8 flex-shrink-0 items-center justify-center text-caption tabular-nums text-muted-foreground">
                 {idx + 1}
               </div>
               {safeCols.map(col => (

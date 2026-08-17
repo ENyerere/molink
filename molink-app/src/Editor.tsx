@@ -28,6 +28,7 @@ import Leaf from './Leaf';
 import { Smile, Image, MessageSquare, MoveVertical, RotateCcw, Trash2 } from 'lucide-react';
 import IconPicker, { PageIcon } from './components/IconPicker';
 import SlashCommandMenu from './components/SlashCommandMenu';
+import { ImageOverlayBar, ImageOverlayButton, ImageOverlayDivider } from './components/ui';
 import { slateToMarkdown, slateToHTML, markdownToBlocks, htmlToBlocks } from './lib/serialize';
 
 // 封面固定高度 200px（§5.2）
@@ -607,12 +608,12 @@ export default function Editor({
     >
       <div
         ref={selectionRectRef}
-        className="absolute bg-selection/15 pointer-events-none z-50 hidden"
+        className="absolute bg-selection/15 pointer-events-none z-dropdown hidden"
       />
 
       {/* 已删除页面横幅 */}
       {page.deletedAt && (
-        <div className="sticky top-0 z-50 bg-destructive/10 border-b border-destructive/20 px-4 py-2 flex items-center justify-between">
+        <div className="sticky top-0 z-dropdown bg-destructive/10 border-b border-destructive/20 px-4 py-2 flex items-center justify-between">
           <div className="flex items-center gap-2 text-sm text-destructive">
             <Trash2 className="w-4 h-4" />
             <span>此页面已移至回收站</span>
@@ -665,38 +666,26 @@ export default function Editor({
           {/* 封面右上角操作按钮 */}
           <div className={`absolute top-3 right-3 flex items-center transition-opacity ${isRepositioning ? 'opacity-100' : 'opacity-0 group-hover/cover:opacity-100'}`}>
             {isRepositioning ? (
-              <div className="flex items-center bg-black/50 rounded overflow-hidden">
-                <button
-                  onClick={savePosition}
-                  className="px-2.5 py-1 text-xs text-white/90 hover:bg-white/10 transition-colors"
-                >
+              <ImageOverlayBar>
+                <ImageOverlayButton onClick={savePosition}>
                   保存位置
-                </button>
-                <div className="w-px h-3 bg-white/20" />
-                <button
-                  onClick={cancelReposition}
-                  className="px-2.5 py-1 text-xs text-white/90 hover:bg-white/10 transition-colors"
-                >
+                </ImageOverlayButton>
+                <ImageOverlayDivider />
+                <ImageOverlayButton onClick={cancelReposition}>
                   取消
-                </button>
-              </div>
+                </ImageOverlayButton>
+              </ImageOverlayBar>
             ) : (
-              <div className="flex items-center bg-black/40 rounded overflow-hidden">
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className="px-2.5 py-1 text-xs text-white/90 hover:bg-white/10 transition-colors"
-                >
+              <ImageOverlayBar className="bg-black/40">
+                <ImageOverlayButton onClick={() => fileInputRef.current?.click()}>
                   更换封面
-                </button>
-                <div className="w-px h-3 bg-white/20" />
-                <button
-                  onClick={enterRepositionMode}
-                  className="px-2.5 py-1 text-xs text-white/90 hover:bg-white/10 transition-colors flex items-center gap-1"
-                >
+                </ImageOverlayButton>
+                <ImageOverlayDivider />
+                <ImageOverlayButton onClick={enterRepositionMode} className="flex items-center gap-1">
                   <MoveVertical className="w-3 h-3" />
                   调整位置
-                </button>
-              </div>
+                </ImageOverlayButton>
+              </ImageOverlayBar>
             )}
           </div>
         </div>

@@ -78,6 +78,21 @@ module.exports = {
   			'1': 'var(--shadow-1)',
   			'2': 'var(--shadow-2)',
   			'3': 'var(--shadow-3)'
+  		},
+  		// 字阶令牌：对齐《前端重设计方案 v2》的 10/11/13/15 语义档，替代散写的任意值
+  		fontSize: {
+  			micro: '10px',
+  			caption: '11px',
+  			'body-sm': '13px',
+  			dialog: '15px'
+  		},
+  		// 层级令牌：50/60/70/80/100 五档语义化；z-0~40 保留默认值用于局部堆叠上下文
+  		zIndex: {
+  			dropdown: '50',
+  			popover: '60',
+  			modal: '70',
+  			overlay: '80',
+  			toast: '100'
   		}
   	}
   },

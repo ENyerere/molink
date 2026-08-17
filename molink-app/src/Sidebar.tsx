@@ -516,7 +516,7 @@ function TrashPopover({
         duration={220}
         enterFrom="opacity-0 -translate-x-6"
         enterTo="opacity-100 translate-x-0"
-        className="fixed inset-0 z-50"
+        className="fixed inset-0 z-dropdown"
       >
         {/* 透明遮罩，只拦截点击，不变暗 */}
         <div className="absolute inset-0" onClick={handleClose} />

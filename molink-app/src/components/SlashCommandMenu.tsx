@@ -140,7 +140,7 @@ export default function SlashCommandMenu({
   if (filtered.length === 0) {
     return (
       <div
-        className="fixed z-[60] w-80 bg-popover rounded-lg shadow-1 border border-border py-3 px-1"
+        className="fixed z-popover w-80 bg-popover rounded-lg shadow-1 border border-border py-3 px-1"
         style={{ top: position.top, left: position.left }}
       >
         <div className="text-sm text-muted-foreground text-center py-4">
@@ -148,7 +148,7 @@ export default function SlashCommandMenu({
         </div>
         <div className="border-t border-border mt-2 pt-2 px-2 flex items-center justify-between text-xs text-muted-foreground">
           <span>关闭菜单</span>
-          <span className="text-[10px] opacity-60">esc</span>
+          <span className="text-micro opacity-60">esc</span>
         </div>
       </div>
     );
@@ -156,7 +156,7 @@ export default function SlashCommandMenu({
 
   return (
     <div
-      className="fixed z-[60] w-80 bg-popover rounded-lg shadow-1 border border-border overflow-hidden"
+      className="fixed z-popover w-80 bg-popover rounded-lg shadow-1 border border-border overflow-hidden"
       style={{ top: position.top, left: position.left }}
     >
       {/* 顶部过滤框：默认焦点仍在编辑器（输入即过滤），点击此处也可直接改关键词 */}
@@ -174,7 +174,7 @@ export default function SlashCommandMenu({
           row.kind === 'header' ? (
             <div
               key={`header-${row.name}`}
-              className="px-3 pb-1 pt-2 text-[11px] text-muted-foreground font-medium uppercase tracking-wide"
+              className="px-3 pb-1 pt-2 text-caption text-muted-foreground font-medium uppercase tracking-wide"
             >
               {row.name}
             </div>
@@ -205,7 +205,7 @@ export default function SlashCommandMenu({
       </div>
       <div className="border-t border-border mt-1 pt-1.5 px-3 pb-1.5 flex items-center justify-between text-xs text-muted-foreground">
         <span>关闭菜单</span>
-        <span className="text-[10px] opacity-60">esc</span>
+        <span className="text-micro opacity-60">esc</span>
       </div>
     </div>
   );

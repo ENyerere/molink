@@ -61,7 +61,7 @@ export default function LoadingScreen({ onFinish }: LoadingScreenProps) {
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-background transition-opacity motion-reduce:transition-none"
+      className="fixed inset-0 z-toast flex flex-col items-center justify-center bg-background transition-opacity motion-reduce:transition-none"
       style={{
         opacity: fadeOut ? 0 : entered ? 1 : 0,
         transitionDuration: fadeOut ? `${EXIT_MS}ms` : `${ENTER_MS}ms`,

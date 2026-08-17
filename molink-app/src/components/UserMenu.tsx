@@ -70,7 +70,7 @@ export default function UserMenu({
       ref={menuRef}
       elevation={2}
       rounded="xl"
-      className="fixed w-72 z-[100] py-1 transition-all duration-150 ease-[cubic-bezier(0.22,1,0.36,1)]"
+      className="fixed w-72 z-popover py-1 transition-all duration-150 ease-[cubic-bezier(0.22,1,0.36,1)]"
       style={{
         top: pos.top,
         left: pos.left,

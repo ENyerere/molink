@@ -72,7 +72,7 @@ function BlockPreview({
       {showExpandButton && (
         <button
           onClick={onExpand}
-          className="w-full mt-1 px-3 py-1.5 text-[13px] text-muted-foreground hover:text-foreground hover:bg-accent rounded-md transition-colors duration-100 text-center"
+          className="w-full mt-1 px-3 py-1.5 text-body-sm text-muted-foreground hover:text-foreground hover:bg-accent rounded-md transition-colors duration-100 text-center"
         >
           查看其余 {remaining} 项
         </button>
@@ -123,7 +123,7 @@ export default function InboxView({ activities, onNavigate }: InboxViewProps) {
       {groups.map((group) => (
         <section key={group.label} className="mb-8 last:mb-0">
           {/* 分组标题（11-12px muted） */}
-          <h2 className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground mb-1">
+          <h2 className="text-caption font-medium uppercase tracking-wider text-muted-foreground mb-1">
             {group.label}
           </h2>
 

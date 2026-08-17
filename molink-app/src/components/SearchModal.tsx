@@ -47,7 +47,7 @@ function getPageText(content: Descendant[]): string {
 // 底部快捷键提示
 function Kbd({ children }: { children: React.ReactNode }) {
   return (
-    <kbd className="inline-flex h-5 min-w-[20px] items-center justify-center rounded-md border border-border bg-muted px-1 text-[11px] font-medium text-muted-foreground">
+    <kbd className="inline-flex h-5 min-w-[20px] items-center justify-center rounded-md border border-border bg-muted px-1 text-caption font-medium text-muted-foreground">
       {children}
     </kbd>
   );
@@ -193,7 +193,7 @@ export default function SearchModal({ isOpen, onClose, pages, onNavigate }: Sear
       duration={220}
       enterFrom="opacity-0 scale-[0.98]"
       enterTo="opacity-100 scale-100"
-      className="fixed inset-0 z-[100] flex items-start justify-center pt-[15vh] p-4"
+      className="fixed inset-0 z-modal flex items-start justify-center pt-[15vh] p-4"
     >
       {/* 透明遮罩，只拦截点击，不变暗 */}
       <div className="absolute inset-0" onClick={onClose} />
@@ -219,19 +219,19 @@ export default function SearchModal({ isOpen, onClose, pages, onNavigate }: Sear
         {/* 结果区（分组：页面 / 内容匹配） */}
         <div ref={resultsRef} className="flex-1 overflow-y-auto p-2">
           {results.length === 0 && query.trim() && (
-            <div className="px-4 py-10 text-center text-[13px] text-muted-foreground">
+            <div className="px-4 py-10 text-center text-body-sm text-muted-foreground">
               未找到匹配的页面
             </div>
           )}
           {results.length === 0 && !query.trim() && (
-            <div className="px-4 py-10 text-center text-[13px] text-muted-foreground">
+            <div className="px-4 py-10 text-center text-body-sm text-muted-foreground">
               输入关键词搜索页面标题和内容
             </div>
           )}
 
           {titleMatches.length > 0 && (
             <div>
-              <div className="px-3 pt-1.5 pb-1 text-[11px] font-medium text-muted-foreground">
+              <div className="px-3 pt-1.5 pb-1 text-caption font-medium text-muted-foreground">
                 页面
               </div>
               {titleMatches.map((result, i) => renderRow(result, i))}
@@ -240,7 +240,7 @@ export default function SearchModal({ isOpen, onClose, pages, onNavigate }: Sear
 
           {contentMatches.length > 0 && (
             <div>
-              <div className="px-3 pt-2 pb-1 text-[11px] font-medium text-muted-foreground">
+              <div className="px-3 pt-2 pb-1 text-caption font-medium text-muted-foreground">
                 内容匹配
               </div>
               {contentMatches.map((result, i) => renderRow(result, titleMatches.length + i))}

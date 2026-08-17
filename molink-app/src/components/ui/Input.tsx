@@ -16,7 +16,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
       className={cn(
         'w-full bg-muted text-foreground rounded-md placeholder:text-muted-foreground',
         'transition-shadow duration-150 focus:outline-none focus:ring-2 focus:ring-ring/60',
-        inputSize === 'sm' ? 'h-8 px-3 text-[13px]' : 'h-10 px-3.5 text-sm',
+        inputSize === 'sm' ? 'h-8 px-3 text-body-sm' : 'h-10 px-3.5 text-sm',
         className
       )}
       {...rest}

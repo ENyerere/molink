@@ -319,7 +319,7 @@ export default function App() {
         duration={200}
         enterFrom="opacity-0 backdrop-blur-[0px] bg-black/0"
         enterTo="opacity-100 backdrop-blur-sm bg-black/60"
-        className="fixed inset-0 z-[100] flex items-center justify-center"
+        className="fixed inset-0 z-modal flex items-center justify-center"
       >
         <div
           className="bg-card rounded-xl w-full max-w-[420px] shadow-2xl p-8 transition-all duration-200 ease-out"
@@ -338,19 +338,19 @@ export default function App() {
             <h3 className="text-xl font-semibold text-card-foreground text-center mb-2">
               保留未登录时的页面？
             </h3>
-            <p className="text-muted-foreground text-[15px] text-center mb-6 leading-relaxed">
+            <p className="text-muted-foreground text-dialog text-center mb-6 leading-relaxed">
               你在未登录状态下创建了 <span className="font-semibold text-card-foreground">{guestPageCount}</span> 个页面，
               是否将它们迁移到云端？
             </p>
             <div className="space-y-3">
-              <Button onClick={migrateLocalPages} size="lg" className="w-full text-[15px]">
+              <Button onClick={migrateLocalPages} size="lg" className="w-full text-dialog">
                 迁移到云端
               </Button>
               <Button
                 onClick={discardLocalPages}
                 variant="outline"
                 size="lg"
-                className="w-full bg-transparent text-secondary-foreground text-[15px]"
+                className="w-full bg-transparent text-secondary-foreground text-dialog"
               >
                 不保留，重新开始
               </Button>

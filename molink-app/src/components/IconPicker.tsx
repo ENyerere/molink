@@ -478,7 +478,7 @@ export default function IconPicker({ isOpen, onClose, onSelect, currentIcon, anc
       enterFrom="opacity-0"
       enterTo="opacity-100"
     >
-    <div className="fixed inset-0 z-[100]">
+    <div className="fixed inset-0 z-modal">
       {/* 遮罩层 — 阻止点击穿透，点击后关闭 */}
       <div className="absolute inset-0" onClick={onClose} />
       {/* Picker 卡片 */}
@@ -496,13 +496,13 @@ export default function IconPicker({ isOpen, onClose, onSelect, currentIcon, anc
           <div className="flex items-center gap-5">
             {(['emoji','icon','upload'] as TabType[]).map(tab => (
               <button key={tab} onClick={() => { setActiveTab(tab); setSearch(''); setUploadedImage(null); setPickingColorFor(null); }}
-                className={`pb-2 text-[13px] transition-colors duration-150 relative rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 ${activeTab === tab ? 'text-foreground font-medium' : 'text-muted-foreground hover:text-foreground'}`}>
+                className={`pb-2 text-body-sm transition-colors duration-150 relative rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 ${activeTab === tab ? 'text-foreground font-medium' : 'text-muted-foreground hover:text-foreground'}`}>
                 {tab === 'emoji' && '表情符号'}{tab === 'icon' && '图标'}{tab === 'upload' && '上传'}
                 {activeTab === tab && <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-foreground rounded-full" />}
               </button>
             ))}
           </div>
-          <button onClick={handleRemove} className="text-[13px] text-muted-foreground hover:text-foreground transition-colors duration-150 pb-2 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60">移除</button>
+          <button onClick={handleRemove} className="text-body-sm text-muted-foreground hover:text-foreground transition-colors duration-150 pb-2 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60">移除</button>
         </div>
 
         {/* Search */}
@@ -523,7 +523,7 @@ export default function IconPicker({ isOpen, onClose, onSelect, currentIcon, anc
                 <div className="w-3.5 h-3.5 rounded-full border border-border" style={{ backgroundColor: selectedColor || 'hsl(var(--muted-foreground))' }} />
               </button>
               {showColorPicker && (
-                <MenuPopup elevation={2} className="absolute right-0 top-full mt-1.5 p-2.5 z-50 w-[180px]">
+                <MenuPopup elevation={2} className="absolute right-0 top-full mt-1.5 p-2.5 z-dropdown w-[180px]">
                   <div className="grid grid-cols-6 gap-1">
                     {COLORS.map(color => (
                       <button key={color} onClick={() => { setSelectedColor(color); setShowColorPicker(false); }}
@@ -545,7 +545,7 @@ export default function IconPicker({ isOpen, onClose, onSelect, currentIcon, anc
             <div>
               {recentEmojis.length > 0 && !search && (
                 <div className="mb-3">
-                  <div className="sticky top-0 z-10 -mx-3 bg-popover px-3 py-1.5 text-[11px] text-muted-foreground font-medium">最近</div>
+                  <div className="sticky top-0 z-10 -mx-3 bg-popover px-3 py-1.5 text-caption text-muted-foreground font-medium">最近</div>
                   <div className="grid grid-cols-10 gap-0.5">
                     {recentEmojis.map((emoji, i) => (
                       <button key={`r-${i}`} onClick={() => onSelect(emoji)} className="aspect-square flex items-center justify-center text-lg hover:bg-accent rounded-md transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60">{emoji}</button>
@@ -555,7 +555,7 @@ export default function IconPicker({ isOpen, onClose, onSelect, currentIcon, anc
               )}
               {emojiCategories.map((cat, catIdx) => (
                 <div key={cat} className="mb-3" id={`emoji-cat-${cat}`}>
-                  <div className="sticky top-0 z-10 -mx-3 bg-popover px-3 py-1.5 text-[11px] text-muted-foreground font-medium">{cat}</div>
+                  <div className="sticky top-0 z-10 -mx-3 bg-popover px-3 py-1.5 text-caption text-muted-foreground font-medium">{cat}</div>
                   <div className="grid grid-cols-10 gap-0.5">
                     {/* 上传入口固定在第一格，沿用现有上传 tab 逻辑 */}
                     {catIdx === 0 && (
@@ -577,7 +577,7 @@ export default function IconPicker({ isOpen, onClose, onSelect, currentIcon, anc
             <div>
               {pickingColorFor && (
                 <div className="mb-3 pb-3 border-b border-border">
-                  <div className="text-[11px] text-muted-foreground mb-1.5 font-medium">选择颜色</div>
+                  <div className="text-caption text-muted-foreground mb-1.5 font-medium">选择颜色</div>
                   <div className="flex flex-wrap gap-0.5">
                     {(() => { const IconComp = ICON_MAP[pickingColorFor]; if (!IconComp) return null;
                       return (<>
@@ -587,7 +587,7 @@ export default function IconPicker({ isOpen, onClose, onSelect, currentIcon, anc
                     })()}
                   </div>
                   <div className="flex items-center justify-between mt-2">
-                    <span className="text-[11px] text-muted-foreground">每次询问</span>
+                    <span className="text-caption text-muted-foreground">每次询问</span>
                     <button onClick={() => setAskEveryTime(v => !v)} className={`w-9 h-5 rounded-full transition-colors duration-150 relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 ${askEveryTime ? 'bg-primary' : 'bg-muted'}`}>
                       <span className={`absolute left-0 top-[3px] w-3.5 h-3.5 bg-primary-foreground rounded-full transition-transform duration-150 ${askEveryTime ? 'translate-x-[19px]' : 'translate-x-[3px]'}`} />
                     </button>
@@ -596,7 +596,7 @@ export default function IconPicker({ isOpen, onClose, onSelect, currentIcon, anc
               )}
               {!pickingColorFor && recentIcons.length > 0 && !search && (
                 <div className="mb-3">
-                  <div className="sticky top-0 z-10 -mx-3 bg-popover px-3 py-1.5 text-[11px] text-muted-foreground font-medium">最近</div>
+                  <div className="sticky top-0 z-10 -mx-3 bg-popover px-3 py-1.5 text-caption text-muted-foreground font-medium">最近</div>
                   <div className="grid grid-cols-10 gap-0.5">
                     {recentIcons.map((iconVal, i) => {
                       const parsed = parseIcon(iconVal); const IconComp = parsed.type === 'lucide' ? ICON_MAP[parsed.value] : null;
@@ -607,7 +607,7 @@ export default function IconPicker({ isOpen, onClose, onSelect, currentIcon, anc
               )}
               {filteredIcons.map(cat => (
                 <div key={cat.name} className="mb-3">
-                  <div className="sticky top-0 z-10 -mx-3 bg-popover px-3 py-1.5 text-[11px] text-muted-foreground font-medium">{cat.name}</div>
+                  <div className="sticky top-0 z-10 -mx-3 bg-popover px-3 py-1.5 text-caption text-muted-foreground font-medium">{cat.name}</div>
                   <div className="grid grid-cols-10 gap-0.5">
                     {cat.icons.map((iconName, i) => { const IconComp = ICON_MAP[iconName]; if (!IconComp) return null;
                       return <button key={`${cat.name}-${i}`} onClick={() => handleClickIcon(iconName)} className="aspect-square flex items-center justify-center hover:bg-accent rounded-md transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"><IconComp className="w-5 h-5 text-muted-foreground" strokeWidth={1.75} style={{ color: selectedColor || undefined }} /></button>;
@@ -622,9 +622,9 @@ export default function IconPicker({ isOpen, onClose, onSelect, currentIcon, anc
             <div className="flex flex-col gap-3 pt-2">
               <div onClick={() => fileInputRef.current?.click()} onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); const file = e.dataTransfer.files?.[0]; if (file && file.type.startsWith('image/')) { const r = new FileReader(); r.onload = (ev) => setUploadedImage(ev.target?.result as string); r.readAsDataURL(file); }}}
                 className="border border-dashed border-border rounded-md p-6 flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-muted-foreground/60 hover:bg-accent/50 transition-colors duration-150">
-                {uploadedImage ? <img src={uploadedImage} alt="预览" className="max-h-28 max-w-full rounded object-contain" /> : <><ImageIcon className="w-6 h-6 text-muted-foreground" strokeWidth={1.75} /><span className="text-[13px] text-muted-foreground">上传图片</span></>}
+                {uploadedImage ? <img src={uploadedImage} alt="预览" className="max-h-28 max-w-full rounded object-contain" /> : <><ImageIcon className="w-6 h-6 text-muted-foreground" strokeWidth={1.75} /><span className="text-body-sm text-muted-foreground">上传图片</span></>}
               </div>
-              <p className="text-[11px] text-muted-foreground text-center">或 Ctrl+V 粘贴图片或链接</p>
+              <p className="text-caption text-muted-foreground text-center">或 Ctrl+V 粘贴图片或链接</p>
               {uploadedImage && (
                 <div className="flex items-center justify-end gap-2">
                   <Button variant="ghost" size="sm" className="font-normal hover:bg-transparent" onClick={() => setUploadedImage(null)}>取消</Button>

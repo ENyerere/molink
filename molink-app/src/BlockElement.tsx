@@ -68,11 +68,11 @@ function CodeBlockToolbar({ text }: { text: string }) {
       className="absolute right-2 top-2 flex items-center gap-2 opacity-0 transition-opacity group-hover:opacity-100"
     >
       {/* 语言标签：文档结构不存语言字段，暂为静态标识 */}
-      <span className="font-mono text-[11px] uppercase tracking-wide text-[hsl(var(--code-fg)/0.5)]">代码</span>
+      <span className="font-mono text-caption uppercase tracking-wide text-[hsl(var(--code-fg)/0.5)]">代码</span>
       <button
         onMouseDown={(e) => e.preventDefault()}
         onClick={handleCopy}
-        className="flex items-center gap-1 rounded px-1.5 py-0.5 font-mono text-[11px] text-[hsl(var(--code-fg)/0.7)] transition-colors hover:bg-[hsl(var(--code-fg)/0.1)]"
+        className="flex items-center gap-1 rounded px-1.5 py-0.5 font-mono text-caption text-[hsl(var(--code-fg)/0.7)] transition-colors hover:bg-[hsl(var(--code-fg)/0.1)]"
         title="复制代码"
       >
         {copied ? (
@@ -190,7 +190,7 @@ function PageLinkElement({
           {targetPage?.title || '未命名页面'}
         </span>
         {targetPage?.deletedAt && (
-          <span className="ml-1 px-1.5 py-0.5 text-[10px] rounded bg-muted text-muted-foreground border border-border">
+          <span className="ml-1 px-1.5 py-0.5 text-micro rounded bg-muted text-muted-foreground border border-border">
             已移入垃圾箱
           </span>
         )}
@@ -202,7 +202,7 @@ function PageLinkElement({
         duration={200}
         enterFrom="opacity-0 -translate-y-1"
         enterTo="opacity-100 translate-y-0"
-        className="absolute top-full left-0 mt-1 z-50 pointer-events-none"
+        className="absolute top-full left-0 mt-1 z-dropdown pointer-events-none"
       >
         {targetPage && <PageLinkPreview page={targetPage} />}
       </AnimatedPresence>
@@ -215,7 +215,7 @@ function PageLinkElement({
       {indicator && (
         <div
           contentEditable={false}
-          className="fixed z-50 h-[2px] bg-primary"
+          className="fixed z-dropdown h-[2px] bg-primary"
           style={{
             top: `${indicator.top}px`,
             left: `${indicator.left}px`,
@@ -294,7 +294,7 @@ function DatabaseElement({
       {indicator && (
         <div
           contentEditable={false}
-          className="fixed z-50 h-[2px] bg-primary"
+          className="fixed z-dropdown h-[2px] bg-primary"
           style={{
             top: `${indicator.top}px`,
             left: `${indicator.left}px`,
@@ -898,7 +898,7 @@ const BlockElement = (props: RenderElementProps & { pages?: PageData[]; onActiva
       {indicator && (
         <div
           contentEditable={false}
-          className="fixed z-50 h-[2px] bg-primary"
+          className="fixed z-dropdown h-[2px] bg-primary"
           style={{
             top: `${indicator.top}px`,
             left: `${indicator.left}px`,

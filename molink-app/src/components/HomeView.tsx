@@ -36,7 +36,7 @@ function EmptyState({ onCreatePage }: { onCreatePage?: () => void }) {
           新建页面
         </button>
       ) : (
-        <p className="mt-3 text-[13px] text-muted-foreground">
+        <p className="mt-3 text-body-sm text-muted-foreground">
           点击侧边栏的 + 按钮创建页面
         </p>
       )}
@@ -84,7 +84,7 @@ export default function HomeView({ pages, onNavigate, onCreatePage }: HomeViewPr
           {getGreeting()}
           {displayName ? `，${displayName}` : ''}
         </h1>
-        <p className="mt-1.5 text-[13px] text-muted-foreground">{dateLine}</p>
+        <p className="mt-1.5 text-body-sm text-muted-foreground">{dateLine}</p>
       </header>
 
       {/* ========== 最近访问 ========== */}

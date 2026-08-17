@@ -57,7 +57,7 @@ function SettingRow({
       <div className="flex-1 min-w-0">
         <div className="text-sm font-medium text-card-foreground">{title}</div>
         {description && (
-          <div className="text-[13px] text-muted-foreground mt-1 leading-relaxed">{description}</div>
+          <div className="text-body-sm text-muted-foreground mt-1 leading-relaxed">{description}</div>
         )}
       </div>
       {action && <div className="flex-shrink-0 pt-0.5">{action}</div>}
@@ -70,7 +70,7 @@ function SettingRow({
 /* ================================================================ */
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
-    <h3 className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mt-8 mb-1">
+    <h3 className="text-caption font-medium text-muted-foreground uppercase tracking-wider mt-8 mb-1">
       {children}
     </h3>
   );
@@ -123,7 +123,7 @@ function AccountPage() {
         </div>
         <div className="min-w-0">
           <div className="text-sm font-medium text-card-foreground">{name}</div>
-          <div className="text-[13px] text-muted-foreground mt-0.5 truncate">
+          <div className="text-body-sm text-muted-foreground mt-0.5 truncate">
             {email || '未登录'}
           </div>
         </div>
@@ -226,7 +226,7 @@ function AppearancePage() {
                   strokeWidth={1.75}
                 />
                 <span
-                  className={`text-[13px] ${
+                  className={`text-body-sm ${
                     isActive ? 'font-medium text-foreground' : 'text-muted-foreground'
                   }`}
                 >
@@ -256,7 +256,7 @@ function AboutPage() {
         <MolinkLogo size={36} color="currentColor" className="text-foreground" />
         <div>
           <div className="text-sm font-medium text-card-foreground">Molink</div>
-          <div className="text-[13px] text-muted-foreground mt-0.5">
+          <div className="text-body-sm text-muted-foreground mt-0.5">
             模块化工作空间 · 开源 · 自托管
           </div>
         </div>
@@ -324,7 +324,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
       duration={220}
       enterFrom="opacity-0"
       enterTo="opacity-100"
-      className="fixed inset-0 z-[70] flex items-center justify-center p-4"
+      className="fixed inset-0 z-modal flex items-center justify-center p-4"
     >
       {/* 背景遮罩 */}
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
@@ -360,7 +360,7 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
           <nav className="flex-1 overflow-y-auto px-2 py-3">
             {availableNavGroups.map((group) => (
               <div key={group.label} className="mb-3">
-                <div className="px-3 pb-1.5 text-[11px] font-medium text-muted-foreground">
+                <div className="px-3 pb-1.5 text-caption font-medium text-muted-foreground">
                   {group.label}
                 </div>
                 {group.items.map((item) => {

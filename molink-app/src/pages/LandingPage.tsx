@@ -54,7 +54,7 @@ function Navbar({ onLogin, onEnterWorkspace }: LandingPageProps) {
 
   return (
     <header
-      className={`fixed top-0 inset-x-0 z-50 transition-all duration-150 ${
+      className={`fixed top-0 inset-x-0 z-dropdown transition-all duration-150 ${
         scrolled ? "bg-ld-bg/70 backdrop-blur-xl border-b border-ld-border" : ""
       }`}
     >
@@ -233,7 +233,7 @@ function Features() {
             <h3 className="text-base font-semibold text-ld-fg mb-2">
               {title}
               {badge && (
-                <span className="ml-2 align-middle inline-flex items-center rounded-full border border-ld-border px-2 py-0.5 text-[11px] font-normal text-ld-muted">
+                <span className="ml-2 align-middle inline-flex items-center rounded-full border border-ld-border px-2 py-0.5 text-caption font-normal text-ld-muted">
                   {badge}
                 </span>
               )}

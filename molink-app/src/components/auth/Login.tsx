@@ -76,7 +76,7 @@ export default function Login({ isOpen, onClose, onLogin }: LoginProps) {
       duration={220}
       enterFrom="opacity-0 backdrop-blur-[0px] bg-black/0"
       enterTo="opacity-100 backdrop-blur-sm bg-black/60"
-      className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+      className="fixed inset-0 z-modal flex items-center justify-center p-4"
     >
       {/* 点击背景关闭 */}
       <div className="absolute inset-0" onClick={onClose} />
@@ -221,7 +221,7 @@ export default function Login({ isOpen, onClose, onLogin }: LoginProps) {
 
           {/* 错误提示 */}
           {error && (
-            <div className="mt-4 rounded-md bg-destructive-soft px-3 py-2 text-[13px] leading-5 text-destructive">{error}</div>
+            <div className="mt-4 rounded-md bg-destructive-soft px-3 py-2 text-body-sm leading-5 text-destructive">{error}</div>
           )}
 
           {/* 提交按钮（功能性 accent，保留 bg-primary） */}

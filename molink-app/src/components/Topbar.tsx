@@ -109,7 +109,7 @@ function ExportMenu({ activePage, allPages }: { activePage: PageData; allPages: 
         <Download className="h-5 w-5" strokeWidth={1.75} />
       </button>
       {open && (
-        <MenuPopup className="absolute right-0 top-full z-[60] mt-1 w-52 py-1">
+        <MenuPopup className="absolute right-0 top-full z-popover mt-1 w-52 py-1">
           {items.map((item) => (
             <MenuItem
               key={item.key}

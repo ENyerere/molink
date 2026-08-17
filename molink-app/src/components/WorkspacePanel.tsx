@@ -21,7 +21,7 @@ export default function WorkspacePanel({ isOpen, onClose, workspace, pageCount, 
       duration={220}
       enterFrom="opacity-0"
       enterTo="opacity-100"
-      className="fixed inset-0 z-[80]"
+      className="fixed inset-0 z-overlay"
     >
       {/* 遮罩 */}
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
@@ -95,7 +95,7 @@ export default function WorkspacePanel({ isOpen, onClose, workspace, pageCount, 
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-sm font-medium text-foreground">{member.name}</div>
                   </div>
-                  <span className="flex-shrink-0 rounded-md border border-border bg-background px-2 py-0.5 text-[11px] text-muted-foreground">
+                  <span className="flex-shrink-0 rounded-md border border-border bg-background px-2 py-0.5 text-caption text-muted-foreground">
                     {member.role === 'owner' ? '所有者' : '成员'}
                   </span>
                 </div>
