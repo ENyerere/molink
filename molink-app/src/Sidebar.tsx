@@ -1,5 +1,6 @@
 import { useState, useMemo, useRef, useEffect, useCallback, memo } from 'react';
 import type { PageData, User } from './App';
+import { buildPageIndexes, type PageTreeNode } from './lib/pageTree';
 import {
   Search, Home, Briefcase, Inbox,
   ChevronDown, ChevronRight, Plus, FileText, Trash2,
@@ -24,28 +25,6 @@ interface SidebarProps {
   onSetView?: (view: 'page' | 'home' | 'inbox') => void;
   onShowSearch?: () => void;
   onShowWorkspace?: () => void;
-}
-
-// ============================================================
-// 树形结构
-// ============================================================
-interface TreeNode {
-  page: PageData;
-  children: TreeNode[];
-}
-
-function buildTree(pages: PageData[]): TreeNode[] {
-  const map = new Map<string, TreeNode>();
-  pages.forEach(p => map.set(p.id, { page: p, children: [] }));
-  const roots: TreeNode[] = [];
-  pages.forEach(p => {
-    if (p.parentId && map.has(p.parentId)) {
-      map.get(p.parentId)!.children.push(map.get(p.id)!);
-    } else {
-      roots.push(map.get(p.id)!);
-    }
-  });
-  return roots;
 }
 
 // ============================================================
@@ -94,7 +73,7 @@ function SidebarSection({
 // 页面树项（递归）
 // ============================================================
 interface PageTreeItemProps {
-  node: TreeNode;
+  node: PageTreeNode;
   depth: number;
   activePageId: string | null;
   autoExpanded: Set<string>;
@@ -265,15 +244,8 @@ export default function Sidebar({
   const nonDeletedPages = useMemo(() => pages.filter(p => !p.deletedAt), [pages]);
   const trashPages = useMemo(() => pages.filter(p => p.deletedAt), [pages]);
 
-  // 构建页面树
-  const tree = useMemo(() => buildTree(nonDeletedPages), [nonDeletedPages]);
-
-  // id → 页面索引，供沿父链查找时 O(1) 取节点（替代 while 循环内反复 find 的 O(n·D)）
-  const pagesById = useMemo(() => {
-    const map = new Map<string, PageData>();
-    for (const p of nonDeletedPages) map.set(p.id, p);
-    return map;
-  }, [nonDeletedPages]);
+  // 页面树与 id 直查索引（lib/pageTree 统一构建，替代原先本地 buildTree + 独立 pagesById 两套遍历）
+  const { tree, byId: pagesById } = useMemo(() => buildPageIndexes(nonDeletedPages), [nonDeletedPages]);
 
   // 计算需要自动展开的祖先节点（确保 activePage 可见）；visited 防御脏数据成环死循环
   const autoExpandedIds = useMemo(() => {

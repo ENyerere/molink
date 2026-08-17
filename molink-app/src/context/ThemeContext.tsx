@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
+import { STORAGE_KEYS } from '../lib/storage';
 
 type Theme = 'light' | 'dark' | 'system';
 
@@ -10,7 +11,7 @@ interface ThemeContextValue {
 
 const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
 
-const STORAGE_KEY = 'molink-theme';
+const STORAGE_KEY = STORAGE_KEYS.theme;
 
 function getSystemTheme(): 'light' | 'dark' {
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';

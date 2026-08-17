@@ -18,6 +18,14 @@ import { AnimatePresence, motion } from 'motion/react';
 import type { Workspace, BackendBlock, BackendPage, UpdatePageData } from './api';
 import AnimatedPresence from './components/AnimatedPresence';
 import Topbar, { type SaveIndicatorState } from './components/Topbar';
+import type { PageData, User, Activity } from './types';
+import { STORAGE_KEYS, loadJSON, saveJSON, removeKey } from './lib/storage';
+import { buildPageIndexes } from './lib/pageTree';
+import { extractPreviewLines } from './lib/content';
+
+// 类型统一定义在 types/，这里 re-export 保持各消费方（Sidebar/HomeView/Editor 等）的
+// `from './App'` 引用路径不变
+export type { PageData, User, Activity };
 
 // 懒加载占位：轻量居中 spinner。不要用 LoadingScreen——它有自己的进度计时逻辑，
 // 作为 Suspense fallback 会反复触发计时与 onFinish 副作用
@@ -27,41 +35,6 @@ function LazyFallback({ fullScreen = false }: { fullScreen?: boolean }) {
       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
     </div>
   );
-}
-
-export interface PageData {
-  id: string;
-  title: string;
-  content: Descendant[];
-  cover?: string;
-  coverPosition?: number;
-  icon?: string;
-  parentId?: string;
-  deletedAt?: string;
-  createdAt?: string;
-  updatedAt?: string;
-  createdBy?: string;
-}
-
-export interface User {
-  id: string;
-  name: string;
-  email: string;
-  avatar?: string;
-}
-
-export interface Activity {
-  id: string;
-  type: 'edit' | 'delete' | 'create' | 'icon-change' | 'block-add' | 'block-delete';
-  userName: string;
-  userInitial: string;
-  pageId: string;
-  pageTitle: string;
-  pageIcon?: string;
-  preview?: string;
-  oldIcon?: string;
-  newIcon?: string;
-  timestamp: string;
 }
 
 // Slate content ↔ Backend Block 转换
@@ -113,48 +86,28 @@ function getContentSaveState(states: Record<string, ContentSaveState>, pageId: s
 // ==========================================
 // 未登录时用 localStorage 作为降级
 // ==========================================
-const LOCAL_PAGES_KEY = 'molink-pages';
-const COVER_POSITIONS_KEY = 'molink-cover-positions';
-
 function loadLocalPages(): PageData[] {
-  try {
-    const saved = localStorage.getItem(LOCAL_PAGES_KEY);
-    if (saved) return JSON.parse(saved);
-  } catch {
-    // 本地数据损坏时按无数据处理
-  }
-  return [];
+  return loadJSON<PageData[]>(STORAGE_KEYS.pages, []);
 }
 
 function saveLocalPages(pages: PageData[]) {
-  try {
-    localStorage.setItem(LOCAL_PAGES_KEY, JSON.stringify(pages));
-  } catch (err) {
-    // 存储配额超限（多为 base64 封面过大）：去掉本地封面后重试一次，保住正文数据
-    console.error('保存本地页面失败，尝试去除封面后重试:', err);
-    try {
-      const stripped = pages.map(p => (p.cover?.startsWith('data:') ? { ...p, cover: undefined } : p));
-      localStorage.setItem(LOCAL_PAGES_KEY, JSON.stringify(stripped));
-    } catch (err2) {
-      console.error('保存本地页面失败：存储空间不足，请减少封面图片或页面数量:', err2);
-    }
+  if (saveJSON(STORAGE_KEYS.pages, pages)) return;
+  // 存储配额超限（多为 base64 封面过大）：去掉本地封面后重试一次，保住正文数据
+  console.error('保存本地页面失败，尝试去除封面后重试');
+  const stripped = pages.map(p => (p.cover?.startsWith('data:') ? { ...p, cover: undefined } : p));
+  if (!saveJSON(STORAGE_KEYS.pages, stripped)) {
+    console.error('保存本地页面失败：存储空间不足，请减少封面图片或页面数量');
   }
 }
 
 function loadCoverPositions(): Record<string, number> {
-  try {
-    const saved = localStorage.getItem(COVER_POSITIONS_KEY);
-    if (saved) return JSON.parse(saved);
-  } catch {
-    // 本地数据损坏时按无数据处理
-  }
-  return {};
+  return loadJSON<Record<string, number>>(STORAGE_KEYS.coverPositions, {});
 }
 
 function saveCoverPosition(pageId: string, position: number) {
   const positions = loadCoverPositions();
   positions[pageId] = position;
-  localStorage.setItem(COVER_POSITIONS_KEY, JSON.stringify(positions));
+  saveJSON(STORAGE_KEYS.coverPositions, positions);
 }
 
 export default function App() {
@@ -185,7 +138,7 @@ export default function App() {
   // 宽版内容列开关（持久化到 localStorage）
   const [wideMode, setWideMode] = useState(() => {
     try {
-      return localStorage.getItem('molink-wide-mode') === '1';
+      return localStorage.getItem(STORAGE_KEYS.wideMode) === '1';
     } catch {
       return false;
     }
@@ -194,7 +147,7 @@ export default function App() {
     setWideMode(prev => {
       const next = !prev;
       try {
-        localStorage.setItem('molink-wide-mode', next ? '1' : '0');
+        localStorage.setItem(STORAGE_KEYS.wideMode, next ? '1' : '0');
       } catch {
         // localStorage 不可用时仅保持会话内生效
       }
@@ -478,22 +431,16 @@ export default function App() {
   }, [pages, user, authLoading]);
 
   // 活动日志按用户隔离存储，访客使用固定 key；旧的全局单 key 直接弃用
-  const activitiesKey = user ? `molink-activities-${user.id}` : 'molink-activities-guest';
+  const activitiesKey = STORAGE_KEYS.activities(user?.id);
   const skipActivitiesPersistRef = useRef(true);
 
   // 登录/登出切换：加载当前账号对应的活动日志
   useEffect(() => {
     // 标记跳过切换后的第一次持久化，避免把上一账号内存中的活动写入新 key
     skipActivitiesPersistRef.current = true;
-    try {
-      const saved = localStorage.getItem(activitiesKey);
-      setActivities(saved ? JSON.parse(saved) : []);
-    } catch (e) {
-      console.error('加载活动日志失败:', e);
-      setActivities([]);
-    }
+    setActivities(loadJSON<Activity[]>(activitiesKey, []));
     // 旧版本全局单 key 的数据不做迁移，直接清除
-    localStorage.removeItem('molink-activities');
+    removeKey('molink-activities');
   }, [activitiesKey]);
 
   // 活动日志持久化到 localStorage
@@ -502,7 +449,7 @@ export default function App() {
       skipActivitiesPersistRef.current = false;
       return;
     }
-    localStorage.setItem(activitiesKey, JSON.stringify(activities));
+    saveJSON(activitiesKey, activities);
   }, [activities, activitiesKey]);
 
   // ==========================================
@@ -559,19 +506,8 @@ export default function App() {
     });
   }, [user]);
 
-  // 从 Slate 内容提取预览文本（按块换行）
-  const extractPreview = useCallback((content: Descendant[]): string => {
-    const lines: string[] = [];
-    for (const node of content) {
-      if (Element.isElement(node)) {
-        const line = node.children.map(c => c.text || '').join('');
-        if (line.trim()) lines.push(line.trim());
-      } else if (node.text) {
-        if (node.text.trim()) lines.push(node.text.trim());
-      }
-    }
-    return lines.join('\n').slice(0, 800);
-  }, []);
+  // 从 Slate 内容提取预览文本（按块换行），实现已收敛到 lib/content
+  const extractPreview = extractPreviewLines;
 
   // ==========================================
   // 页面操作
@@ -657,23 +593,11 @@ export default function App() {
     });
   };
 
-  // 页面索引：id 直查与父→子映射，替代渲染期反复的 find/filter 线性扫描
-  const pagesById = useMemo(() => {
-    const map = new Map<string, PageData>();
-    for (const p of pages) map.set(p.id, p);
-    return map;
-  }, [pages]);
-
-  const childrenByParent = useMemo(() => {
-    const map = new Map<string, PageData[]>();
-    for (const p of pages) {
-      if (!p.parentId) continue;
-      const siblings = map.get(p.parentId);
-      if (siblings) siblings.push(p);
-      else map.set(p.parentId, [p]);
-    }
-    return map;
-  }, [pages]);
+  // 页面索引：id 直查、父→子映射与树，统一由 lib/pageTree 一次遍历构建，
+  // 替代渲染期反复的 find/filter 线性扫描
+  const pageIndexes = useMemo(() => buildPageIndexes(pages), [pages]);
+  const pagesById = pageIndexes.byId;
+  const childrenByParent = pageIndexes.childrenByParent;
 
   // 基于 childrenByParent 收集整棵子树（DFS 先序，与原逐层 filter 版本的结果顺序一致）
   const getDescendantIds = useCallback((pageId: string): string[] => {
@@ -966,7 +890,7 @@ export default function App() {
       console.error(`${failed.length} 个本地页面迁移失败，已保留在本地存储，下次登录可重试`);
       saveLocalPages(failed);
     } else {
-      localStorage.removeItem(LOCAL_PAGES_KEY);
+      removeKey(STORAGE_KEYS.pages);
     }
     setShowMigrationDialog(false);
     setGuestPageCount(0);
@@ -976,7 +900,7 @@ export default function App() {
   };
 
   const discardLocalPages = () => {
-    localStorage.removeItem(LOCAL_PAGES_KEY);
+    removeKey(STORAGE_KEYS.pages);
     setShowMigrationDialog(false);
     setGuestPageCount(0);
     setPages([]);

@@ -11,7 +11,6 @@ import {
   Transforms,
   Path,
   Node,
-  type Descendant,
 } from 'slate';
 import type { PageData } from './App';
 import { getFileUrl } from './api/client';
@@ -19,57 +18,18 @@ import { PageIcon } from './components/IconPicker';
 import { FileText, Plus, Check, Copy } from 'lucide-react';
 import AnimatedPresence from './components/AnimatedPresence';
 import DatabaseBlock from './components/DatabaseBlock';
+import { getContentPreview } from './lib/content';
 
 /* ==================== TYPES ==================== */
-export interface DatabaseColumn {
-  id: string;
-  name: string;
-  type: 'text' | 'number' | 'select' | 'date' | 'checkbox';
-  options?: string[];
-}
-
-// 单元格取值：文本/选择/日期列为 string，数字列为 number，复选框列为 boolean
-export type DatabaseCellValue = string | number | boolean;
-
-export interface DatabaseRow {
-  id: string;
-  [columnId: string]: DatabaseCellValue | undefined;
-}
-
-export type BlockElementType = {
-  type:
-    | 'paragraph'
-    | 'heading-one'
-    | 'heading-two'
-    | 'heading-three'
-    | 'heading-four'
-    | 'bulleted-list'
-    | 'numbered-list'
-    | 'todo'
-    | 'toggle-list'
-    | 'blockquote'
-    | 'code-block'
-    | 'math-block'
-    | 'emphasis-block'
-    | 'page-link'
-    | 'database';
-  children: CustomText[];
-  selected?: boolean;
-  checked?: boolean; // for todo
-  pageId?: string;   // for page-link
-  columns?: DatabaseColumn[]; // for database
-  rows?: DatabaseRow[];       // for database
-};
-
-export type CustomText = {
-  text: string;
-  bold?: boolean;
-  italic?: boolean;
-  code?: boolean;
-  underline?: boolean;
-  strikethrough?: boolean;
-  link?: string;
-};
+// 类型统一定义在 ./types；此处 re-export 保持旧引用（serialize / slate.d.ts / DatabaseBlock 等）可用
+import type { BlockElementType } from './types';
+export type {
+  BlockElementType,
+  CustomText,
+  DatabaseColumn,
+  DatabaseRow,
+  DatabaseCellValue,
+} from './types';
 
 /* ==================== DRAG HANDLE ICON ==================== */
 const DragHandleIcon = () => (
@@ -136,23 +96,6 @@ interface BlockBranchProps extends RenderElementProps {
   onBlockClick: (e: React.MouseEvent) => void;
   onDragHandleMouseDown: (e: React.MouseEvent) => void;
   onAddBelow: (e: React.MouseEvent) => void;
-}
-
-/* ---- 从 Slate 内容提取文本预览 ---- */
-function getContentPreview(content: Descendant[]): string {
-  let text = '';
-  const extract = (nodes: Descendant[]) => {
-    for (const node of nodes) {
-      if (text.length > 120) break;
-      if ('text' in node) {
-        text += node.text;
-      } else {
-        extract(node.children);
-      }
-    }
-  };
-  extract(content);
-  return text.slice(0, 120) + (text.length > 120 ? '...' : '');
 }
 
 /* ---- page-link 悬停预览卡 ---- */

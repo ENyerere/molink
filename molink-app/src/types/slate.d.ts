@@ -5,7 +5,7 @@
 import { type BaseEditor } from 'slate';
 import { type ReactEditor } from 'slate-react';
 import { type HistoryEditor } from 'slate-history';
-import { type BlockElementType, type CustomText } from '../BlockElement';
+import { type BlockElementType, type CustomText } from '../types';
 
 declare module 'slate' {
   interface CustomTypes {
