@@ -58,6 +58,7 @@ export interface DatabaseRow {
 }
 
 export type BlockElementType = {
+  id?: string; // 多块存储模型下与后端 blocks 行一一对应（page-link 等瞬态节点除外）
   type:
     | 'paragraph'
     | 'heading-one'

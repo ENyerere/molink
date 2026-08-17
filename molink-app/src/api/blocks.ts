@@ -1,4 +1,4 @@
-import { apiGet, apiPost, apiPut } from './client';
+import { apiGet, apiPost, apiPut, apiDelete } from './client';
 
 export type BlockType =
   | 'text'
@@ -42,5 +42,14 @@ export const blocksApi = {
 
   update: async (id: string, data: UpdateBlockData): Promise<BackendBlock> => {
     return apiPut<BackendBlock>(`/blocks/${id}`, data);
+  },
+
+  delete: async (id: string): Promise<void> => {
+    return apiDelete<void>(`/blocks/${id}`);
+  },
+
+  // 整页重排：block_ids 按目标顺序给出，后端落 dense position（0..n）
+  reorder: async (pageId: string, blockIds: string[]): Promise<void> => {
+    return apiPost<void>(`/blocks/reorder?page_id=${encodeURIComponent(pageId)}`, { block_ids: blockIds });
   },
 };

@@ -8,7 +8,7 @@ import type { BackendUser, BackendPage, Workspace, UpdatePageData } from '../api
 import type { Activity, PageData } from '../types';
 import { buildPageIndexes } from '../lib/pageTree';
 import { extractPreviewLines } from '../lib/content';
-import { blocksToSlate, slateToBlockContent } from '../lib/pageContent';
+import { blocksToSlate, cleanSlateNode, slateTypeToBlockType } from '../lib/pageContent';
 import {
   loadLocalPages,
   saveLocalPages,
@@ -39,7 +39,7 @@ export function usePages({
   setShowWorkspace,
 }: UsePagesOptions) {
   const { addActivity, recordIconChange } = activitiesApi;
-  const { scheduleContentSave, scheduleTitleSave, blockIdMap } = saver;
+  const { scheduleContentSave, scheduleTitleSave, initFromBackend, clearPage, clearAll } = saver;
 
   const [pages, setPages] = useState<PageData[]>([]);
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
@@ -81,16 +81,13 @@ export function usePages({
     try {
       setApiLoading(true);
       const loadedPages: PageData[] = [];
-      const idMap: Record<string, string> = {};
       const coverPositions = loadCoverPositions();
 
-      // 拉取单个页面的 blocks 并组装 PageData（idMap 是本会话局部变量，过期会话的写入不会落到 ref）
+      // 拉取单个页面的 blocks 并组装 PageData；同时初始化该页的块级同步快照（diff 基线）
       const loadOne = async (bp: BackendPage): Promise<PageData> => {
         const blocks = await blocksApi.list(bp.id);
         const content = blocksToSlate(blocks);
-        if (blocks.length > 0) {
-          idMap[bp.id] = blocks[0].id;
-        }
+        initFromBackend(bp.id, blocks);
         return {
           id: bp.id,
           title: bp.title,
@@ -137,7 +134,6 @@ export function usePages({
 
       // 会话已变更（登出/重新加载）：放弃全部写入，避免旧数据落到新会话
       if (isStale()) return;
-      blockIdMap.current = idMap;
       setPages(loadedPages);
       const activePages = loadedPages.filter(p => !p.deletedAt);
       const activePageIds = new Set(activePages.map(p => p.id));
@@ -156,7 +152,7 @@ export function usePages({
     }
     // nav.setActivePageId 是 useState setter，引用稳定
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [blockIdMap]);
+  }, [initFromBackend]);
 
   // 登录后加载工作空间与页面：合并为单条异步链，消除 user → workspace state → pages 的请求瀑布。
   // cancelled 标志保证登出/切换账号后不再写入旧用户的数据；
@@ -217,7 +213,7 @@ export function usePages({
       setPages([]);
       nav.reset();
       setWorkspace(null);
-      blockIdMap.current = {};
+      clearAll();
     }
 
     prevUserRef.current = user;
@@ -262,7 +258,8 @@ export function usePages({
   // 页面操作
   // ==========================================
   const addPage = async (parentId?: string) => {
-    const emptyContent: Descendant[] = [{ type: 'paragraph', children: [{ text: '' }] } as Element];
+    // 多块模型：新页只需建页面行，内容块在首次编辑保存时由 diff 同步自动创建
+    const emptyContent: Descendant[] = [{ id: uuidv4(), type: 'paragraph', children: [{ text: '' }] } as Element];
 
     if (user && workspace) {
       try {
@@ -272,13 +269,6 @@ export function usePages({
           title: '',
           page_type: 'page',
         });
-        const block = await blocksApi.create({
-          page_id: bp.id,
-          block_type: 'text',
-          content: slateToBlockContent(emptyContent),
-          position: 0,
-        });
-        blockIdMap.current[bp.id] = block.id;
 
         const newPage: PageData = {
           id: bp.id,
@@ -308,7 +298,7 @@ export function usePages({
     const newPage: PageData = {
       id,
       title: '',
-      content: [{ type: 'paragraph', children: [{ text: '' }] } as Element],
+      content: [{ id: uuidv4(), type: 'paragraph', children: [{ text: '' }] } as Element],
       parentId,
       createdAt: now,
       updatedAt: now,
@@ -364,6 +354,8 @@ export function usePages({
     const descendantIds = getDescendantIds(id);
     const allIdsToRemove = new Set([id, ...descendantIds]);
     setPages(prev => prev.filter(p => !allIdsToRemove.has(p.id)));
+    // 同步快照一并清除，避免内存泄漏
+    allIdsToRemove.forEach(pid => clearPage(pid));
     if (id === nav.activePageId || descendantIds.includes(nav.activePageId || '')) {
       const nextActive = pages.find(p => !allIdsToRemove.has(p.id)) || null;
       nav.setActivePageId(nextActive?.id || null);
@@ -489,12 +481,19 @@ export function usePages({
           cover_image: p.cover,
           icon: p.icon,
         });
-        await blocksApi.create({
-          page_id: bp.id,
-          block_type: 'text',
-          content: slateToBlockContent(p.content),
-          position: 0,
-        });
+        // 多块模型：按顶层节点逐块落库（page-link 瞬态块不迁移）
+        const nodes = p.content.filter(
+          n => Element.isElement(n) && (n as { type?: string }).type !== 'page-link'
+        );
+        for (let i = 0; i < nodes.length; i++) {
+          const node = cleanSlateNode(nodes[i]);
+          await blocksApi.create({
+            page_id: bp.id,
+            block_type: slateTypeToBlockType((node as { type?: string }).type ?? 'paragraph'),
+            content: { slate: node },
+            position: i,
+          });
+        }
         idMap[p.id] = bp.id;
       } catch (err) {
         // 失败的页面保留在 localStorage，避免丢页，下次登录可重试

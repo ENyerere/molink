@@ -21,6 +21,7 @@ import { withHistory } from 'slate-history';
 import type { Activity, PageData } from './App';
 import { getFileUrl } from './api/client';
 import { withMarkdownShortcuts } from './withMarkdownShortcuts';
+import { withBlockIds } from './withBlockIds';
 import BlockElement, { type BlockElementType } from './BlockElement';
 import Leaf from './Leaf';
 
@@ -70,7 +71,7 @@ export default function Editor({
   // 编辑器实例按页面重建：Slate 组件虽按 page.id 重挂，但同一 editor 对象会带上
   // 上一页的 undo 历史，切页后 Ctrl+Z 会把旧页面操作回放到新页面内容上
   const editor = useMemo(
-    () => withMarkdownShortcuts(withHistory(withReact(createEditor()))),
+    () => withMarkdownShortcuts(withHistory(withBlockIds(withReact(createEditor())))),
     // 故意依赖 page.id：page.id 变化时重建 editor 实例（工厂本身不读 page.id）
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [page.id]
