@@ -16,6 +16,7 @@ import { useAuth } from './context/AuthContext';
 import { AnimatePresence, motion } from 'motion/react';
 import AnimatedPresence from './components/AnimatedPresence';
 import Topbar, { type SaveIndicatorState } from './components/Topbar';
+import { Button } from './components/ui';
 import { usePageNav } from './hooks/usePageNav';
 import { useContentSaver } from './hooks/useContentSaver';
 import { useActivities } from './hooks/useActivities';
@@ -342,18 +343,17 @@ export default function App() {
               是否将它们迁移到云端？
             </p>
             <div className="space-y-3">
-              <button
-                onClick={migrateLocalPages}
-                className="w-full h-11 bg-primary text-primary-foreground text-[15px] font-medium rounded-lg hover:opacity-90 transition-opacity"
-              >
+              <Button onClick={migrateLocalPages} size="lg" className="w-full text-[15px]">
                 迁移到云端
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={discardLocalPages}
-                className="w-full h-11 border border-border text-secondary-foreground text-[15px] font-medium rounded-lg hover:bg-accent transition-colors"
+                variant="outline"
+                size="lg"
+                className="w-full bg-transparent text-secondary-foreground text-[15px]"
               >
                 不保留，重新开始
-              </button>
+              </Button>
             </div>
           </div>
       </AnimatedPresence>

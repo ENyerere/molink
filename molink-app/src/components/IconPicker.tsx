@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from 'react';
 import AnimatedPresence from './AnimatedPresence';
+import { Button, Input, MenuPopup } from './ui';
 import {
   Search, Shuffle, Image as ImageIcon,
   ArrowRight, ArrowLeft, ArrowUp, ArrowDown, ArrowUpRight, ArrowDownRight,
@@ -509,8 +510,8 @@ export default function IconPicker({ isOpen, onClose, onSelect, currentIcon, anc
         <div className="px-3 py-2.5 flex items-center gap-1.5 shrink-0">
           <div className="flex-1 relative">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" strokeWidth={1.75} />
-            <input ref={searchInputRef} type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="筛选..."
-              className="w-full h-8 pl-8 pr-3 bg-muted rounded-md text-[13px] text-foreground placeholder:text-muted-foreground transition-shadow duration-150 focus:outline-none focus:ring-2 focus:ring-ring/60" />
+            <Input ref={searchInputRef} type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="筛选..."
+              className="pl-8" />
           </div>
           <button onClick={handleRandom} className="w-8 h-8 flex items-center justify-center rounded-md bg-muted hover:bg-accent text-muted-foreground hover:text-foreground transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60" title="随机">
             <Shuffle className="w-4 h-4" strokeWidth={1.75} />
@@ -522,7 +523,7 @@ export default function IconPicker({ isOpen, onClose, onSelect, currentIcon, anc
                 <div className="w-3.5 h-3.5 rounded-full border border-border" style={{ backgroundColor: selectedColor || 'hsl(var(--muted-foreground))' }} />
               </button>
               {showColorPicker && (
-                <div className="absolute right-0 top-full mt-1.5 bg-popover rounded-lg shadow-2 border border-border p-2.5 z-50 w-[180px]">
+                <MenuPopup elevation={2} className="absolute right-0 top-full mt-1.5 p-2.5 z-50 w-[180px]">
                   <div className="grid grid-cols-6 gap-1">
                     {COLORS.map(color => (
                       <button key={color} onClick={() => { setSelectedColor(color); setShowColorPicker(false); }}
@@ -530,7 +531,7 @@ export default function IconPicker({ isOpen, onClose, onSelect, currentIcon, anc
                         style={{ backgroundColor: color }} />
                     ))}
                   </div>
-                </div>
+                </MenuPopup>
               )}
             </div>
           )}
@@ -626,8 +627,8 @@ export default function IconPicker({ isOpen, onClose, onSelect, currentIcon, anc
               <p className="text-[11px] text-muted-foreground text-center">或 Ctrl+V 粘贴图片或链接</p>
               {uploadedImage && (
                 <div className="flex items-center justify-end gap-2">
-                  <button onClick={() => setUploadedImage(null)} className="px-3 py-1 text-[13px] text-muted-foreground hover:text-foreground rounded-md transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60">取消</button>
-                  <button onClick={handleSaveUpload} className="px-3 py-1 text-[13px] bg-primary text-primary-foreground rounded-md hover:opacity-90 transition-opacity duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60">保存</button>
+                  <Button variant="ghost" size="sm" className="font-normal hover:bg-transparent" onClick={() => setUploadedImage(null)}>取消</Button>
+                  <Button size="sm" onClick={handleSaveUpload}>保存</Button>
                 </div>
               )}
               <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileUpload} />

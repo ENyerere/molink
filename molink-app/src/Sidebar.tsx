@@ -10,6 +10,7 @@ import { PageIcon } from './components/IconPicker';
 import UserMenu from './components/UserMenu';
 import SettingsModal from './components/SettingsModal';
 import AnimatedPresence from './components/AnimatedPresence';
+import { Button, MenuItem } from './components/ui';
 
 interface SidebarProps {
   pages: PageData[];
@@ -428,12 +429,9 @@ export default function Sidebar({
       {/* 底部登录提示 */}
       {!user && (
         <div className="px-3 py-2 border-t border-border">
-          <button
-            onClick={() => onShowLogin?.()}
-            className="w-full flex items-center justify-center gap-2 py-2 px-4 bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity text-sm font-medium"
-          >
+          <Button onClick={() => onShowLogin?.()} className="w-full">
             登录 Molink
-          </button>
+          </Button>
         </div>
       )}
 
@@ -501,14 +499,16 @@ function TrashPopover({
 
   return (
     <>
-      <button
+      <MenuItem
         onClick={() => setOpen(true)}
-        className="w-full flex items-center gap-3 px-3 py-1.5 rounded-md text-sm transition-colors text-secondary-foreground hover:bg-accent"
+        tone="muted"
+        size="sm"
+        className="gap-3"
+        icon={<Trash2 className="w-4 h-4 text-muted-foreground" strokeWidth={1.75} />}
+        trailing={<span className="ml-auto text-xs text-muted-foreground">{pages.length}</span>}
       >
-        <Trash2 className="w-4 h-4 text-muted-foreground" strokeWidth={1.75} />
         回收站
-        <span className="ml-auto text-xs text-muted-foreground">{pages.length}</span>
-      </button>
+      </MenuItem>
 
       {/* 360px 抽屉式弹层：从左侧滑入，搜索 + 列表 + 行内恢复/删除 */}
       <AnimatedPresence
@@ -638,19 +638,16 @@ function TrashPopover({
 
 function NavItem({ icon: Icon, label, isActive, shortcut, onClick }: { icon: React.ElementType; label: string; isActive?: boolean; shortcut?: string; onClick?: () => void }) {
   return (
-    <button
+    <MenuItem
       onClick={onClick}
-      className={`w-full flex items-center gap-3 px-3 py-1.5 rounded-md text-sm transition-colors ${
-        isActive
-          ? 'bg-accent text-foreground font-medium'
-          : 'text-secondary-foreground hover:bg-accent'
-      }`}
+      tone="muted"
+      active={isActive}
+      size="sm"
+      className="gap-3"
+      icon={<Icon className={`w-4 h-4 ${isActive ? 'text-foreground' : 'text-muted-foreground'}`} strokeWidth={1.75} />}
+      trailing={shortcut ? <span className="ml-auto text-xs text-muted-foreground">{shortcut}</span> : undefined}
     >
-      <Icon className={`w-4 h-4 ${isActive ? 'text-foreground' : 'text-muted-foreground'}`} strokeWidth={1.75} />
       {label}
-      {shortcut && (
-        <span className="ml-auto text-xs text-muted-foreground">{shortcut}</span>
-      )}
-    </button>
+    </MenuItem>
   );
 }

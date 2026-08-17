@@ -4,6 +4,7 @@ import {
   Type, Hash, ListChecks, Calendar, CheckSquare, ChevronDown
 } from 'lucide-react';
 import type { DatabaseCellValue, DatabaseColumn, DatabaseRow } from '../BlockElement';
+import { MenuItem, MenuPopup } from './ui';
 
 interface DatabaseBlockProps {
   columns: DatabaseColumn[];
@@ -250,39 +251,42 @@ export default function DatabaseBlock({ columns, rows, onChange, readOnly }: Dat
                   </button>
                 </div>
 
-                {/* 列类型菜单（弹层：rounded-lg + shadow-1 + border） */}
+                {/* 列类型菜单 */}
                 {showColMenu === col.id && (
-                  <div className="absolute left-0 top-full z-20 mt-1 w-36 rounded-lg border border-border bg-popover py-1 shadow-1">
+                  <MenuPopup className="absolute left-0 top-full z-20 mt-1 w-36 py-1">
                     {(['text', 'number', 'select', 'date', 'checkbox'] as const).map(type => {
                       const TIcon = COLUMN_TYPE_ICONS[type];
                       return (
-                        <button
+                        <MenuItem
                           key={type}
+                          bleed
+                          size="sm"
+                          className={`gap-2 ${col.type === type ? 'font-medium text-primary' : ''}`}
+                          icon={<TIcon className="h-4 w-4 text-muted-foreground" strokeWidth={1.75} />}
                           onClick={() => {
                             changeColumnType(col.id, type);
                             setShowColMenu(null);
                           }}
-                          className={`flex w-full items-center gap-2 px-3 py-1.5 text-sm transition-colors hover:bg-accent ${
-                            col.type === type ? 'font-medium text-primary' : 'text-foreground'
-                          }`}
                         >
-                          <TIcon className="h-4 w-4 text-muted-foreground" strokeWidth={1.75} />
                           {COLUMN_TYPE_LABELS[type]}
-                        </button>
+                        </MenuItem>
                       );
                     })}
                     <div className="my-1 border-t border-border" />
-                    <button
+                    <MenuItem
+                      bleed
+                      size="sm"
+                      tone="danger"
+                      className="gap-2"
+                      icon={<Trash2 className="h-4 w-4" strokeWidth={1.75} />}
                       onClick={() => {
                         deleteColumn(col.id);
                         setShowColMenu(null);
                       }}
-                      className="flex w-full items-center gap-2 px-3 py-1.5 text-sm text-destructive transition-colors hover:bg-destructive-soft"
                     >
-                      <Trash2 className="h-4 w-4" strokeWidth={1.75} />
                       删除列
-                    </button>
-                  </div>
+                    </MenuItem>
+                  </MenuPopup>
                 )}
               </div>
             );

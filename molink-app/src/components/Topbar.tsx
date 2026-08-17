@@ -4,6 +4,7 @@ import {
   Download, FileCode, FileText, ClipboardCopy,
 } from 'lucide-react';
 import { PageIcon } from './IconPicker';
+import { MenuItem, MenuPopup } from './ui';
 import type { PageData } from '../App';
 import { slateToMarkdown, slateToHTML, wrapHtmlDocument, downloadTextFile } from '../lib/serialize';
 
@@ -108,21 +109,21 @@ function ExportMenu({ activePage, allPages }: { activePage: PageData; allPages: 
         <Download className="h-5 w-5" strokeWidth={1.75} />
       </button>
       {open && (
-        <div className="absolute right-0 top-full z-[60] mt-1 w-52 rounded-lg border border-border bg-popover py-1 shadow-1">
+        <MenuPopup className="absolute right-0 top-full z-[60] mt-1 w-52 py-1">
           {items.map((item) => (
-            <button
+            <MenuItem
               key={item.key}
+              bleed
+              icon={<item.icon className="h-4 w-4 text-muted-foreground" strokeWidth={1.75} />}
               onClick={async () => {
                 setOpen(false);
                 await item.action();
               }}
-              className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-foreground transition-colors hover:bg-accent"
             >
-              <item.icon className="h-4 w-4 text-muted-foreground" strokeWidth={1.75} />
               {item.label}
-            </button>
+            </MenuItem>
           ))}
-        </div>
+        </MenuPopup>
       )}
     </div>
   );

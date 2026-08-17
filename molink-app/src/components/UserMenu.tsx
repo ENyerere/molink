@@ -1,6 +1,7 @@
 import { useRef, useEffect, useState, useLayoutEffect } from 'react';
 import { Settings, Check, LogOut } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { Button, MenuItem, MenuPopup } from './ui';
 
 interface UserMenuProps {
   isOpen: boolean;
@@ -65,9 +66,11 @@ export default function UserMenu({
   if (!mounted) return null;
 
   return (
-    <div
+    <MenuPopup
       ref={menuRef}
-      className="fixed w-72 bg-popover rounded-xl shadow-2 border border-border z-[100] py-1 transition-all duration-150 ease-[cubic-bezier(0.22,1,0.36,1)]"
+      elevation={2}
+      rounded="xl"
+      className="fixed w-72 z-[100] py-1 transition-all duration-150 ease-[cubic-bezier(0.22,1,0.36,1)]"
       style={{
         top: pos.top,
         left: pos.left,
@@ -77,16 +80,18 @@ export default function UserMenu({
     >
       {/* 顶部操作 */}
       <div className="px-2 py-1 flex gap-2">
-        <button
+        <Button
+          variant="outline"
+          size="sm"
           onClick={() => {
             onClose();
             onOpenSettings();
           }}
-          className="flex-1 flex items-center justify-center gap-2 h-8 px-3 rounded-md hover:bg-accent text-sm text-foreground border border-border transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+          className="flex-1 h-8 bg-transparent font-normal text-sm"
         >
           <Settings className="w-4 h-4" strokeWidth={1.75} />
           设置
-        </button>
+        </Button>
       </div>
 
       <div className="border-t border-border my-1" />
@@ -113,21 +118,22 @@ export default function UserMenu({
         <>
           <div className="border-t border-border my-1" />
 
-          {/* 账号操作（危险项：text-destructive + hover bg-destructive-soft） */}
+          {/* 账号操作（危险项） */}
           <div className="px-2 py-1">
-            <button
+            <MenuItem
+              tone="danger"
+              className="gap-2"
+              icon={<LogOut className="w-4 h-4" strokeWidth={1.75} />}
               onClick={() => {
                 onClose();
                 signOut();
               }}
-              className="w-full text-left px-3 h-9 rounded-md text-sm text-destructive hover:bg-destructive-soft transition-colors duration-150 flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
             >
-              <LogOut className="w-4 h-4" strokeWidth={1.75} />
               登出
-            </button>
+            </MenuItem>
           </div>
         </>
       )}
-    </div>
+    </MenuPopup>
   );
 }
