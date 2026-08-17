@@ -28,8 +28,8 @@ import type { PageData, User, Activity } from './types';
 // `from './App'` 引用路径不变
 export type { PageData, User, Activity };
 
-// 懒加载占位：轻量居中 spinner。不要用 LoadingScreen——它有自己的进度计时逻辑，
-// 作为 Suspense fallback 会反复触发计时与 onFinish 副作用
+// 懒加载占位：轻量居中 spinner。不要用 LoadingScreen——它需要外部喂入真实进度，
+// 作为 Suspense fallback 没有进度来源，只会停在 0%
 function LazyFallback({ fullScreen = false }: { fullScreen?: boolean }) {
   return (
     <div className={`flex items-center justify-center bg-background ${fullScreen ? 'h-screen w-full' : 'h-full w-full'}`}>
@@ -76,6 +76,7 @@ export default function App() {
     pages,
     workspace,
     apiLoading,
+    initialDataReady,
     pageIndexes,
     addPage,
     closePage,
@@ -162,10 +163,26 @@ export default function App() {
     return childrenByParent.get(activePageId) ?? [];
   }, [childrenByParent, activePageId]);
 
+  // 启动屏真实进度：三个里程碑对应真实的异步边界——
+  // 登录态恢复（有 token 时是一次真实的 /users/me 请求）→ 初始数据管道落地 → 完成
+  const bootProgress = authLoading ? 35 : !initialDataReady ? 70 : 100;
+  const bootLabel = authLoading
+    ? '正在恢复登录状态…'
+    : !initialDataReady
+      ? '正在加载页面数据…'
+      : '即将就绪';
+
   if (!loadingDone) {
-    return <LoadingScreen onFinish={() => setLoadingDone(true)} />;
+    return (
+      <LoadingScreen
+        progress={bootProgress}
+        label={bootLabel}
+        onFinish={() => setLoadingDone(true)}
+      />
+    );
   }
 
+  // 启动完成后的后续加载（如切换账号重新拉取）走轻量 spinner
   if (authLoading || apiLoading) {
     return (
       <div className="flex h-screen items-center justify-center bg-background text-foreground">

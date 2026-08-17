@@ -44,6 +44,8 @@ export function usePages({
   const [pages, setPages] = useState<PageData[]>([]);
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
   const [apiLoading, setApiLoading] = useState(false);
+  // 初始数据管道是否已落地（成功或失败均算）：驱动启动屏的真实进度，替代 apiLoading 的间隙误判
+  const [initialDataReady, setInitialDataReady] = useState(false);
   const [showMigrationDialog, setShowMigrationDialog] = useState(false);
   const [guestPageCount, setGuestPageCount] = useState(0);
 
@@ -170,6 +172,9 @@ export function usePages({
         await loadPages(ws.id);
       } catch (err) {
         if (!cancelled) console.error('加载工作空间失败:', err);
+      } finally {
+        // 无论成败都标记初始数据管道已落地，失败时让启动屏放行（界面自行呈现空态/错误）
+        if (!cancelled) setInitialDataReady(true);
       }
     })();
     return () => { cancelled = true; };
@@ -232,6 +237,8 @@ export function usePages({
     if (local.length > 0) {
       setPages(local);
     }
+    // 访客路径的本地读取是同步的，到这里即视为初始数据就绪
+    setInitialDataReady(true);
     // 不再自动创建空页面或触发登录弹窗
     // 用户通过 Landing Page 选择"开始使用"或"登录"
   }, [authLoading, user]);
@@ -551,6 +558,7 @@ export function usePages({
     pages,
     workspace,
     apiLoading,
+    initialDataReady,
     pageIndexes,
     addPage,
     closePage,
