@@ -266,7 +266,7 @@ function AboutPage() {
 
       <SettingRow
         title="功能"
-        description="块级富文本编辑器、无限层级页面树、多视图数据库、WebSocket 实时协作。"
+        description="块级富文本编辑器、无限层级页面树、多视图数据库。多人实时协作（规划中）。"
       />
     </div>
   );

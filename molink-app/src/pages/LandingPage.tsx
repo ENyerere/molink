@@ -9,11 +9,20 @@ import {
   Users,
   Database,
   ArrowRight,
+  type LucideIcon,
 } from "lucide-react";
 
 interface LandingPageProps {
   onEnterWorkspace: () => void;
   onLogin: () => void;
+}
+
+interface FeatureItem {
+  icon: LucideIcon;
+  title: string;
+  desc: string;
+  wide?: boolean;
+  badge?: string;
 }
 
 /* 现代科技风落地页 · Vercel 路线（常驻暗色，不随应用主题变化）
@@ -86,7 +95,7 @@ function Hero({ onLogin, onEnterWorkspace }: LandingPageProps) {
         <motion.div {...fadeUp} transition={{ duration: 0.5, ease: EASE }}>
           <span className="inline-flex items-center gap-2 rounded-full border border-ld-border bg-ld-card/60 px-3.5 py-1.5 text-xs text-ld-muted">
             <span className="w-1.5 h-1.5 rounded-full bg-primary" />
-            开源 · 自托管 · 实时协作
+            开源 · 自托管 · 协作规划中
           </span>
         </motion.div>
 
@@ -104,7 +113,7 @@ function Hero({ onLogin, onEnterWorkspace }: LandingPageProps) {
           transition={{ duration: 0.5, delay: 0.16, ease: EASE }}
           className="mt-6 text-base md:text-lg text-ld-muted max-w-xl mx-auto leading-relaxed [text-wrap:pretty]"
         >
-          块级编辑器、无限层级页面树、WebSocket 实时协作——
+          块级编辑器、无限层级页面树、实时协作规划中——
           模块化编辑器，连接你的思维，让知识自然生长。
         </motion.p>
 
@@ -157,7 +166,7 @@ function Showcase() {
   );
 }
 
-const features = [
+const features: FeatureItem[] = [
   {
     icon: Type,
     title: "块级编辑器",
@@ -172,7 +181,8 @@ const features = [
   {
     icon: Users,
     title: "实时协作",
-    desc: "WebSocket 多人在线编辑，成员光标与内容变更即时可见。",
+    desc: "多人协作正在开发中：块级数据模型已就绪，在线协同编辑与成员光标即将上线。",
+    badge: "规划中",
   },
   {
     icon: Database,
@@ -205,7 +215,7 @@ function Features() {
       </motion.div>
 
       <div className="grid gap-4 md:grid-cols-3">
-        {features.map(({ icon: Icon, title, desc, wide }) => (
+        {features.map(({ icon: Icon, title, desc, wide, badge }) => (
           <motion.div
             key={title}
             initial={ioSupported ? { opacity: 0, y: 24 } : false}
@@ -220,7 +230,14 @@ function Features() {
             <div className="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-white/[0.08] text-ld-fg mb-5">
               <Icon className="w-5 h-5" strokeWidth={1.75} />
             </div>
-            <h3 className="text-base font-semibold text-ld-fg mb-2">{title}</h3>
+            <h3 className="text-base font-semibold text-ld-fg mb-2">
+              {title}
+              {badge && (
+                <span className="ml-2 align-middle inline-flex items-center rounded-full border border-ld-border px-2 py-0.5 text-[11px] font-normal text-ld-muted">
+                  {badge}
+                </span>
+              )}
+            </h3>
             <p className="text-sm leading-relaxed text-ld-muted [text-wrap:pretty]">{desc}</p>
           </motion.div>
         ))}
