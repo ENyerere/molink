@@ -2,9 +2,8 @@
 // 页面数据与同步逻辑已迁至 hooks/usePages.ts；localStorage/转换等纯函数在 lib/
 import { useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react';
 import Sidebar from './Sidebar';
-import LoadingScreen from './components/LoadingScreen';
 // 重组件按需加载：首屏只拉取当前视图所需 chunk，其余在切换到对应视图时再加载
-// （Sidebar/Topbar/LoadingScreen 首屏工作区必渲染，保持静态 import）
+// （Sidebar/Topbar 首屏工作区必渲染，保持静态 import）
 const Editor = lazy(() => import('./Editor'));
 const Login = lazy(() => import('./components/auth/Login'));
 const LandingPage = lazy(() => import('./pages/LandingPage'));
@@ -28,9 +27,8 @@ import type { PageData, User, Activity } from './types';
 // `from './App'` 引用路径不变
 export type { PageData, User, Activity };
 
-// 懒加载与整屏加载的统一占位是 ui/RouteProgress（顶部细进度条）：
-// 不用 LoadingScreen——它需要外部喂入真实进度，作为 Suspense fallback 没有进度来源；
-// 也不用 spinner——与 monochrome 设计不契合
+// 全项目加载态统一为 ui/RouteProgress（nprogress 风格顶部细进度条，经 portal 铺满浏览器宽度）：
+// 启动等待、Suspense chunk 加载、后续数据拉取共用同一形态；不用 spinner——与 monochrome 设计不契合
 
 export default function App() {
   const { user, loading: authLoading } = useAuth();
@@ -40,11 +38,9 @@ export default function App() {
   const [showLogin, setShowLogin] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [showWorkspacePanel, setShowWorkspacePanel] = useState(false);
-  const [loadingDone, setLoadingDone] = useState(false);
-
-  // 首屏视图 chunk 预加载：启动屏期间与数据管道并行下载。
-  // 否则启动屏（提前 return）期间视图树不渲染，lazy chunk 在进度条结束后才开始拉取，
-  // 表现为"淡出后又出现一个 spinner"的二次加载
+  // 首屏视图 chunk 预加载：启动等待期间与数据管道并行下载。
+  // 否则启动等待（提前 return）期间视图树不渲染，lazy chunk 在就绪后才开始拉取，
+  // 表现为"主界面出现后又加载一次"的二次等待
   const [viewChunkReady, setViewChunkReady] = useState(false);
   useEffect(() => {
     let cancelled = false;
@@ -56,25 +52,10 @@ export default function App() {
       : import('./pages/LandingPage');
     preload
       .catch((err) => console.error('预加载首屏视图失败:', err))
-      // 失败也放行：保持懒加载原有的报错路径，不让启动屏卡死
+      // 失败也放行：保持懒加载原有的报错路径，不让启动卡死
       .finally(() => { if (!cancelled) setViewChunkReady(true); });
     return () => { cancelled = true; };
   }, []);
-
-  // 启动完成后闲时预载其余主视图 chunk：消除"点免费开始使用后主页再转圈"这类二次加载
-  useEffect(() => {
-    if (!loadingDone) return;
-    const timer = setTimeout(() => {
-      import('./pages/LandingPage');
-      import('./components/HomeView');
-      import('./Editor');
-      import('./components/InboxView');
-      import('./components/auth/Login');
-      import('./components/SearchModal');
-      import('./components/WorkspacePanel');
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [loadingDone]);
 
   // 宽版内容列开关（持久化到 localStorage）
   const [wideMode, setWideMode] = useState(() => {
@@ -128,6 +109,24 @@ export default function App() {
 
   const { activePageId, activeView } = nav;
   const { byId: pagesById, childrenByParent } = pageIndexes;
+
+  // 启动就绪 = 登录态恢复完成 + 初始数据管道落地 + 首屏视图 chunk 就绪
+  const bootReady = !authLoading && initialDataReady && viewChunkReady;
+
+  // 启动就绪后闲时预载其余主视图 chunk：消除"点免费开始使用后主页再加载"这类二次等待
+  useEffect(() => {
+    if (!bootReady) return;
+    const timer = setTimeout(() => {
+      import('./pages/LandingPage');
+      import('./components/HomeView');
+      import('./Editor');
+      import('./components/InboxView');
+      import('./components/auth/Login');
+      import('./components/SearchModal');
+      import('./components/WorkspacePanel');
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [bootReady]);
 
   // ==========================================
   // 全局快捷键
@@ -191,29 +190,9 @@ export default function App() {
     return childrenByParent.get(activePageId) ?? [];
   }, [childrenByParent, activePageId]);
 
-  // 启动屏真实进度：四个里程碑对应真实的异步边界——
-  // 登录态恢复（有 token 时是一次真实的 /users/me 请求）→ 初始数据管道落地 → 首屏视图 chunk 就绪 → 完成
-  const bootProgress = authLoading ? 35 : !initialDataReady ? 70 : !viewChunkReady ? 90 : 100;
-  const bootLabel = authLoading
-    ? '正在恢复登录状态…'
-    : !initialDataReady
-      ? '正在加载页面数据…'
-      : !viewChunkReady
-        ? '正在加载界面资源…'
-        : '即将就绪';
-
-  if (!loadingDone) {
-    return (
-      <LoadingScreen
-        progress={bootProgress}
-        label={bootLabel}
-        onFinish={() => setLoadingDone(true)}
-      />
-    );
-  }
-
-  // 启动完成后的后续加载（如切换账号重新拉取）：顶部细进度条 + 空背景
-  if (authLoading || apiLoading) {
+  // 启动等待与后续加载统一走顶部细进度条（RouteProgress）：
+  // 启动阶段 = bootReady 未达成；后续加载 = apiLoading（如切换账号重新拉取）
+  if (!bootReady || apiLoading) {
     return (
       <div className="h-screen w-full bg-background">
         <RouteProgress />
