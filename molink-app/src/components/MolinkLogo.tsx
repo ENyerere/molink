@@ -4,13 +4,13 @@ interface MolinkLogoProps {
   className?: string;
   size?: number;
   color?: string;
-  variant?: string;
 }
 
+// 品牌 Logo：monochrome，默认 currentColor 跟随上下文文本色（落地页白色/应用内前景色）
 export function MolinkLogo({
   className,
   size = 32,
-  color = "#2563EB",
+  color = "currentColor",
 }: MolinkLogoProps) {
   return (
     <svg

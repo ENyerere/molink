@@ -60,7 +60,7 @@ function Navbar({ onLogin, onEnterWorkspace }: LandingPageProps) {
     >
       <div className="max-w-6xl mx-auto flex items-center justify-between px-6 h-16">
         <div className="flex items-center gap-2.5">
-          <MolinkLogo size={24} variant="pure" />
+          <MolinkLogo size={24} className="text-ld-fg" />
           <span className="text-base font-semibold text-ld-fg">Molink</span>
         </div>
         <div className="flex items-center gap-2">
@@ -255,7 +255,7 @@ function Footer({ onLogin, onEnterWorkspace }: LandingPageProps) {
       <div className="max-w-6xl mx-auto px-6 pt-14 pb-10 grid gap-10 md:grid-cols-4">
         <div className="md:col-span-2">
           <div className="flex items-center gap-2.5">
-            <MolinkLogo size={20} variant="pure" />
+            <MolinkLogo size={20} className="text-ld-fg" />
             <span className="text-sm font-semibold text-ld-fg">Molink</span>
           </div>
           <p className="mt-3 text-sm text-ld-muted max-w-xs [text-wrap:pretty]">

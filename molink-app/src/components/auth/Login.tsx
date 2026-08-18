@@ -2,9 +2,11 @@ import { useState } from 'react';
 import { X } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import AnimatedPresence from '../AnimatedPresence';
-import { MagicCard } from '../magicui/magic-card';
 import { Button } from '../ui';
-// MagicCard 官方版本来自 https://magicui.design/docs/components/magic-card
+
+// 设计文档 §3.5：模态动效走 slow 360ms，入场曲线 cubic-bezier(0.16, 1, 0.3, 1)
+const MODAL_DURATION = 360;
+const MODAL_EASE = 'cubic-bezier(0.16, 1, 0.3, 1)';
 
 interface LoginProps {
   isOpen: boolean;
@@ -73,7 +75,8 @@ export default function Login({ isOpen, onClose, onLogin }: LoginProps) {
   return (
     <AnimatedPresence
       show={isOpen}
-      duration={220}
+      duration={MODAL_DURATION}
+      ease={MODAL_EASE}
       enterFrom="opacity-0 backdrop-blur-[0px] bg-black/0"
       enterTo="opacity-100 backdrop-blur-sm bg-black/60"
       className="fixed inset-0 z-modal flex items-center justify-center p-4"
@@ -81,11 +84,17 @@ export default function Login({ isOpen, onClose, onLogin }: LoginProps) {
       {/* 点击背景关闭 */}
       <div className="absolute inset-0" onClick={onClose} />
 
-      {/* MagicCard 不接收 style（组件未实现该 props），淡入缩放由外层 AnimatedPresence 负责 */}
-      <MagicCard
-        className="w-full max-w-[400px] rounded-xl shadow-2"
+      {/* 卡片入场：轻微上浮 + 缩放，与遮罩同一时长/曲线 */}
+      <AnimatedPresence
+        show={isOpen}
+        duration={MODAL_DURATION}
+        ease={MODAL_EASE}
+        enterFrom="opacity-0 scale-[0.98] translate-y-2"
+        enterTo="opacity-100 scale-100 translate-y-0"
+        className="relative w-full max-w-[400px]"
       >
-        <div className="relative z-40 p-8">
+        {/* 设计文档 §3.4：模态圆角 --radius-lg(12px)，无光效纯卡片 */}
+        <div className="rounded-lg border border-border bg-card p-8 shadow-2">
           {/* 关闭按钮 */}
           <button
             onClick={onClose}
@@ -246,7 +255,7 @@ export default function Login({ isOpen, onClose, onLogin }: LoginProps) {
             <a href="#" className="text-primary hover:underline underline-offset-2 transition-colors duration-150">隐私政策</a>
           </p>
         </div>
-      </MagicCard>
+      </AnimatedPresence>
     </AnimatedPresence>
   );
 }

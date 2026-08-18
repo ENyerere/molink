@@ -4,6 +4,8 @@ interface AnimatedPresenceProps {
   show: boolean;
   children: React.ReactNode;
   duration?: number;
+  /** 缓动曲线，默认等同 tailwind ease-out；设计文档模态入场用 cubic-bezier(0.16, 1, 0.3, 1) */
+  ease?: string;
   enterFrom?: string;
   enterTo?: string;
   className?: string;
@@ -19,6 +21,7 @@ export default function AnimatedPresence({
   show,
   children,
   duration = 200,
+  ease = 'cubic-bezier(0, 0, 0.2, 1)',
   enterFrom = 'opacity-0 scale-95',
   enterTo = 'opacity-100 scale-100',
   className = '',
@@ -56,8 +59,8 @@ export default function AnimatedPresence({
 
   return (
     <div
-      className={`transition-all ease-out ${animating ? enterTo : enterFrom} ${className}`}
-      style={{ transitionDuration: `${duration}ms` }}
+      className={`transition-all ${animating ? enterTo : enterFrom} ${className}`}
+      style={{ transitionDuration: `${duration}ms`, transitionTimingFunction: ease }}
     >
       {children}
     </div>
