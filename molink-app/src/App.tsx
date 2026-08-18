@@ -15,7 +15,7 @@ import { useAuth } from './context/AuthContext';
 import { AnimatePresence, motion } from 'motion/react';
 import AnimatedPresence from './components/AnimatedPresence';
 import Topbar, { type SaveIndicatorState } from './components/Topbar';
-import { Button, RouteProgress } from './components/ui';
+import { Button, RouteLoadFallback, RouteProgress } from './components/ui';
 import { usePageNav } from './hooks/usePageNav';
 import { useContentSaver } from './hooks/useContentSaver';
 import { useActivities } from './hooks/useActivities';
@@ -27,8 +27,9 @@ import type { PageData, User, Activity } from './types';
 // `from './App'` 引用路径不变
 export type { PageData, User, Activity };
 
-// 全项目加载态统一为 ui/RouteProgress（nprogress 风格顶部细进度条，经 portal 铺满浏览器宽度）：
-// 启动等待、Suspense chunk 加载、后续数据拉取共用同一形态；不用 spinner——与 monochrome 设计不契合
+// 全项目加载态统一为 ui/RouteProgress（nprogress 风格顶部细进度条，portal 常驻根部、铺满浏览器宽度）：
+// 启动等待、Suspense chunk 加载、后续数据拉取都通过 RouteLoadFallback 登记加载期，共用同一条进度；
+// trickle 缓速逼近 85%，全部结束时冲到 100% 再淡出；不用 spinner——与 monochrome 设计不契合
 
 export default function App() {
   const { user, loading: authLoading } = useAuth();
@@ -190,19 +191,19 @@ export default function App() {
     return childrenByParent.get(activePageId) ?? [];
   }, [childrenByParent, activePageId]);
 
-  // 启动等待与后续加载统一走顶部细进度条（RouteProgress）：
-  // 启动阶段 = bootReady 未达成；后续加载 = apiLoading（如切换账号重新拉取）
-  if (!bootReady || apiLoading) {
-    return (
-      <div className="h-screen w-full bg-background">
-        <RouteProgress />
-      </div>
-    );
-  }
-
+  // 启动等待（bootReady 未达成）与后续加载（apiLoading，如切换账号重新拉取）
+  // 统一走全局顶部细进度条：RouteProgress 常驻根部，RouteLoadFallback 登记加载期
+  const isBlocking = !bootReady || apiLoading;
   const isLanding = !user && !showWorkspace;
 
   return (
+    <>
+      <RouteProgress />
+      {isBlocking ? (
+        <div className="h-screen w-full bg-background">
+          <RouteLoadFallback />
+        </div>
+      ) : (
     <motion.div
       className={`relative w-full bg-background ${!isLanding ? 'h-screen overflow-hidden' : ''}`}
       initial={{ opacity: 0 }}
@@ -218,7 +219,7 @@ export default function App() {
             exit={{ opacity: 0, y: -30, filter: "blur(8px)" }}
             transition={{ duration: 0.5, ease: "easeInOut" }}
           >
-            <Suspense fallback={<RouteProgress />}>
+            <Suspense fallback={<RouteLoadFallback />}>
               <LandingPage
                 onEnterWorkspace={() => {
                   setShowWorkspace(true);
@@ -299,7 +300,7 @@ export default function App() {
               exit={{ opacity: 0, y: -4 }}
               transition={{ duration: 0.15, ease: 'easeOut' }}
             >
-              <Suspense fallback={<RouteProgress />}>
+              <Suspense fallback={<RouteLoadFallback />}>
                 {activeView === 'page' && activePageId && activePage && (
                   <Editor
                     page={activePage}
@@ -398,5 +399,7 @@ export default function App() {
         )}
       </AnimatePresence>
     </motion.div>
+      )}
+    </>
   );
 }
