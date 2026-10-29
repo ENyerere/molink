@@ -1,5 +1,8 @@
 """
 Molink API - 主应用入口
+
+自托管块编辑器原型。版本号见 APP_VERSION。
+多视图数据库与 WebSocket 路由仍注册，但前端未接入（见各模块文档）。
 """
 import sys
 import os
@@ -20,6 +23,9 @@ from app.core.migration import auto_migrate
 from app.core.seed import seed_admin
 from app.api.v1 import api_router
 from app.api.websocket import router as ws_router
+
+# 原型版本。不要标成 1.0.0。
+APP_VERSION = "0.1.0"
 
 
 @asynccontextmanager
@@ -45,12 +51,25 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title=settings.APP_NAME,
-    description="Molink - 现代化内容编辑与协作平台 API",
-    version="1.0.0",
+    description=(
+        "Molink 自托管块编辑器原型 API。"
+        "「数据库（未使用）」与「WebSocket（未使用）」仍挂在进程上，前端没有客户端。"
+    ),
+    version=APP_VERSION,
     lifespan=lifespan,
     docs_url="/api/docs",
     redoc_url="/api/redoc",
-    openapi_url="/api/openapi.json"
+    openapi_url="/api/openapi.json",
+    openapi_tags=[
+        {
+            "name": "数据库（未使用）",
+            "description": "前端不调用。页内表格写在页面内容里，没有看板或日历。",
+        },
+        {
+            "name": "WebSocket（未使用）",
+            "description": "前端没有 WebSocket 客户端，实时协作未交付。",
+        },
+    ],
 )
 
 # Session 中间件（OAuth state 参数需要）
@@ -69,7 +88,7 @@ app.add_middleware(
 app.include_router(api_router, prefix=settings.API_V1_PREFIX)
 
 # 注册WebSocket路由
-app.include_router(ws_router, prefix="/ws", tags=["WebSocket"])
+app.include_router(ws_router, prefix="/ws", tags=["WebSocket（未使用）"])
 
 # 静态文件服务（上传的文件）
 # 先在模块级确保目录存在再挂载：挂载判断在模块加载时执行，
@@ -84,7 +103,7 @@ async def root():
     """API根路径"""
     return {
         "name": settings.APP_NAME,
-        "version": "1.0.0",
+        "version": APP_VERSION,
         "status": "running",
         "docs": "/api/docs"
     }

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { FileText, Plus } from 'lucide-react';
 import { PageIcon } from './IconPicker';
 import { useAuth } from '../context/AuthContext';
@@ -25,7 +25,7 @@ function EmptyState({ onCreatePage }: { onCreatePage?: () => void }) {
       </div>
       <h3 className="text-base font-medium text-foreground">还没有页面</h3>
       <p className="mt-1 text-sm text-muted-foreground">
-        创建你的第一个页面，开始记录与协作
+        创建你的第一个页面，开始记录
       </p>
       {onCreatePage ? (
         <button
@@ -54,7 +54,6 @@ interface HomeViewProps {
 
 export default function HomeView({ pages, onNavigate, onCreatePage }: HomeViewProps) {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<'recent' | 'shared' | 'project'>('recent');
 
   const recentPages = useMemo(() => {
     return [...pages]
@@ -70,12 +69,6 @@ export default function HomeView({ pages, onNavigate, onCreatePage }: HomeViewPr
     weekday: 'long',
   });
 
-  const tabs: { id: 'recent' | 'shared' | 'project'; label: string }[] = [
-    { id: 'recent', label: '最近浏览过' },
-    { id: 'shared', label: '共享的文件' },
-    { id: 'project', label: '共享的项目' },
-  ];
-
   return (
     <div className="max-w-[1200px] mx-auto px-8 py-10">
       {/* ========== 问候语 ========== */}
@@ -89,25 +82,10 @@ export default function HomeView({ pages, onNavigate, onCreatePage }: HomeViewPr
 
       {/* ========== 最近访问 ========== */}
       <section>
-        {/* Tab 栏 */}
-        <div className="flex items-center gap-5 mb-5 border-b border-border">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`text-sm pb-2 -mb-px border-b-2 transition-colors duration-100 ${
-                activeTab === tab.id
-                  ? 'font-medium text-foreground border-foreground'
-                  : 'text-muted-foreground border-transparent hover:text-foreground'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
+        <h2 className="mb-5 text-sm font-medium text-foreground">最近浏览过</h2>
 
         {/* 内容 */}
-        {activeTab === 'recent' && recentPages.length > 0 ? (
+        {recentPages.length > 0 ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
             {recentPages.map((page) => (
               <button
@@ -150,12 +128,8 @@ export default function HomeView({ pages, onNavigate, onCreatePage }: HomeViewPr
               </button>
             ))}
           </div>
-        ) : activeTab === 'recent' ? (
-          <EmptyState onCreatePage={onCreatePage} />
         ) : (
-          <div className="py-20 text-center">
-            <p className="text-sm text-muted-foreground">暂无内容</p>
-          </div>
+          <EmptyState onCreatePage={onCreatePage} />
         )}
       </section>
     </div>

@@ -3,10 +3,8 @@ import { motion, MotionConfig } from "motion/react";
 import { MolinkLogo } from "../components/MolinkLogo";
 import {
   Github,
-  Twitter,
   Type,
   FolderTree,
-  Users,
   Database,
   ArrowRight,
   type LucideIcon,
@@ -95,7 +93,7 @@ function Hero({ onLogin, onEnterWorkspace }: LandingPageProps) {
         <motion.div {...fadeUp} transition={{ duration: 0.5, ease: EASE }}>
           <span className="inline-flex items-center gap-2 rounded-full border border-ld-border bg-ld-card/60 px-3.5 py-1.5 text-xs text-ld-muted">
             <span className="w-1.5 h-1.5 rounded-full bg-primary" />
-            开源 · 自托管 · 协作规划中
+            开源 · 自托管 · 学习原型
           </span>
         </motion.div>
 
@@ -113,8 +111,8 @@ function Hero({ onLogin, onEnterWorkspace }: LandingPageProps) {
           transition={{ duration: 0.5, delay: 0.16, ease: EASE }}
           className="mt-6 text-base md:text-lg text-ld-muted max-w-xl mx-auto leading-relaxed [text-wrap:pretty]"
         >
-          块级编辑器、无限层级页面树、实时协作规划中——
-          模块化编辑器，连接你的思维，让知识自然生长。
+          块级编辑器、无限层级页面树，页内可以放一张简单表格。
+          多人实时协作和多视图数据库没有做。这是一个不再积极维护的学习原型。
         </motion.p>
 
         <motion.div
@@ -179,16 +177,9 @@ const features: FeatureItem[] = [
     desc: "无限层级组织，封面与图标个性装扮，误删一键还原整棵子树。",
   },
   {
-    icon: Users,
-    title: "实时协作",
-    desc: "多人协作正在开发中：块级数据模型已就绪，在线协同编辑与成员光标即将上线。",
-    badge: "规划中",
-  },
-  {
     icon: Database,
-    title: "数据库多视图",
-    desc: "表格、看板、日历多视图切换，结构化与自由写作共存。",
-    wide: true,
+    title: "页内表格",
+    desc: "斜杠菜单可以插入一张简单表格，内容保存在页面里。没有看板、日历，也不接后端数据库接口。",
   },
 ];
 
@@ -204,13 +195,13 @@ function Features() {
         className="text-center mb-14"
       >
         <p className="text-xs font-semibold text-ld-muted mb-3">
-          为什么选择 Molink
+          现在能用的
         </p>
         <h2 className="text-3xl md:text-4xl font-bold text-ld-fg [text-wrap:balance]">
           为专注写作而生
         </h2>
         <p className="mt-4 text-sm md:text-base text-ld-muted max-w-xl mx-auto [text-wrap:pretty]">
-          没有繁杂的表单和面板，只有一张干净的纸，和刚好够用的工具。
+          能用的是块编辑、页面树和页内表格。多视图数据库与多人实时协作没有做。
         </p>
       </motion.div>
 
@@ -259,7 +250,7 @@ function Footer({ onLogin, onEnterWorkspace }: LandingPageProps) {
             <span className="text-sm font-semibold text-ld-fg">Molink</span>
           </div>
           <p className="mt-3 text-sm text-ld-muted max-w-xs [text-wrap:pretty]">
-            模块化工作空间，让知识自然生长。
+            自托管的块编辑器原型。
           </p>
         </div>
         <div>
@@ -288,24 +279,13 @@ function Footer({ onLogin, onEnterWorkspace }: LandingPageProps) {
           <ul className="space-y-2.5 text-sm">
             <li>
               <a
-                href="https://github.com"
+                href="https://github.com/ENyerere/molink"
                 target="_blank"
-                rel="nofollow noopener"
+                rel="noopener noreferrer"
                 className="inline-flex items-center gap-1.5 text-ld-muted hover:text-ld-fg transition-colors duration-150"
               >
                 <Github className="w-4 h-4" />
                 GitHub
-              </a>
-            </li>
-            <li>
-              <a
-                href="https://twitter.com"
-                target="_blank"
-                rel="nofollow noopener"
-                className="inline-flex items-center gap-1.5 text-ld-muted hover:text-ld-fg transition-colors duration-150"
-              >
-                <Twitter className="w-4 h-4" />
-                X
               </a>
             </li>
           </ul>
@@ -313,7 +293,7 @@ function Footer({ onLogin, onEnterWorkspace }: LandingPageProps) {
       </div>
       <div className="border-t border-ld-border">
         <div className="max-w-6xl mx-auto px-6 py-6 text-sm text-ld-muted">
-          © {currentYear} Molink. All rights reserved.
+          © {currentYear} Molink. MIT License.
         </div>
       </div>
     </footer>

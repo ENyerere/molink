@@ -1,158 +1,57 @@
-# molink-app
+# Molink
 
-一个基于 React + Vite + Slate + Tailwind CSS 的轻量级页面编辑器项目。
+自托管的块编辑器学习原型，**不再积极维护**。可以写页面、排页面树、上传文件、登录。它不是多视图数据库，也没有多人实时协作。
 
-## 项目特性
+## 实际有的
 
-- **React**：构建现代化前端界面。
-- **Slate**：富文本编辑器，支持复杂内容编辑。
-- **Tailwind CSS**：原子化 CSS，快速样式开发。
-- **Vite**：极速开发与构建工具。
-- **TypeScript**：类型安全，提升开发体验。
+- 基于 Slate 的块编辑器（Markdown 快捷输入、斜杠命令）
+- 页面树、封面、图标、回收站
+- 工作空间、JWT 登录，以及可选的 Google / GitHub OAuth
+- 文件上传
+- 页内简单表格（写在页面内容里，只有一张表）
 
-## 快速开始
+未登录时，页面落在浏览器 `localStorage`（键名 `molink-pages`）。
 
-1. **安装依赖**
+## 没有的
 
-   ```shell
-   yarn install
-   ```
+- **多视图数据库**（看板、日历）没有产品界面。
+- **多人实时协作**没有接入。前端不会连接 WebSocket。
 
-2. **启动开发服务器**
+这两项的后端代码还在，见下方「未接入的后端表面」。不要为它们补前端客户端。
 
-   ```shell
-   yarn dev
-   ```
+## 代码在哪
 
-## 目录结构
+仓库根没有构建配置。代码都在 `molink-app/`：
 
-```
-molink-app/
-├── src/                # 源码目录
-│   ├── App.tsx         # 应用主入口
-│   ├── Editor.tsx      # 编辑器组件
-│   └── ...             # 其他组件和文件
-├── public/             # 静态资源
-├── postcss.config.js   # PostCSS 配置
-├── tailwind.config.js  # Tailwind CSS 配置
-├── package.json        # 项目配置
-└── README.md           # 项目说明
-```
+- `molink-app/src/` — React 前端。编辑器从 `Editor.tsx`、`BlockElement.tsx` 看起。
+- `molink-app/molink-backend/molink/backend/` — FastAPI。入口是 `app/main.py`。
+- `molink-app/molink-backend/molink/docker-compose.yml` — MySQL 8、Redis 7、后端。
 
-## 主要依赖
+给代理看的结构说明在 `AGENTS.md`。
 
-- [React](https://react.dev/)
-- [Slate](https://docs.slatejs.org/)
-- [Tailwind CSS](https://tailwindcss.com/)
-- [Vite](https://vitejs.dev/)
-- [TypeScript](https://www.typescriptlang.org/)
+## 本地预览
 
-## PostCSS 配置说明
+比较重：需要 Docker 里的 MySQL 和 Redis，再加上前端开发服务器。
 
-项目使用 ES Module 格式的 PostCSS 配置：
+```bash
+# 后端（在 molink-app/molink-backend/molink/）
+docker compose up mysql redis backend --build
 
-```js
-export default {
-  plugins: {
-    tailwindcss: {},
-    autoprefixer: {},
-  },
-}
+# 前端（在 molink-app/）
+yarn install
+yarn dev
 ```
 
-## 常见问题
+前端默认 <http://localhost:5173>，API 文档 <http://localhost:8000/api/docs>。
+Compose 里的本地管理员是 `admin@molink.local` / `admin123`，只适合本机。
 
-- **Tailwind CSS 报错**  
-  请确保使用的是 Tailwind CSS v3.x，并已正确安装依赖。
+## 未接入的后端表面
 
-- **依赖安装失败或启动异常**  
-  可尝试清理缓存并重新安装依赖：
-  ```shell
-  yarn cache clean
-  rm -rf node_modules .vite
-  yarn install
-  ```
+保留是为了不拆已经互相引用的模型和启动建表，不是已交付功能：
 
-## 许可证
-# molink-app
-
-一个基于 React + Vite + Slate + Tailwind CSS 的轻量级页面编辑器项目。
-
-## 项目特性
-
-- **React**：构建现代化前端界面。
-- **Slate**：富文本编辑器，支持复杂内容编辑。
-- **Tailwind CSS**：原子化 CSS，快速样式开发。
-- **Vite**：极速开发与构建工具。
-- **TypeScript**：类型安全，提升开发体验。
-
-## 快速开始
-
-1. **安装依赖**
-
-   ```shell
-   yarn install
-   ```
-
-2. **启动开发服务器**
-
-   ```shell
-   yarn dev
-   ```
-
-3. **访问项目**
-
-   打开浏览器访问 [http://localhost:5173](http://localhost:5173)
-
-## 目录结构
-
-```
-molink-app/
-├── src/                # 源码目录
-│   ├── App.tsx         # 应用主入口
-│   ├── Editor.tsx      # 编辑器组件
-│   └── ...             # 其他组件和文件
-├── public/             # 静态资源
-├── postcss.config.js   # PostCSS 配置
-├── tailwind.config.js  # Tailwind CSS 配置
-├── package.json        # 项目配置
-└── README.md           # 项目说明
-```
-
-## 主要依赖
-
-- [React](https://react.dev/)
-- [Slate](https://docs.slatejs.org/)
-- [Tailwind CSS](https://tailwindcss.com/)
-- [Vite](https://vitejs.dev/)
-- [TypeScript](https://www.typescriptlang.org/)
-
-## PostCSS 配置说明
-
-项目使用 ES Module 格式的 PostCSS 配置：
-
-```js
-export default {
-  plugins: {
-    tailwindcss: {},
-    autoprefixer: {},
-  },
-}
-```
-
-## 常见问题
-
-- **Tailwind CSS 报错**  
-  请确保使用的是 Tailwind CSS v3.x，并已正确安装依赖。
-
-- **依赖安装失败或启动异常**  
-  可尝试清理缓存并重新安装依赖：
-  ```shell
-  yarn cache clean
-  rm -rf node_modules .vite
-  yarn install
-  ```
+- `app/api/v1/databases.py` 与 `app/models/database.py`：多视图数据库 API，前端无客户端。
+- `app/api/websocket.py`：`/ws/editor/{page_id}`、`/ws/user-status`，前端无连接。
 
 ## 许可证
 
-MIT
+[MIT](LICENSE)
