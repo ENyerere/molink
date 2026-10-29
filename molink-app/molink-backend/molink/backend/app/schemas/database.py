@@ -1,5 +1,8 @@
 """
-数据库相关Schema
+数据库相关 Schema（UNUSED）
+
+只服务于 app/api/v1/databases.py。前端没有对应客户端。
+default_view 里的 board / calendar 没有产品界面。
 """
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any, Literal

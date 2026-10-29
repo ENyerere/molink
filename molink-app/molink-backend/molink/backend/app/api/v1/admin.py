@@ -42,6 +42,7 @@ async def get_system_stats(
     # 统计各实体数量
     total_users = db.query(func.count(User.id)).scalar() or 0
     total_pages = db.query(func.count(Page.id)).scalar() or 0
+    # databases 表对应未接入前端的 API，正常使用时多为 0
     total_databases = db.query(func.count(Database.id)).scalar() or 0
     total_files = db.query(func.count(File.id)).scalar() or 0
     
@@ -49,7 +50,7 @@ async def get_system_stats(
     total_size = db.query(func.sum(File.size)).scalar() or 0
     storage_used = format_file_size(total_size)
     
-    # 在线用户：基于 WebSocket 连接管理器的实时连接数
+    # 在线用户：基于未使用的 WebSocket 连接管理器。前端不连接，正常时为 0。
     # （原实现按 User.updated_at 统计，而该字段只在改资料时变化，数据无意义）
     from app.api.websocket import manager as ws_manager
     online_users = len(ws_manager.get_online_users())

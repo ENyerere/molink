@@ -253,7 +253,7 @@ export default function Topbar({
         <button
           disabled
           className="hidden cursor-not-allowed items-center gap-1.5 rounded-md px-3 py-1.5 text-sm text-muted-foreground opacity-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 sm:flex"
-          title="分享功能即将推出"
+          title="分享尚未实现"
         >
           <Share2 className="h-4 w-4" strokeWidth={1.75} />
           <span>分享</span>

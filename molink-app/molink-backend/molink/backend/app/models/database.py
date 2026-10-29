@@ -1,5 +1,8 @@
 """
-数据库相关模型
+数据库相关模型（UNUSED）
+
+启动时 create_all 会建出这些表，但当前前端不读写它们。
+页内表格存在页面块 JSON 中。见 app/api/v1/databases.py。
 """
 from sqlalchemy import Column, String, DateTime, Text, ForeignKey, Integer, Boolean, Enum
 from sqlalchemy.dialects.mysql import CHAR

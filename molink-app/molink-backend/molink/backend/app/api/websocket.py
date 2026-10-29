@@ -1,5 +1,9 @@
 """
-WebSocket API for real-time collaboration
+WebSocket API（UNUSED）
+
+路由仍注册在 /ws/editor/{page_id} 与 /ws/user-status，
+但前端没有任何 WebSocket 客户端，实时协作未交付。
+连接管理器只在进程内存中。不要把它当成可用的协作功能，也不要补前端客户端。
 """
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, Query
 from sqlalchemy.orm import Session
@@ -166,7 +170,7 @@ async def websocket_editor(
     page_id: str,
     token: str = Query(...)
 ):
-    """编辑器实时协作WebSocket"""
+    """UNUSED：编辑器协作 WebSocket。前端不连接。"""
     # 验证用户
     user_info = await get_user_from_token(token)
     if not user_info:
@@ -263,7 +267,7 @@ async def websocket_user_status(
     websocket: WebSocket,
     token: str = Query(...)
 ):
-    """用户在线状态WebSocket"""
+    """UNUSED：用户在线状态 WebSocket。前端不连接。"""
     user_info = await get_user_from_token(token)
     if not user_info:
         await websocket.close(code=4001, reason="认证失败")

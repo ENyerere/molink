@@ -39,7 +39,7 @@ const MENU_ITEMS: MenuItem[] = [
   { type: 'toggle-list', label: '折叠列表', icon: ListCollapse, shortcut: '>>', keywords: '折叠列表 toggle list fold 折叠 展开', group: '基础' },
   { type: 'blockquote', label: '引用', icon: TextQuote, shortcut: '>', keywords: '引用 quote blockquote 引述', group: '高级' },
   { type: 'code-block', label: '代码块', icon: Code, shortcut: '```', keywords: '代码块 code 代码 fence', group: '高级' },
-  { type: 'database', label: '数据库', icon: Database, shortcut: '', keywords: '数据库 database table 表格 view 视图', group: '高级' },
+  { type: 'database', label: '表格', icon: Database, shortcut: '', keywords: '表格 database table 数据库', group: '高级' },
 ];
 
 // fuzzyMatch 查询词的空白剥离正则：提升到模块级，避免每次匹配重建字面量

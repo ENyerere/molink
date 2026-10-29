@@ -257,7 +257,7 @@ function AboutPage() {
         <div>
           <div className="text-sm font-medium text-card-foreground">Molink</div>
           <div className="text-body-sm text-muted-foreground mt-0.5">
-            模块化工作空间 · 开源 · 自托管
+            块编辑器原型 · 开源 · 自托管
           </div>
         </div>
       </div>
@@ -266,7 +266,7 @@ function AboutPage() {
 
       <SettingRow
         title="功能"
-        description="块级富文本编辑器、无限层级页面树、多视图数据库。多人实时协作（规划中）。"
+        description="块级富文本编辑器、页面树（封面、图标、回收站）、页内简单表格。多视图数据库与多人实时协作尚未实现。"
       />
     </div>
   );

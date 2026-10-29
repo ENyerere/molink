@@ -1,5 +1,12 @@
 """
-数据库管理API
+数据库管理 API（UNUSED）
+
+前端没有调用这些接口，也不要补一个前端客户端。
+页内「数据库」块是编辑器本地表格，数据写在页面内容里，不走本模块。
+看板 / 日历等多视图没有产品实现。
+
+路由仍注册，是因为模型、管理员统计和启动建表已经引用了这些表。
+删掉会牵动 import 与建表，所以保留并标明未使用。
 """
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
